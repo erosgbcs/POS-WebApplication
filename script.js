@@ -96,6 +96,8 @@
     // ---------- USER DATABASE (localStorage) ----------
     const USERS_KEY = 'pos_users_pro_v2';
     const ADMIN_CREATED_KEY = 'pos_admin_account_created';
+    const ADMIN_COUNT_KEY = 'pos_admin_account_count';
+    const MAX_ADMIN_ACCOUNTS = 2;
     
     function getUsers() {
         try {
@@ -118,8 +120,15 @@
         }
     }
 
+    function getAdminAccountCount() {
+        const localAdminCount = getUsers().filter(user => user.role === 'admin').length;
+        const storedAdminCount = Number.parseInt(localStorage.getItem(ADMIN_COUNT_KEY), 10);
+        const legacyAdminCount = localStorage.getItem(ADMIN_CREATED_KEY) === 'true' ? 1 : 0;
+        return Math.max(localAdminCount, Number.isNaN(storedAdminCount) ? legacyAdminCount : storedAdminCount);
+    }
+
     function hasAdminAccount() {
-        return getUsers().some(u => u.role === 'admin') || localStorage.getItem(ADMIN_CREATED_KEY) === 'true';
+        return getAdminAccountCount() > 0;
     }
 
     async function refreshAdminAvailability() {
@@ -131,8 +140,10 @@
             return;
         }
 
-        if (Array.isArray(data) && data.some(user => user.role === 'admin')) {
-            localStorage.setItem(ADMIN_CREATED_KEY, 'true');
+        if (Array.isArray(data)) {
+            const adminCount = data.filter(user => user.role === 'admin').length;
+            localStorage.setItem(ADMIN_COUNT_KEY, String(adminCount));
+            if (adminCount > 0) localStorage.setItem(ADMIN_CREATED_KEY, 'true');
             updateSignupRoleAvailability();
         }
     }
@@ -423,15 +434,19 @@
             return;
         }
         
-        const hasAdmin = hasAdminAccount();
+        const adminCount = getAdminAccountCount();
         const users = getUsers();
         const hasCashier = users.some(u => u.role === 'cashier');
         
-        if (hasAdmin && hasCashier) {
-            accountStatusText.textContent = 'System ready: Admin & Cashier available';
-        } else if (hasAdmin && !hasCashier) {
-            accountStatusText.textContent = 'Admin exists — Cashier registration open';
-        } else if (!hasAdmin && hasCashier) {
+        if (adminCount >= MAX_ADMIN_ACCOUNTS) {
+            accountStatusText.textContent = hasCashier
+                ? 'System ready: Admin & Cashier available'
+                : 'Admin limit reached — Cashier registration open';
+        } else if (adminCount > 0 && hasCashier) {
+            accountStatusText.textContent = `System ready: ${adminCount} of ${MAX_ADMIN_ACCOUNTS} Admin accounts created`;
+        } else if (adminCount > 0 && !hasCashier) {
+            accountStatusText.textContent = `Admin registration available (${MAX_ADMIN_ACCOUNTS - adminCount} slot${MAX_ADMIN_ACCOUNTS - adminCount === 1 ? '' : 's'} left)`;
+        } else if (adminCount === 0 && hasCashier) {
             accountStatusText.textContent = 'Cashier exists — Admin registration required';
         } else {
             accountStatusText.textContent = 'No accounts yet — Create Admin first';
@@ -444,31 +459,34 @@
     function updateSignupRoleAvailability() {
         if (!signupRoleSelect) return;
         
-        const hasAdmin = hasAdminAccount();
+        const adminCount = getAdminAccountCount();
+        const adminsAvailable = adminCount < MAX_ADMIN_ACCOUNTS;
         
-        if (hasAdmin) {
+        if (!adminsAvailable) {
             adminRoleOption.disabled = true;
-            adminRoleOption.textContent = 'Admin (already exists)';
+            adminRoleOption.textContent = 'Admin (limit reached)';
             signupRoleSelect.value = 'cashier';
             if (signupRoleInfo) {
-                signupRoleInfo.textContent = 'Admin already registered. You can only create a Cashier.';
+                signupRoleInfo.textContent = 'Two Admin accounts are already registered. You can create a Cashier.';
             }
             if (roleAvailabilityAlert) {
                 roleAvailabilityAlert.style.display = 'flex';
                 roleAvailabilityAlert.className = 'alert-box warning';
-                roleAvailabilityText.textContent = 'Admin exists — new accounts must be Cashier.';
+                roleAvailabilityText.textContent = 'Admin limit reached — new accounts must be Cashier.';
             }
         } else {
             adminRoleOption.disabled = false;
             adminRoleOption.textContent = 'Admin';
-            signupRoleSelect.value = 'admin';
+            if (adminCount === 0) signupRoleSelect.value = 'admin';
             if (signupRoleInfo) {
-                signupRoleInfo.textContent = 'No admin yet. Create an Admin account first.';
+                signupRoleInfo.textContent = `${MAX_ADMIN_ACCOUNTS - adminCount} Admin account slot${MAX_ADMIN_ACCOUNTS - adminCount === 1 ? '' : 's'} available.`;
             }
             if (roleAvailabilityAlert) {
                 roleAvailabilityAlert.style.display = 'flex';
                 roleAvailabilityAlert.className = 'alert-box info';
-                roleAvailabilityText.textContent = 'First account must be Admin — subsequent accounts will be Cashier.';
+                roleAvailabilityText.textContent = adminCount === 0
+                    ? 'First account must be Admin. Two Admin accounts are allowed.'
+                    : `${MAX_ADMIN_ACCOUNTS - adminCount} Admin account slot available.`;
             }
         }
     }
@@ -652,6 +670,12 @@
             const agree = document.getElementById('agreeTerms')?.checked || false;
             let valid = true;
 
+            if (role === 'admin' && getAdminAccountCount() >= MAX_ADMIN_ACCOUNTS) {
+                if (signupRoleInfo) signupRoleInfo.textContent = 'Two Admin accounts are already registered. You can create a Cashier.';
+                updateSignupRoleAvailability();
+                return;
+            }
+
             if (!name) { setError('signupFullNameError', 'Your name is required'); valid = false; }
             else if (name.length < 2) { setError('signupFullNameError', 'Minimum 2 characters'); valid = false; }
             if (!email) { setError('signupEmailError', 'Email is required'); valid = false; }
@@ -684,6 +708,7 @@
                     showView(signinView);
                     selectedRole = role;
                     if (role === 'admin') {
+                        localStorage.setItem(ADMIN_COUNT_KEY, String(getAdminAccountCount() + 1));
                         localStorage.setItem(ADMIN_CREATED_KEY, 'true');
                         updateSignupRoleAvailability();
                     }
@@ -1069,7 +1094,7 @@
                                 <div class="product-image">${categoryIcons[product.category] || '📦'}</div>
                                 <div class="product-details">
                                     <p class="product-name">${product.name}</p>
-                                    <span class="product-sku">SKU: ${product.sku}</span>
+                                    <span class="product-sku">Product Code: ${product.sku}</span>
                                 </div>
                             </div>
                         </td>
@@ -1329,7 +1354,7 @@
         );
         
         if (skuExists) {
-            showToast('SKU already exists', 'error');
+            showToast('Product code already exists', 'error');
             return;
         }
         
@@ -1387,7 +1412,7 @@
             return;
         }
         
-        const headers = ['ID', 'Name', 'SKU', 'Category', 'Price', 'Quantity', 'Min Stock', 'Supplier', 'Location', 'Description', 'Last Updated'];
+        const headers = ['ID', 'Name', 'Product Code', 'Category', 'Price', 'Quantity', 'Min Stock', 'Supplier', 'Location', 'Description', 'Last Updated'];
         const csvData = inventoryState.products.map(p => [
             p.id,
             p.name,
@@ -1485,7 +1510,7 @@
         // Check authentication status
         checkAuth();
 
-        // Restore the admin-only-once rule from Supabase after refresh.
+        // Restore the admin account count from Supabase after refresh.
         refreshAdminAvailability();
         
         // Update system status

@@ -49,7 +49,7 @@
                 <i class="fas ${categoryIcons[product.category] || 'fa-box'}"></i>
                 <p>${product.name}</p>
                 <span class="product-card-category">${escapeHtml(product.category || 'Uncategorized')}</span>
-                <span class="product-card-sku">SKU: ${escapeHtml(product.sku || 'N/A')}</span>
+                <span class="product-card-sku">Product Code: ${escapeHtml(product.sku || 'N/A')}</span>
                 ${sizes.length ? `<small class="product-card-sizes">Sizes: ${sizes.map(escapeHtml).join(', ')}</small>` : ''}
                 <strong>${formatCurrency(product.price)}</strong>
             </div>`;

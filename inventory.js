@@ -109,7 +109,7 @@
                 const status = getStockStatus(product.quantity, product.minStock);
                 const sizeLabel = product.size ? `<span class="product-sku">Size: ${product.size}</span>` : '';
                 return `<tr>
-                    <td><div class="product-info"><div class="product-image"><i class="fas ${categoryIcons[product.category] || 'fa-box'}"></i></div><div class="product-details"><p class="product-name">${product.name}</p>${sizeLabel}<span class="product-sku">SKU: ${product.sku}</span></div></div></td>
+                    <td><div class="product-info"><div class="product-image"><i class="fas ${categoryIcons[product.category] || 'fa-box'}"></i></div><div class="product-details"><p class="product-name">${product.name}</p>${sizeLabel}<span class="product-sku">Product Code: ${product.sku}</span></div></div></td>
                     <td>${product.category}</td><td>${formatCurrency(product.price)}</td>
                     <td><input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity(${product.id}, this.value)"></td>
                     <td>${getStockBadge(status)}</td><td>${product.lastUpdated}</td>
@@ -168,7 +168,7 @@
             supplier: document.getElementById('productSupplier').value.trim(), size: normalizeSizes(document.getElementById('productSize').value), description: document.getElementById('productDescription').value.trim()
         };
         const skuExists = inventoryState.products.some(p => p.sku === productData.sku && p.id !== inventoryState.editingProductId);
-        if (skuExists) { showToast('SKU already exists', 'error'); return; }
+        if (skuExists) { showToast('Product code already exists', 'error'); return; }
         const payload = { ...productData, min_stock: productData.minStock };
         delete payload.minStock;
         let result;
@@ -209,7 +209,7 @@
 
     function exportInventory() {
         if (!inventoryState.products.length) { showToast('No products to export', 'error'); return; }
-        const headers = ['ID', 'Name', 'SKU', 'Category', 'Price', 'Quantity', 'Min Stock', 'Supplier', 'Size', 'Description', 'Last Updated'];
+        const headers = ['ID', 'Name', 'Product Code', 'Category', 'Price', 'Quantity', 'Min Stock', 'Supplier', 'Size', 'Description', 'Last Updated'];
         const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
         const rows = inventoryState.products.map(product => [product.id, product.name, product.sku, product.category, product.price, product.quantity, product.minStock, product.supplier, product.size || '', product.description, product.lastUpdated]);
         const blob = new Blob([[headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
