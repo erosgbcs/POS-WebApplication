@@ -877,6 +877,22 @@
         }
     };
 
+    document.querySelectorAll('.inventory-alert-card[data-stock-filter]').forEach(card => {
+        const showFilteredInventory = () => {
+            const stockFilter = card.dataset.stockFilter;
+            window.navigateToPage('inventory');
+            window.filterInventoryByStock?.(stockFilter);
+        };
+
+        card.addEventListener('click', showFilteredInventory);
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                showFilteredInventory();
+            }
+        });
+    });
+
     // ---------- ROLE CHANGE ----------
     if (signupRoleSelect) {
         signupRoleSelect.addEventListener('change', function() {

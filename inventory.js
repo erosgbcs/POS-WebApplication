@@ -258,6 +258,13 @@
         });
         updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
     };
+
+    window.filterInventoryByStock = function(stockFilter) {
+        inventoryState.stockFilter = stockFilter || '';
+        const stockFilterSelect = document.getElementById('stockFilter');
+        if (stockFilterSelect) stockFilterSelect.value = inventoryState.stockFilter;
+        filterProducts();
+    };
     window.changePage = function(page) {
         const totalPages = Math.ceil(inventoryState.filteredProducts.length / inventoryState.itemsPerPage);
         if (page < 1 || page > totalPages) return;

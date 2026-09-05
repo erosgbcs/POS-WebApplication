@@ -1014,6 +1014,15 @@ body {
     box-shadow: 0 12px 40px rgba(0,0,0,0.3);
 }
 
+.inventory-alert-card {
+    cursor: pointer;
+}
+
+.inventory-alert-card:focus-visible {
+    outline: 2px solid #818cf8;
+    outline-offset: 3px;
+}
+
 .stat-icon {
     width: 52px;
     height: 52px;
