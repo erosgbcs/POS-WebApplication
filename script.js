@@ -171,6 +171,16 @@
     const mobileToggle = document.getElementById('mobileToggle');
     const sidebar = document.getElementById('sidebar');
     const themeToggle = document.getElementById('themeToggle');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const settingStoreName = document.getElementById('settingStoreName');
+    const settingCurrency = document.getElementById('settingCurrency');
+    const settingTimeZone = document.getElementById('settingTimeZone');
+    const settingLowStockNotifications = document.getElementById('settingLowStockNotifications');
+    const settingDailyReports = document.getElementById('settingDailyReports');
+    const settingWeeklySummary = document.getElementById('settingWeeklySummary');
+    const customerSearch = document.getElementById('customerSearch');
+    const addCustomerBtn = document.getElementById('addCustomerBtn');
+    const customersTableBody = document.getElementById('customersTableBody');
     
     let selectedRole = 'admin';
     let currentUser = null;
@@ -205,6 +215,107 @@
 
     // ---------- THEME ----------
     const THEME_KEY = 'pos_theme';
+    const SETTINGS_KEY = 'pos_settings';
+
+    function loadSettings() {
+        let settings = {};
+        try {
+            settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+        } catch (e) {}
+
+        if (settingStoreName && typeof settings.storeName === 'string') settingStoreName.value = settings.storeName;
+        if (settingCurrency && settings.currency) settingCurrency.value = settings.currency;
+        if (settingTimeZone && settings.timeZone) settingTimeZone.value = settings.timeZone;
+        if (settingLowStockNotifications && typeof settings.lowStockNotifications === 'boolean') settingLowStockNotifications.checked = settings.lowStockNotifications;
+        if (settingDailyReports && typeof settings.dailyReports === 'boolean') settingDailyReports.checked = settings.dailyReports;
+        if (settingWeeklySummary && typeof settings.weeklySummary === 'boolean') settingWeeklySummary.checked = settings.weeklySummary;
+    }
+
+    function saveSettings() {
+        const settings = {
+            storeName: settingStoreName?.value.trim() || "Kirby's Hardware",
+            currency: settingCurrency?.value || 'PHP',
+            timeZone: settingTimeZone?.value || 'UTC-8',
+            lowStockNotifications: settingLowStockNotifications?.checked ?? true,
+            dailyReports: settingDailyReports?.checked ?? true,
+            weeklySummary: settingWeeklySummary?.checked ?? false
+        };
+
+        try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            showToast('Settings saved successfully', 'success');
+        } catch (error) {
+            showToast('Unable to save settings', 'error');
+        }
+    }
+
+    if (saveSettingsBtn) saveSettingsBtn.addEventListener('click', saveSettings);
+
+    const CUSTOMERS_KEY = 'pos_customers';
+
+    function getCustomers() {
+        try {
+            const customers = JSON.parse(localStorage.getItem(CUSTOMERS_KEY) || '[]');
+            return Array.isArray(customers) ? customers : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function escapeCustomerText(value) {
+        return String(value || '').replace(/[&<>"']/g, character => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[character]));
+    }
+
+    function renderCustomers(searchTerm = '') {
+        if (!customersTableBody) return;
+        const search = searchTerm.trim().toLowerCase();
+        const customers = getCustomers().filter(customer =>
+            [customer.name, customer.email, customer.phone].some(value => String(value || '').toLowerCase().includes(search))
+        );
+
+        if (!customers.length) {
+            customersTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-users" style="font-size: 3rem; color: #cbd5e0; display: block; margin-bottom: 1rem;"></i><p style="color: #718096;">No customers found</p></td></tr>';
+            return;
+        }
+
+        customersTableBody.innerHTML = customers.map(customer => `
+            <tr>
+                <td>${escapeCustomerText(customer.name)}</td>
+                <td>${escapeCustomerText(customer.email) || '&mdash;'}</td>
+                <td>${escapeCustomerText(customer.phone) || '&mdash;'}</td>
+                <td>${Number(customer.orders) || 0}</td>
+                <td>₱${(Number(customer.totalSpent) || 0).toFixed(2)}</td>
+                <td><button class="btn-icon delete" type="button" data-customer-id="${customer.id}" title="Delete customer"><i class="fas fa-trash"></i></button></td>
+            </tr>`).join('');
+    }
+
+    function addCustomer() {
+        const name = window.prompt('Customer name:')?.trim();
+        if (!name) return;
+        const email = window.prompt('Customer email (optional):')?.trim() || '';
+        const phone = window.prompt('Customer phone (optional):')?.trim() || '';
+        const customers = getCustomers();
+        customers.push({ id: Date.now(), name, email, phone, orders: 0, totalSpent: 0 });
+        localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+        renderCustomers(customerSearch?.value || '');
+        showToast('Customer added successfully', 'success');
+    }
+
+    if (customerSearch) customerSearch.addEventListener('input', event => renderCustomers(event.target.value));
+    if (addCustomerBtn) addCustomerBtn.addEventListener('click', addCustomer);
+    if (customersTableBody) {
+        customersTableBody.addEventListener('click', event => {
+            const deleteButton = event.target.closest('[data-customer-id]');
+            if (!deleteButton) return;
+            const customerId = Number(deleteButton.dataset.customerId);
+            const customers = getCustomers().filter(customer => customer.id !== customerId);
+            localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+            renderCustomers(customerSearch?.value || '');
+            showToast('Customer deleted successfully', 'success');
+        });
+    }
 
     function applyTheme(theme) {
         const isLight = theme === 'light';
@@ -1352,6 +1463,8 @@
     // ---------- INIT ----------
     function init() {
         initializeTheme();
+        loadSettings();
+        renderCustomers();
 
         // Check authentication status
         checkAuth();
