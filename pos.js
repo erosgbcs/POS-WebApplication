@@ -433,11 +433,15 @@
             const total = parseFloat(totalText) || 0;
             const name = customerName ? customerName.value.trim() : '';
             const phone = customerPhone ? customerPhone.value.trim() : '';
-            const items = Object.entries(cart).map(([itemName, quantity]) => ({
-                name: itemName,
-                quantity,
-                price: getProductPriceByName(itemName)
-            }));
+            const items = Object.entries(cart).map(([cartKey, quantity]) => {
+                const { name: itemName, size } = parseCartKey(cartKey);
+                return {
+                    name: itemName,
+                    size,
+                    quantity,
+                    price: getProductPriceByName(itemName)
+                };
+            });
             const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const tax = subtotal * 0.08;
             const receiptNumber = createReceiptNumber();
@@ -450,6 +454,7 @@
                     showToast('Insufficient cash amount', 'error');
                     return;
                 }
+                change = cash - total;
                 let message = `Payment successful! Change: ${formatCurrency(change)}`;
                 if (name) message += ` | Customer: ${name}`;
                 showToast(message, 'success');
@@ -460,6 +465,39 @@
                 if (name) message += ` | Customer: ${name}`;
                 showToast(message, 'success');
             }
+
+            const order = {
+                id: receiptNumber,
+                createdAt: new Date().toISOString(),
+                customerName: name,
+                customerPhone: phone,
+                items,
+                subtotal,
+                tax,
+                total,
+                paymentMethod: selectedPaymentMethod,
+                status: 'Completed'
+            };
+            try {
+                const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+                orders.unshift(order);
+                localStorage.setItem('pos_orders', JSON.stringify(orders.slice(0, 500)));
+                if (name) {
+                    const customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
+                    const existing = customers.find(customer => customer.name.toLowerCase() === name.toLowerCase());
+                    if (existing) {
+                        existing.orders = (Number(existing.orders) || 0) + 1;
+                        existing.totalSpent = (Number(existing.totalSpent) || 0) + total;
+                        if (phone) existing.phone = phone;
+                    } else {
+                        customers.push({ id: Date.now(), name, email: '', phone, orders: 1, totalSpent: total });
+                    }
+                    localStorage.setItem('pos_customers', JSON.stringify(customers));
+                }
+            } catch (error) {
+                showToast('Payment completed, but order history could not be saved', 'error');
+            }
+            window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
 
             // Clear cart and close modal
             cart = {};

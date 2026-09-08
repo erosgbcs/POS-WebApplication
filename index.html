@@ -671,14 +671,14 @@
                     </div>
                     <div class="orders-container">
                         <div class="orders-filters">
-                            <select class="filter-select">
-                                <option>All Orders</option>
+                            <select class="filter-select" id="orderStatusFilter">
+                                <option value="">All Orders</option>
                                 <option>Pending</option>
                                 <option>Completed</option>
                                 <option>Cancelled</option>
                             </select>
-                            <select class="filter-select">
-                                <option>All Dates</option>
+                            <select class="filter-select" id="orderDateFilter">
+                                <option value="">All Dates</option>
                                 <option>Today</option>
                                 <option>This Week</option>
                                 <option>This Month</option>
@@ -697,7 +697,7 @@
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="ordersTableBody">
                                     <tr>
                                         <td colspan="7" style="text-align: center; padding: 3rem;">
                                             <i class="fas fa-clipboard-list" style="font-size: 3rem; color: #cbd5e0; display: block; margin-bottom: 1rem;"></i>
@@ -762,25 +762,25 @@
                             <i class="fas fa-chart-line"></i>
                             <h3>Sales Report</h3>
                             <p>Daily, weekly, and monthly sales analytics</p>
-                            <button class="secondary-btn">Generate Report</button>
+                            <button class="secondary-btn report-generate-btn" data-report="sales" type="button">Generate Report</button>
                         </div>
                         <div class="report-card">
                             <i class="fas fa-boxes"></i>
                             <h3>Inventory Report</h3>
                             <p>Stock levels and product performance</p>
-                            <button class="secondary-btn">Generate Report</button>
+                            <button class="secondary-btn report-generate-btn" data-report="inventory" type="button">Generate Report</button>
                         </div>
                         <div class="report-card">
                             <i class="fas fa-users"></i>
                             <h3>Customer Report</h3>
                             <p>Customer insights and purchase history</p>
-                            <button class="secondary-btn">Generate Report</button>
+                            <button class="secondary-btn report-generate-btn" data-report="customers" type="button">Generate Report</button>
                         </div>
                         <div class="report-card">
                             <i class="fas fa-file-invoice"></i>
                             <h3>Financial Report</h3>
                             <p>Revenue, expenses, and profit margins</p>
-                            <button class="secondary-btn">Generate Report</button>
+                            <button class="secondary-btn report-generate-btn" data-report="financial" type="button">Generate Report</button>
                         </div>
                     </div>
                 </div>

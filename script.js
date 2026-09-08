@@ -192,9 +192,23 @@
     const customerSearch = document.getElementById('customerSearch');
     const addCustomerBtn = document.getElementById('addCustomerBtn');
     const customersTableBody = document.getElementById('customersTableBody');
+    const ordersTableBody = document.getElementById('ordersTableBody');
+    const orderStatusFilter = document.getElementById('orderStatusFilter');
+    const orderDateFilter = document.getElementById('orderDateFilter');
+    const auditLogTableBody = document.getElementById('auditLogTableBodyMain');
+    const auditSearch = document.getElementById('auditSearch');
+    const auditActionFilter = document.getElementById('auditActionFilter');
+    const auditModuleFilter = document.getElementById('auditModuleFilter');
+    const auditDateFilter = document.getElementById('auditDateFilter');
+    const auditPagination = document.getElementById('auditPaginationMain');
     
     let selectedRole = 'admin';
     let currentUser = null;
+    let auditPage = 1;
+
+    const ORDERS_KEY = 'pos_orders';
+    const AUDIT_KEY = 'pos_audit_logs';
+    const AUDIT_PAGE_SIZE = 10;
 
     const ROLE_ACCESS = {
         admin: new Set(['overview', 'pos', 'inventory', 'orders', 'customers', 'reports', 'audit', 'settings']),
@@ -254,6 +268,7 @@
 
         try {
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            addAuditLog('update', 'settings', 'System settings updated', 'info');
             showToast('Settings saved successfully', 'success');
         } catch (error) {
             showToast('Unable to save settings', 'error');
@@ -261,6 +276,200 @@
     }
 
     if (saveSettingsBtn) saveSettingsBtn.addEventListener('click', saveSettings);
+
+    function readStoredRecords(key) {
+        try {
+            const records = JSON.parse(localStorage.getItem(key) || '[]');
+            return Array.isArray(records) ? records : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function writeStoredRecords(key, records) {
+        localStorage.setItem(key, JSON.stringify(records));
+    }
+
+    function formatAppCurrency(value) {
+        return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
+    }
+
+    function getActorName() {
+        return currentUser?.user_metadata?.full_name || currentUser?.email || 'Local user';
+    }
+
+    function addAuditLog(action, module, description, severity = 'info') {
+        const logs = readStoredRecords(AUDIT_KEY);
+        logs.unshift({
+            id: Date.now() + Math.random(),
+            timestamp: new Date().toISOString(),
+            user: getActorName(),
+            action,
+            module,
+            description,
+            ip: 'Local session',
+            severity
+        });
+        writeStoredRecords(AUDIT_KEY, logs.slice(0, 500));
+        renderAuditLogs();
+    }
+
+    window.POS_APP_LOG = addAuditLog;
+
+    function renderOrders() {
+        if (!ordersTableBody) return;
+        const status = orderStatusFilter?.value || '';
+        const dateRange = orderDateFilter?.value || '';
+        const now = Date.now();
+        const orders = readStoredRecords(ORDERS_KEY).filter(order => {
+            if (status && order.status !== status) return false;
+            if (!dateRange) return true;
+            const age = now - new Date(order.createdAt).getTime();
+            const day = 24 * 60 * 60 * 1000;
+            if (dateRange === 'Today') return age < day;
+            if (dateRange === 'This Week') return age < day * 7;
+            if (dateRange === 'This Month') return age < day * 31;
+            return true;
+        });
+
+        if (!orders.length) {
+            ordersTableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No orders found</td></tr>';
+            return;
+        }
+
+        ordersTableBody.innerHTML = orders.map(order => {
+            const items = (order.items || []).map(item => `${escapeCustomerText(item.name)} x${item.quantity}`).join(', ');
+            return `<tr>
+                <td>${escapeCustomerText(order.id)}</td>
+                <td>${escapeCustomerText(order.customerName || 'Walk-in customer')}</td>
+                <td>${items || 'No items'}</td>
+                <td>${formatAppCurrency(order.total)}</td>
+                <td><span class="stock-badge in-stock">${escapeCustomerText(order.status)}</span></td>
+                <td>${new Date(order.createdAt).toLocaleString()}</td>
+                <td><button class="btn-icon delete order-delete-btn" type="button" data-order-id="${escapeCustomerText(order.id)}" title="Delete order"><i class="fas fa-trash"></i></button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function deleteOrder(orderId) {
+        const orders = readStoredRecords(ORDERS_KEY);
+        const nextOrders = orders.filter(order => order.id !== orderId);
+        if (nextOrders.length === orders.length) return;
+        writeStoredRecords(ORDERS_KEY, nextOrders);
+        addAuditLog('delete', 'orders', `Order ${orderId} deleted`, 'warning');
+        renderOrders();
+        showToast('Order deleted', 'success');
+    }
+
+    function setupOrderFeatures() {
+        orderStatusFilter?.addEventListener('change', renderOrders);
+        orderDateFilter?.addEventListener('change', renderOrders);
+        ordersTableBody?.addEventListener('click', event => {
+            const button = event.target.closest('.order-delete-btn');
+            if (!button || !window.confirm('Delete this order record?')) return;
+            deleteOrder(button.dataset.orderId);
+        });
+        renderOrders();
+    }
+
+    function downloadCsv(filename, headers, rows) {
+        const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+        const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n');
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    function generateReport(type) {
+        let headers;
+        let rows;
+        if (type === 'customers') {
+            headers = ['Name', 'Email', 'Phone', 'Orders', 'Total Spent'];
+            rows = getCustomers().map(customer => [customer.name, customer.email, customer.phone, customer.orders, customer.totalSpent]);
+        } else if (type === 'inventory') {
+            const products = window.getInventorySnapshot?.() || [];
+            headers = ['ID', 'Name', 'SKU', 'Category', 'Price', 'Quantity', 'Min Stock'];
+            rows = products.map(product => [product.id, product.name, product.sku, product.category, product.price, product.quantity, product.minStock]);
+        } else {
+            const orders = readStoredRecords(ORDERS_KEY);
+            headers = ['Order ID', 'Customer', 'Subtotal', 'Tax', 'Total', 'Payment', 'Date'];
+            rows = orders.map(order => [order.id, order.customerName, order.subtotal, order.tax, order.total, order.paymentMethod, order.createdAt]);
+        }
+        downloadCsv(`${type}_report_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+        addAuditLog('export', 'reports', `${type} report exported`, 'info');
+        showToast(`${type[0].toUpperCase()}${type.slice(1)} report exported`, 'success');
+    }
+
+    function setupReportFeatures() {
+        document.querySelectorAll('.report-generate-btn').forEach(button => {
+            button.addEventListener('click', () => generateReport(button.dataset.report));
+        });
+    }
+
+    function getFilteredAuditLogs() {
+        const search = (auditSearch?.value || '').toLowerCase();
+        const action = auditActionFilter?.value || '';
+        const module = auditModuleFilter?.value || '';
+        const date = auditDateFilter?.value || '';
+        return readStoredRecords(AUDIT_KEY).filter(log => {
+            const haystack = `${log.user} ${log.action} ${log.module} ${log.description}`.toLowerCase();
+            return (!search || haystack.includes(search)) && (!action || log.action === action) && (!module || log.module === module) && (!date || log.timestamp.startsWith(date));
+        });
+    }
+
+    function renderAuditLogs() {
+        if (!auditLogTableBody) return;
+        const logs = getFilteredAuditLogs();
+        const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
+        const pageLogs = logs.slice(start, start + AUDIT_PAGE_SIZE);
+        auditLogTableBody.innerHTML = pageLogs.length ? pageLogs.map(log => `<tr>
+            <td>${new Date(log.timestamp).toLocaleString()}</td>
+            <td>${escapeCustomerText(log.user)}</td>
+            <td>${escapeCustomerText(log.action)}</td>
+            <td>${escapeCustomerText(log.module)}</td>
+            <td>${escapeCustomerText(log.description)}</td>
+            <td>${escapeCustomerText(log.ip)}</td>
+            <td>${escapeCustomerText(log.severity)}</td>
+        </tr>`).join('') : '<tr><td colspan="7" class="empty-table-message">No audit records found</td></tr>';
+        const pages = Math.ceil(logs.length / AUDIT_PAGE_SIZE);
+        if (auditPagination) auditPagination.innerHTML = pages > 1 ? Array.from({ length: pages }, (_, index) => `<button class="page-btn ${index + 1 === auditPage ? 'active' : ''}" type="button" data-audit-page="${index + 1}">${index + 1}</button>`).join('') : '';
+        const allLogs = readStoredRecords(AUDIT_KEY);
+        const today = new Date().toISOString().split('T')[0];
+        const setText = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+        setText('totalLogs', allLogs.length);
+        setText('todayLogs', allLogs.filter(log => log.timestamp.startsWith(today)).length);
+        setText('criticalLogs', allLogs.filter(log => log.severity === 'critical' || log.severity === 'error').length);
+        setText('dataChanges', allLogs.filter(log => ['create', 'update', 'delete'].includes(log.action)).length);
+    }
+
+    function setupAuditFeatures() {
+        [auditSearch, auditActionFilter, auditModuleFilter, auditDateFilter].forEach(control => control?.addEventListener('input', () => { auditPage = 1; renderAuditLogs(); }));
+        document.getElementById('clearAuditFilters')?.addEventListener('click', () => {
+            [auditSearch, auditActionFilter, auditModuleFilter, auditDateFilter].forEach(control => { if (control) control.value = ''; });
+            auditPage = 1;
+            renderAuditLogs();
+        });
+        document.getElementById('exportAuditLogs')?.addEventListener('click', () => {
+            const logs = getFilteredAuditLogs();
+            downloadCsv(`audit_logs_${new Date().toISOString().split('T')[0]}.csv`, ['Timestamp', 'User', 'Action', 'Module', 'Description', 'IP Address', 'Severity'], logs.map(log => [log.timestamp, log.user, log.action, log.module, log.description, log.ip, log.severity]));
+            addAuditLog('export', 'audit', 'Audit log exported', 'info');
+        });
+        document.getElementById('clearAllLogs')?.addEventListener('click', () => {
+            if (!window.confirm('Clear all audit logs?')) return;
+            writeStoredRecords(AUDIT_KEY, []);
+            renderAuditLogs();
+            showToast('Audit logs cleared', 'success');
+        });
+        auditPagination?.addEventListener('click', event => {
+            const button = event.target.closest('[data-audit-page]');
+            if (!button) return;
+            auditPage = Number(button.dataset.auditPage);
+            renderAuditLogs();
+        });
+        renderAuditLogs();
+    }
 
     const CUSTOMERS_KEY = 'pos_customers';
 
@@ -311,6 +520,7 @@
         customers.push({ id: Date.now(), name, email, phone, orders: 0, totalSpent: 0 });
         localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
         renderCustomers(customerSearch?.value || '');
+        addAuditLog('create', 'customers', `Customer ${name} added`, 'info');
         showToast('Customer added successfully', 'success');
     }
 
@@ -324,6 +534,7 @@
             const customers = getCustomers().filter(customer => customer.id !== customerId);
             localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
             renderCustomers(customerSearch?.value || '');
+            addAuditLog('delete', 'customers', `Customer ${customerId} deleted`, 'warning');
             showToast('Customer deleted successfully', 'success');
         });
     }
@@ -1506,6 +1717,9 @@
         initializeTheme();
         loadSettings();
         renderCustomers();
+        setupOrderFeatures();
+        setupReportFeatures();
+        setupAuditFeatures();
 
         // Check authentication status
         checkAuth();

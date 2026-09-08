@@ -176,10 +176,12 @@
             result = await supabaseApi.updateInventoryProduct(inventoryState.editingProductId, payload);
             const index = inventoryState.products.findIndex(p => p.id === inventoryState.editingProductId);
             if (!result.error && index !== -1) inventoryState.products[index] = mapProduct(result.data?.[0] || { ...inventoryState.products[index], ...productData });
+            window.POS_APP_LOG?.('update', 'inventory', `Product ${productData.name} updated`, 'info');
             showToast(result.error ? result.error.message : 'Product updated successfully', result.error ? 'error' : 'success');
         } else {
             result = await supabaseApi.addInventoryProduct(payload);
             if (!result.error && result.data?.[0]) inventoryState.products.unshift(mapProduct(result.data[0]));
+            window.POS_APP_LOG?.('create', 'inventory', `Product ${productData.name} added`, 'info');
             showToast(result.error ? result.error.message : 'Product added successfully', result.error ? 'error' : 'success');
         }
         if (result.error) return;
@@ -202,6 +204,7 @@
             inventoryState.products = inventoryState.products.filter(p => p.id !== inventoryState.deletingProductId);
             updateInventoryStats(); filterProducts();
             window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+            window.POS_APP_LOG?.('delete', 'inventory', `Product ${inventoryState.deletingProductId} deleted`, 'warning');
             showToast('Product deleted successfully', 'success');
         }
         closeDeleteModal();
@@ -216,6 +219,7 @@
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url; link.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`; link.click(); URL.revokeObjectURL(url);
+        window.POS_APP_LOG?.('export', 'inventory', 'Inventory CSV exported', 'info');
         showToast('Inventory exported successfully', 'success');
     }
 
@@ -265,6 +269,9 @@
         if (stockFilterSelect) stockFilterSelect.value = inventoryState.stockFilter;
         filterProducts();
     };
+    window.getInventorySnapshot = function() {
+        return inventoryState.products.map(product => ({ ...product }));
+    };
     window.changePage = function(page) {
         const totalPages = Math.ceil(inventoryState.filteredProducts.length / inventoryState.itemsPerPage);
         if (page < 1 || page > totalPages) return;
@@ -281,6 +288,7 @@
             product.lastUpdated = new Date().toISOString();
             updateInventoryStats(); filterProducts();
             window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+            window.POS_APP_LOG?.('update', 'inventory', `Quantity updated for product ${productId}`, 'info');
             showToast('Quantity updated successfully', 'success');
         });
     };
