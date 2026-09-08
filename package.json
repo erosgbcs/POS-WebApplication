@@ -4,6 +4,7 @@
   "description": "",
   "main": "pos.js",
   "scripts": {
+    "build:styles": "tailwindcss -i ./src/input.css -o ./tailwind.css --minify",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
