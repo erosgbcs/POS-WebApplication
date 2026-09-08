@@ -3174,6 +3174,8 @@ body {
 .stat-card,
 .recent-activity,
 .quick-actions,
+.settings-section,
+.report-card,
 .product-catalog,
 .cart-section,
 .orders-table-container,
@@ -3199,6 +3201,7 @@ body {
 .nav-search,
 .user-btn,
 .action-btn,
+.settings-input,
 .product-card,
 .cart-items,
 .payment-method {
@@ -3217,6 +3220,8 @@ body {
 [data-theme="light"] .stat-card,
 [data-theme="light"] .recent-activity,
 [data-theme="light"] .quick-actions,
+[data-theme="light"] .settings-section,
+[data-theme="light"] .report-card,
 [data-theme="light"] .product-catalog,
 [data-theme="light"] .cart-section,
 [data-theme="light"] .orders-table-container,
@@ -3234,6 +3239,7 @@ body {
 [data-theme="light"] .nav-search,
 [data-theme="light"] .user-btn,
 [data-theme="light"] .action-btn,
+[data-theme="light"] .settings-input,
 [data-theme="light"] .product-card,
 [data-theme="light"] .cart-items,
 [data-theme="light"] .payment-method {
@@ -3364,6 +3370,106 @@ body {
     .search-products input::placeholder
 ) {
     color: var(--text-muted);
+}
+
+[data-theme="light"] .bg-overlay {
+    background: rgba(255, 255, 255, 0.24);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="light"] .bg-glow-1,
+[data-theme="light"] .bg-glow-2 {
+    opacity: 0.12;
+}
+
+[data-theme="light"] .main-container {
+    box-shadow: 0 30px 80px rgba(71, 85, 105, 0.18);
+}
+
+[data-theme="light"] .left-panel {
+    background: rgba(255, 255, 255, 0.58);
+    border-right-color: rgba(148, 163, 184, 0.32);
+}
+
+[data-theme="light"] .settings-section h3 {
+    color: #1f2937;
+}
+
+[data-theme="light"] .settings-section label,
+[data-theme="light"] .settings-section .checkbox-wrapper {
+    color: #475569;
+}
+
+[data-theme="light"] .settings-input {
+    background: rgba(255, 255, 255, 0.58);
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #1f2937;
+}
+
+[data-theme="light"] .settings-input::placeholder {
+    color: #64748b;
+}
+
+[data-theme="light"] .settings-input option {
+    background: #ffffff;
+    color: #1f2937;
+}
+
+[data-theme="light"] .report-card h3 {
+    color: #1f2937;
+}
+
+[data-theme="light"] .report-card p {
+    color: #475569;
+}
+
+[data-theme="light"] .inventory-header h1 {
+    color: #1f2937;
+}
+
+[data-theme="light"] .inventory-header p {
+    color: #475569;
+}
+
+[data-theme="light"] .inventory-tools,
+[data-theme="light"] .inventory-table-container {
+    background: var(--glass-surface);
+    border-color: var(--glass-border);
+}
+
+[data-theme="light"] .inventory-tools .nav-search,
+[data-theme="light"] .filter-select {
+    background: var(--glass-soft);
+    border-color: var(--glass-border);
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .inventory-tools .nav-search input {
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .inventory-tools .nav-search input::placeholder {
+    color: var(--text-muted);
+}
+
+[data-theme="light"] .filter-select option {
+    background: #ffffff;
+    color: #1f2937;
+}
+
+[data-theme="light"] .inventory-table thead {
+    background: rgba(226, 232, 240, 0.72);
+}
+
+[data-theme="light"] .inventory-table th {
+    color: #475569;
+    border-bottom-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .inventory-table td {
+    color: #1f2937;
+    border-bottom-color: rgba(148, 163, 184, 0.2);
 }
 
 @media (max-width: 480px) {
@@ -3527,6 +3633,36 @@ body {
 
 .receipt-modal-actions button {
     flex: 1;
+}
+
+[data-theme="light"] .receipt-content {
+    background: rgba(255, 255, 255, 0.72);
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+[data-theme="light"] .receipt-heading,
+[data-theme="light"] .receipt-store-name,
+[data-theme="light"] .receipt-grand-total {
+    color: #1f2937;
+}
+
+[data-theme="light"] .receipt-number,
+[data-theme="light"] .receipt-line,
+[data-theme="light"] .receipt-total-line {
+    color: #475569;
+}
+
+[data-theme="light"] .receipt-store-details,
+[data-theme="light"] .receipt-meta {
+    color: #64748b;
+}
+
+[data-theme="light"] .receipt-items {
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+[data-theme="light"] .receipt-grand-total {
+    border-top-color: rgba(148, 163, 184, 0.35);
 }
 
 @media (max-width: 480px) {
