@@ -891,23 +891,35 @@ if (signupForm) {
 
         try {
             if (getAuthMode() === authMode.supabase) {
-                const { data, error } = await signUpWithSupabase({ fullName: name, email, password, role });
-                if (error) throw error;
-
-                const signinEmail = document.getElementById('signinEmail');
-                const signinPassword = document.getElementById('signinPassword');
-                if (signinEmail) signinEmail.value = email;
-                if (signinPassword) signinPassword.value = '';
-                showView(signinView);
-                selectedRole = role;
-                if (role === 'admin') {
-                    localStorage.setItem(ADMIN_CREATED_KEY, 'true');
-                    refreshAdminAvailability(); // Let Firestore be the source of truth
-                    updateSignupRoleAvailability();
-                }
-                showToast(`Account created for ${name} (${role})! Please sign in.`, 'success');
-                return; // exit before local mode runs
-            }
+    const { data, error } = await signUpWithSupabase({ fullName: name, email, password, role });
+    if (error) throw error;
+    
+    selectedRole = role;
+    
+    if (role === 'admin') {
+        localStorage.setItem(ADMIN_CREATED_KEY, 'true');
+        refreshAdminAvailability(); // fire-and-forget: refresh admin count
+    }
+    
+    // Firebase auto-signs the user in after signup.
+    // Fetch the profile-decorated user object and go straight to the dashboard.
+    const { user, error: userError } = await getCurrentUser();
+    
+    if (user && !userError) {
+        showToast(`Welcome, ${name}!`, 'success');
+        loadDashboard(user);
+    } else {
+        // Fallback: profile fetch failed — force manual sign-in
+        const signinEmail = document.getElementById('signinEmail');
+        const signinPassword = document.getElementById('signinPassword');
+        if (signinEmail) signinEmail.value = email;
+        if (signinPassword) signinPassword.value = '';
+        showView(signinView);
+        updateSignupRoleAvailability();
+        showToast(`Account created for ${name} (${role})! Please sign in.`, 'success');
+    }
+    return; // exit before local mode runs
+}
 
             // Local mode
             await new Promise(r => setTimeout(r, 800));
