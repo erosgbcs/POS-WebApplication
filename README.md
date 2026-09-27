@@ -1,4 +1,3 @@
-📝 README.md — POS-WebApplication
 
 
 ```markdown
