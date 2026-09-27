@@ -753,9 +753,103 @@ function renderSalesChart() {
     });
 }
 
+// ---------- OVERVIEW: RECENT ACTIVITY ----------
+function actionIconFor(action) {
+    switch (String(action || '').toLowerCase()) {
+        case 'create': return 'fa-plus-circle';
+        case 'update': return 'fa-edit';
+        case 'delete': return 'fa-trash';
+        case 'login':  return 'fa-sign-in-alt';
+        case 'logout': return 'fa-sign-out-alt';
+        case 'export': return 'fa-download';
+        case 'view':   return 'fa-eye';
+        default:       return 'fa-info-circle';
+    }
+}
+
+function actionColorFor(action) {
+    switch (String(action || '').toLowerCase()) {
+        case 'create': return 'green';
+        case 'update': return 'blue';
+        case 'delete': return 'orange';
+        case 'login':  return 'green';
+        case 'logout': return 'orange';
+        case 'export': return 'purple';
+        case 'view':   return 'blue';
+        default:       return 'blue';
+    }
+}
+
+function getRelativeTime(timestamp) {
+    const then = new Date(timestamp).getTime();
+    if (!then || isNaN(then)) return '';
+    const sec = Math.floor((Date.now() - then) / 1000);
+    if (sec < 0) return 'just now';
+    if (sec < 60) return 'just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min} min ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`;
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `${day} day${day === 1 ? '' : 's'} ago`;
+    return new Date(timestamp).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+}
+
+function renderRecentActivity() {
+    const listEl = document.getElementById('ovActivityList');
+    if (!listEl) return;
+
+    const logs = readStoredRecords(AUDIT_KEY);
+    const orders = readOrdersFromStorage();
+    let items = [];
+
+    // Primary source: audit logs (they capture orders, inventory, customers, settings, auth)
+    if (logs.length > 0) {
+        items = logs.slice(0, 6).map(log => ({
+            ts: new Date(log.timestamp).getTime(),
+            icon: actionIconFor(log.action),
+            color: actionColorFor(log.action),
+            html: `<strong>${escapeCustomerText(log.user)}</strong> · ${escapeCustomerText(log.description)}`,
+            time: getRelativeTime(log.timestamp)
+        }));
+    }
+    // Fallback: recent orders if audit logs are empty
+    else if (orders.length > 0) {
+        items = orders.slice(0, 6).map(order => ({
+            ts: new Date(order.createdAt).getTime(),
+            icon: 'fa-shopping-cart',
+            color: 'blue',
+            html: `<strong>${escapeCustomerText(order.customerName || 'Walk-in customer')}</strong> placed an order · ${formatAppCurrency(order.total)}`,
+            time: getRelativeTime(order.createdAt)
+        }));
+    }
+
+    if (items.length === 0) {
+        listEl.innerHTML = `
+            <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
+                <span>No recent activity yet</span>
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = items.map(item => `
+        <div class="activity-item">
+            <div class="activity-icon ${item.color}">
+                <i class="fas ${item.icon}"></i>
+            </div>
+            <div class="activity-content">
+                <p>${item.html}</p>
+                <span class="activity-time">${item.time}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
 function refreshOverview() {
     refreshOverviewStats();
     renderSalesChart();
+    renderRecentActivity();
 }
 
 
