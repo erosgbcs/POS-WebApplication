@@ -1,17 +1,21 @@
 /* inventory.js - Inventory management functionality */
 (function() {
     let inventoryState = {
-        products: [],
-        filteredProducts: [],
-        currentPage: 1,
-        itemsPerPage: 10,
-        searchTerm: '',
-        categoryFilter: '',
-        stockFilter: '',
-        editingProductId: null,
-        deletingProductId: null,
-        initialized: false
-    };
+    products: [],
+    filteredProducts: [],
+    currentPage: 1,
+    itemsPerPage: 10,
+    searchTerm: '',
+    categoryFilter: '',
+    stockFilter: '',
+    editingProductId: null,
+    deletingProductId: null,
+    initialized: false
+};
+
+const supabaseApi = window.POS_SUPABASE; // ← ADD THIS LINE
+
+// ---------- CATEGORIES MANAGEMENT ----------
 
     // ---------- CATEGORIES MANAGEMENT ----------
 const CATEGORIES_KEY = 'pos_categories';
