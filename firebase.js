@@ -24,17 +24,38 @@
             }
 
             const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-            const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-            const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+const {
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager,
+    getFirestore
+} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
 
-            const app = initializeApp(window.FIREBASE_CONFIG);
-            state.fb = {
-                app,
-                db: getFirestore(app),
-                auth: getAuth(app)
-            };
-            console.log('✅ Firebase initialized');
-            return state.fb;
+const app = initializeApp(window.FIREBASE_CONFIG);
+
+// Initialize Firestore with offline persistence (multi-tab safe).
+// Falls back to in-memory cache if IndexedDB is unavailable.
+let db;
+try {
+    db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+            tabManager: persistentMultiTabManager()
+        })
+    });
+    console.log('✅ Firestore initialized with offline persistence (multi-tab)');
+} catch (err) {
+    console.warn('⚠️ Offline persistence unavailable — using default cache:', err?.code || err?.message);
+    db = getFirestore(app);
+}
+
+state.fb = {
+    app,
+    db,
+    auth: getAuth(app)
+};
+console.log('✅ Firebase initialized');
+return state.fb;
         } catch (error) {
             console.error('❌ Firebase initialization failed:', error);
             return null;
