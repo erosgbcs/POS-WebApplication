@@ -522,15 +522,20 @@
     }
 
     function applyTheme(theme) {
-        const isLight = theme === 'light';
-        document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
-
-        if (themeToggle) {
-            const nextMode = isLight ? 'dark' : 'light';
-            themeToggle.setAttribute('aria-label', `Switch to ${nextMode} mode`);
-            themeToggle.setAttribute('title', `Switch to ${nextMode} mode`);
-        }
+    const isLight = theme === 'light';
+    document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
+    
+    if (themeToggle) {
+        const nextMode = isLight ? 'dark' : 'light';
+        themeToggle.setAttribute('aria-label', `Switch to ${nextMode} mode`);
+        themeToggle.setAttribute('title', `Switch to ${nextMode} mode`);
     }
+    
+    // Re-render chart with theme-appropriate colors
+    if (document.getElementById('ovSalesChart') && typeof renderSalesChart === 'function') {
+        renderSalesChart();
+    }
+}
 
     function initializeTheme() {
         let savedTheme = 'dark';
@@ -580,6 +585,182 @@
         });
     }
 
+// ---------- OVERVIEW: STATS + CHART ----------
+function getOverviewDayKey(offsetDays = 0) {
+    const d = new Date();
+    d.setDate(d.getDate() - offsetDays);
+    return d.toISOString().split('T')[0];
+}
+
+function readOrdersFromStorage() {
+    try {
+        return JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+    } catch (e) { return []; }
+}
+
+function readCustomersFromStorage() {
+    try {
+        return JSON.parse(localStorage.getItem(CUSTOMERS_KEY) || '[]');
+    } catch (e) { return []; }
+}
+
+function computeOverviewDelta(today, yesterday) {
+    if (yesterday === 0 && today === 0) return { text: '—', cls: '' };
+    if (yesterday === 0) return { text: '+100% vs yesterday', cls: 'positive' };
+    const pct = ((today - yesterday) / yesterday) * 100;
+    const sign = pct >= 0 ? '+' : '';
+    return { text: `${sign}${pct.toFixed(1)}% vs yesterday`, cls: pct >= 0 ? 'positive' : 'negative' };
+}
+
+function refreshOverviewStats() {
+    const orders = readOrdersFromStorage();
+    const customers = readCustomersFromStorage();
+    const products = window.getInventorySnapshot?.() || [];
+
+    const todayKey = getOverviewDayKey(0);
+    const yesterdayKey = getOverviewDayKey(1);
+    const weekAgoTime = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    const todayOrders = orders.filter(o => o.createdAt?.startsWith(todayKey));
+    const yesterdayOrders = orders.filter(o => o.createdAt?.startsWith(yesterdayKey));
+
+    const todaySales = todayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    const yesterdaySales = yesterdayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+    const setDelta = (id, delta) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = delta.text;
+        el.className = `stat-change ${delta.cls}`.trim();
+    };
+
+    setText('ovTodaySales', formatAppCurrency(todaySales));
+    setText('ovOrdersToday', String(todayOrders.length));
+    setText('ovProductsInStock', String(products.length));
+    setText('ovActiveCustomers', String(customers.length));
+
+    setDelta('ovTodaySalesDelta', computeOverviewDelta(todaySales, yesterdaySales));
+    setDelta('ovOrdersTodayDelta', computeOverviewDelta(todayOrders.length, yesterdayOrders.length));
+
+    const lowStock = products.filter(p => {
+        const qty = Number(p.quantity) || 0;
+        const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+        return qty > 0 && qty <= min;
+    }).length;
+    const outOfStock = products.filter(p => (Number(p.quantity) || 0) === 0).length;
+    setDelta('ovProductsDelta', {
+        text: `${lowStock} low · ${outOfStock} out`,
+        cls: (lowStock + outOfStock) > 0 ? 'negative' : ''
+    });
+
+    const newThisWeek = customers.filter(c => {
+        const ts = Number(c.id) || 0;
+        return ts > 0 && ts >= weekAgoTime;
+    }).length;
+    setDelta('ovCustomersDelta', {
+        text: newThisWeek > 0 ? `+${newThisWeek} this week` : '—',
+        cls: newThisWeek > 0 ? 'positive' : ''
+    });
+}
+
+let ovSalesChartInstance = null;
+
+function renderSalesChart() {
+    const canvas = document.getElementById('ovSalesChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const orders = readOrdersFromStorage();
+    const labels = [];
+    const data = [];
+    let grandTotal = 0;
+
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().split('T')[0];
+        labels.push(d.toLocaleDateString('en-PH', { weekday: 'short', day: 'numeric' }));
+        const total = orders
+            .filter(o => o.createdAt?.startsWith(key))
+            .reduce((s, o) => s + (Number(o.total) || 0), 0);
+        data.push(total);
+        grandTotal += total;
+    }
+
+    const totalEl = document.getElementById('ovSalesChartTotal');
+    if (totalEl) totalEl.textContent = `7-day total: ${formatAppCurrency(grandTotal)}`;
+
+    if (ovSalesChartInstance) ovSalesChartInstance.destroy();
+
+    const isLight = document.documentElement.dataset.theme === 'light';
+    const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
+    const tickColor = isLight ? '#475569' : '#94a3b8';
+
+    ovSalesChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Sales',
+                data,
+                borderColor: '#16a34a',
+                backgroundColor: 'rgba(22, 163, 74, 0.15)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: '#16a34a',
+                pointBorderColor: '#16a34a',
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#f1f5f9',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(22, 163, 74, 0.4)',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: ctx => formatAppCurrency(ctx.parsed.y)
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: tickColor,
+                        callback: v => '₱' + Number(v).toLocaleString('en-PH')
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: tickColor }
+                }
+            }
+        }
+    });
+}
+
+function refreshOverview() {
+    refreshOverviewStats();
+    renderSalesChart();
+}
+
+
+
+
     // ---------- DASHBOARD FUNCTIONS ----------
     function loadDashboard(user) {
         // Hide login, show dashboard
@@ -607,9 +788,10 @@
             accountStatusText.textContent = `Logged in as ${name}`;
         }
         
-        showToast(`Welcome, ${name}!`, 'success');
-        
-        window.reloadPosCatalog?.();
+            showToast(`Welcome, ${name}!`, 'success');
+    
+    window.reloadPosCatalog?.();
+    refreshOverview();
     }
 
     function showLoginView() {
@@ -1777,5 +1959,9 @@ async function checkAuth() {
         } catch (e) {}
     };
     
+    // Refresh overview when data changes
+    window.addEventListener('pos-order-created', refreshOverview);
+    window.addEventListener('inventory-products-loaded', refreshOverview);
+    
     init();
-})();
+    })();

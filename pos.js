@@ -512,8 +512,11 @@ window.reloadPosCatalog = loadProductCatalog;
             }
             window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
 
-            // Clear cart and close modal
-            cart = {};
+// Notify dashboard to refresh stats + chart
+window.dispatchEvent(new CustomEvent('pos-order-created'));
+
+// Clear cart and close modal
+cart = {};
             updateCartDisplay();
             paymentModal.classList.remove('show');
             showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);

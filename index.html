@@ -367,48 +367,59 @@
                     </div>
 
                     <!-- Stats Cards -->
-                    <div class="stats-grid">
-                        <div class="stat-card inventory-alert-card" data-stock-filter="low_stock" role="button" tabindex="0" aria-label="Show low stock products">
-                            <div class="stat-icon blue">
-                                <i class="fas fa-dollar-sign"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>₱12,450.00</h3>
-                                <p>Today's Sales</p>
-                                <span class="stat-change positive">+12.5%</span>
-                            </div>
-                        </div>
-                        <div class="stat-card inventory-alert-card" data-stock-filter="out_of_stock" role="button" tabindex="0" aria-label="Show out of stock products">
-                            <div class="stat-icon green">
-                                <i class="fas fa-shopping-bag"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>84</h3>
-                                <p>Orders Today</p>
-                                <span class="stat-change positive">+8.2%</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon orange">
-                                <i class="fas fa-box"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>1,284</h3>
-                                <p>Products in Stock</p>
-                                <span class="stat-change negative">-3.1%</span>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon purple">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3>256</h3>
-                                <p>Active Customers</p>
-                                <span class="stat-change positive">+22.4%</span>
-                            </div>
-                        </div>
-                    </div>
+                <div class="stats-grid">
+    <div class="stat-card inventory-alert-card" data-stock-filter="low_stock" role="button" tabindex="0" aria-label="Show low stock products">
+        <div class="stat-icon blue">
+            <i class="fas fa-dollar-sign"></i>
+        </div>
+        <div class="stat-info">
+            <h3 id="ovTodaySales">₱0.00</h3>
+            <p>Today's Sales</p>
+            <span class="stat-change" id="ovTodaySalesDelta">—</span>
+        </div>
+    </div>
+    <div class="stat-card inventory-alert-card" data-stock-filter="out_of_stock" role="button" tabindex="0" aria-label="Show out of stock products">
+        <div class="stat-icon green">
+            <i class="fas fa-shopping-bag"></i>
+        </div>
+        <div class="stat-info">
+            <h3 id="ovOrdersToday">0</h3>
+            <p>Orders Today</p>
+            <span class="stat-change" id="ovOrdersTodayDelta">—</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon orange">
+            <i class="fas fa-box"></i>
+        </div>
+        <div class="stat-info">
+            <h3 id="ovProductsInStock">0</h3>
+            <p>Products in Stock</p>
+            <span class="stat-change" id="ovProductsDelta">—</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-info">
+            <h3 id="ovActiveCustomers">0</h3>
+            <p>Active Customers</p>
+            <span class="stat-change" id="ovCustomersDelta">—</span>
+        </div>
+    </div>
+</div>
+
+<!-- Sales Chart — Last 7 Days -->
+<div class="recent-activity" style="margin-bottom: 2rem;">
+    <div class="activity-header">
+        <h2>Sales — Last 7 Days</h2>
+        <span style="font-size: 13px; color: var(--text-secondary);" id="ovSalesChartTotal">—</span>
+    </div>
+    <div style="position: relative; height: 300px; width: 100%;">
+        <canvas id="ovSalesChart"></canvas>
+    </div>
+</div>
 
                     <!-- Recent Activity -->
                     <div class="recent-activity">
@@ -1138,10 +1149,8 @@
     };
 </script>
 
-<!-- Firebase wrapper (uses dynamic import() internally) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="firebase.js"></script>
-
-<!-- App scripts -->
 <script src="inventory.js"></script>
 <script src="script.js"></script>
 <script src="pos.js"></script>
