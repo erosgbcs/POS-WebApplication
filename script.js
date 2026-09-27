@@ -531,11 +531,14 @@
         themeToggle.setAttribute('title', `Switch to ${nextMode} mode`);
     }
     
-    // Re-render chart with theme-appropriate colors
+    // Re-render charts with theme-appropriate colors
     if (document.getElementById('ovSalesChart') && typeof renderSalesChart === 'function') {
         renderSalesChart();
     }
-}
+    if (document.getElementById('ovTopProductsChart') && typeof renderTopProductsChart === 'function') {
+        renderTopProductsChart();
+    }
+    }
 
     function initializeTheme() {
         let savedTheme = 'dark';
@@ -664,6 +667,104 @@ function refreshOverviewStats() {
     setDelta('ovCustomersDelta', {
         text: newThisWeek > 0 ? `+${newThisWeek} this week` : '—',
         cls: newThisWeek > 0 ? 'positive' : ''
+    });
+}
+
+
+// ---------- OVERVIEW: TOP PRODUCTS CHART ----------
+let ovTopProductsChartInstance = null;
+
+function renderTopProductsChart() {
+    const canvas = document.getElementById('ovTopProductsChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const orders = readOrdersFromStorage();
+    const monthAgoTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    // Only count sales from the last 30 days
+    const recentOrders = orders.filter(o => {
+        const ts = new Date(o.createdAt).getTime();
+        return !isNaN(ts) && ts >= monthAgoTime;
+    });
+
+    // Aggregate total units sold per product
+    const counts = {};
+    recentOrders.forEach(order => {
+        (order.items || []).forEach(item => {
+            const name = item.name || 'Unknown';
+            const qty = Number(item.quantity) || 0;
+            counts[name] = (counts[name] || 0) + qty;
+        });
+    });
+
+    // Take top 5 by units sold
+    const sorted = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+
+    const labels = sorted.map(([name]) => name);
+    const data = sorted.map(([, qty]) => qty);
+
+    const subtitleEl = document.getElementById('ovTopProductsSubtitle');
+    if (subtitleEl) {
+        subtitleEl.textContent = labels.length > 0
+            ? `${recentOrders.length} order${recentOrders.length === 1 ? '' : 's'} · ${data.reduce((s, v) => s + v, 0)} units`
+            : 'No sales in the last 30 days';
+    }
+
+    if (ovTopProductsChartInstance) ovTopProductsChartInstance.destroy();
+
+    const isLight = document.documentElement.dataset.theme === 'light';
+    const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
+    const tickColor = isLight ? '#475569' : '#94a3b8';
+
+    ovTopProductsChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Units Sold',
+                data,
+                backgroundColor: 'rgba(22, 163, 74, 0.65)',
+                borderColor: '#16a34a',
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#f1f5f9',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(22, 163, 74, 0.4)',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: ctx => `${ctx.parsed.x} unit${ctx.parsed.x === 1 ? '' : 's'} sold`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: tickColor,
+                        precision: 0
+                    }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: tickColor }
+                }
+            }
+        }
     });
 }
 
@@ -849,9 +950,9 @@ function renderRecentActivity() {
 function refreshOverview() {
     refreshOverviewStats();
     renderSalesChart();
+    renderTopProductsChart();
     renderRecentActivity();
 }
-
 
 
 
