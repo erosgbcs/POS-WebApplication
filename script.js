@@ -2212,21 +2212,40 @@ async function logout() {
     }
 };
 
-    document.querySelectorAll('.inventory-alert-card[data-stock-filter]').forEach(card => {
-        const showFilteredInventory = () => {
-            const stockFilter = card.dataset.stockFilter;
-            window.navigateToPage('inventory');
-            window.filterInventoryByStock?.(stockFilter);
-        };
-
-        card.addEventListener('click', showFilteredInventory);
-        card.addEventListener('keydown', event => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                showFilteredInventory();
-            }
-        });
+    document.querySelectorAll('.kpi-clickable[data-kpi-target]').forEach(card => {
+    const handleKpiClick = () => {
+        const target = card.dataset.kpiTarget;
+        const filter = card.dataset.kpiFilter || '';
+        
+        window.navigateToPage(target);
+        
+        // Apply optional filter based on which card was clicked
+        if (target === 'orders' && filter === 'today') {
+            setTimeout(() => {
+                const dateFilter = document.getElementById('orderDateFilter');
+                if (dateFilter) {
+                    dateFilter.value = 'Today';
+                    dateFilter.dispatchEvent(new Event('change'));
+                }
+            }, 100);
+        }
+        
+        if (target === 'reports' && filter === 'sales') {
+            setTimeout(() => {
+                const btn = document.querySelector('.report-generate-btn[data-report="sales"]');
+                if (btn) btn.focus();
+            }, 100);
+        }
+    };
+    
+    card.addEventListener('click', handleKpiClick);
+    card.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleKpiClick();
+        }
     });
+});
 
     // ---------- ROLE CHANGE ----------
     if (signupRoleSelect) {

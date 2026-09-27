@@ -3835,6 +3835,57 @@ body {
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
 }
 
+
+
+
+/* Clickable KPI cards */
+.kpi-clickable {
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.kpi-clickable:hover {
+    transform: translateY(-3px);
+    border-color: rgba(22, 163, 74, 0.5);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.kpi-clickable:active {
+    transform: translateY(-1px) scale(0.995);
+}
+
+.kpi-clickable:focus-visible {
+    outline: 2px solid #4ade80;
+    outline-offset: 3px;
+}
+
+.kpi-clickable::after {
+    content: '\f054';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #475569;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+    pointer-events: none;
+}
+
+.kpi-clickable:hover::after {
+    opacity: 1;
+    color: #4ade80;
+}
+
+[data-theme="light"] .kpi-clickable::after {
+    color: #94a3b8;
+}
+
+[data-theme="light"] .kpi-clickable:hover::after {
+    color: #15803d;
+}
 /* ============================================
    KPI CARD VISUAL HIERARCHY
    ============================================ */

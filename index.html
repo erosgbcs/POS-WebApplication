@@ -366,9 +366,8 @@
                         <p>Welcome back, <span id="dashboardUserName">User</span>!</p>
                     </div>
 
-                    <!-- Stats Cards -->
-                <div class="stats-grid">
-    <div class="stat-card kpi-card kpi-sales inventory-alert-card" data-stock-filter="low_stock" role="button" tabindex="0" aria-label="Show low stock products">
+                   <div class="stats-grid">
+    <div class="stat-card kpi-card kpi-sales kpi-clickable" data-kpi-target="reports" data-kpi-filter="sales" role="button" tabindex="0" aria-label="View sales report">
         <div class="stat-icon green">
             <i class="fas fa-dollar-sign"></i>
         </div>
@@ -378,7 +377,7 @@
             <span class="stat-change" id="ovTodaySalesDelta">—</span>
         </div>
     </div>
-    <div class="stat-card kpi-card kpi-orders inventory-alert-card" data-stock-filter="out_of_stock" role="button" tabindex="0" aria-label="Show out of stock products">
+    <div class="stat-card kpi-card kpi-orders kpi-clickable" data-kpi-target="orders" data-kpi-filter="today" role="button" tabindex="0" aria-label="View today's orders">
         <div class="stat-icon blue">
             <i class="fas fa-shopping-bag"></i>
         </div>
@@ -388,7 +387,7 @@
             <span class="stat-change" id="ovOrdersTodayDelta">—</span>
         </div>
     </div>
-    <div class="stat-card kpi-card kpi-products">
+    <div class="stat-card kpi-card kpi-products kpi-clickable" data-kpi-target="inventory" role="button" tabindex="0" aria-label="View inventory">
         <div class="stat-icon amber">
             <i class="fas fa-box"></i>
         </div>
@@ -398,7 +397,7 @@
             <span class="stat-change" id="ovProductsDelta">—</span>
         </div>
     </div>
-    <div class="stat-card kpi-card kpi-customers">
+    <div class="stat-card kpi-card kpi-customers kpi-clickable" data-kpi-target="customers" role="button" tabindex="0" aria-label="View customers">
         <div class="stat-icon purple">
             <i class="fas fa-users"></i>
         </div>
