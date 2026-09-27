@@ -538,6 +538,9 @@
     if (document.getElementById('ovTopProductsChart') && typeof renderTopProductsChart === 'function') {
         renderTopProductsChart();
     }
+    if (document.getElementById('ovCategoryChart') && typeof renderSalesByCategoryChart === 'function') {
+        renderSalesByCategoryChart();
+    }
     }
 
     function initializeTheme() {
@@ -767,6 +770,125 @@ function renderTopProductsChart() {
         }
     });
 }
+// ---------- OVERVIEW: SALES BY CATEGORY CHART ----------
+let ovCategoryChartInstance = null;
+
+const CATEGORY_COLORS = {
+    tools:       '#3b82f6',
+    hardware:    '#f59e0b',
+    electrical:  '#eab308',
+    plumbing:    '#0ea5e9',
+    paint:       '#ec4899',
+    garden:      '#22c55e',
+    building:    '#a855f7',
+    fasteners:   '#64748b',
+    safety:      '#ef4444'
+};
+const FALLBACK_CATEGORY_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#06b6d4', '#84cc16', '#d946ef', '#fb7185'];
+
+function formatCategoryLabel(cat) {
+    return String(cat || 'uncategorized')
+        .split(/[\s_]+/)
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
+function getCategoryColor(category, index) {
+    if (CATEGORY_COLORS[category]) return CATEGORY_COLORS[category];
+    return FALLBACK_CATEGORY_COLORS[index % FALLBACK_CATEGORY_COLORS.length];
+}
+
+function renderSalesByCategoryChart() {
+    const canvas = document.getElementById('ovCategoryChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const orders = readOrdersFromStorage();
+    const products = window.getInventorySnapshot?.() || [];
+
+    // Build name → category lookup from current inventory
+    const nameToCategory = {};
+    products.forEach(p => {
+        if (p.name) nameToCategory[String(p.name).toLowerCase()] = p.category || 'uncategorized';
+    });
+
+    // Aggregate revenue per category from all historical orders
+    const revenueByCategory = {};
+    orders.forEach(order => {
+        (order.items || []).forEach(item => {
+            const cat = nameToCategory[String(item.name || '').toLowerCase()] || 'uncategorized';
+            const revenue = (Number(item.price) || 0) * (Number(item.quantity) || 0);
+            revenueByCategory[cat] = (revenueByCategory[cat] || 0) + revenue;
+        });
+    });
+
+    const sorted = Object.entries(revenueByCategory)
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => b[1] - a[1]);
+
+    const labels = sorted.map(([cat]) => formatCategoryLabel(cat));
+    const data = sorted.map(([, v]) => v);
+    const colors = sorted.map(([cat], i) => getCategoryColor(cat, i));
+    const total = data.reduce((s, v) => s + v, 0);
+
+    const subtitleEl = document.getElementById('ovCategorySubtitle');
+    if (subtitleEl) {
+        subtitleEl.textContent = total > 0
+            ? `${sorted.length} categor${sorted.length === 1 ? 'y' : 'ies'} · ${formatAppCurrency(total)} total`
+            : 'No sales recorded yet';
+    }
+
+    if (ovCategoryChartInstance) ovCategoryChartInstance.destroy();
+
+    const isLight = document.documentElement.dataset.theme === 'light';
+    const legendColor = isLight ? '#334155' : '#cbd5e1';
+
+    ovCategoryChartInstance = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors,
+                borderColor: isLight ? '#ffffff' : '#0f172a',
+                borderWidth: 2,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: legendColor,
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        padding: 12,
+                        font: { size: 12 }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#f1f5f9',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(22, 163, 74, 0.4)',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: ctx => {
+                            const val = ctx.parsed || 0;
+                            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
+                            return `${formatAppCurrency(val)} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
 
 let ovSalesChartInstance = null;
 
@@ -951,6 +1073,7 @@ function refreshOverview() {
     refreshOverviewStats();
     renderSalesChart();
     renderTopProductsChart();
+    renderSalesByCategoryChart();
     renderRecentActivity();
 }
 
