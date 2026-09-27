@@ -410,14 +410,31 @@
     </div>
 </div>
 
-<!-- Sales Chart — Last 7 Days -->
-<!-- Sales Chart — Last 7 Days (FULL WIDTH) -->
+<!-- Sales Chart — Configurable Period (FULL WIDTH) -->
 <div class="recent-activity" style="margin-bottom: 2rem;">
-    <div class="activity-header">
-        <h2>Sales — Last 7 Days</h2>
-        <span style="font-size: 13px; color: var(--text-secondary);" id="ovSalesChartTotal">—</span>
+    <div class="activity-header sales-header">
+        <div class="sales-header-left">
+            <h2>Sales Overview</h2>
+            <span class="sales-summary" id="ovSalesChartSummary">Loading…</span>
+        </div>
+        <div class="sales-header-right">
+            <label class="compare-toggle" title="Overlay the previous period">
+                <input type="checkbox" id="ovSalesCompare">
+                <span class="checkmark"></span>
+                <span>Compare</span>
+            </label>
+            <select class="filter-select" id="ovSalesPeriod" aria-label="Select sales period">
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+                <option value="this-month">This Month</option>
+                <option value="last-month">Last Month</option>
+                <option value="this-year">This Year</option>
+                <option value="last-year">Last Year</option>
+            </select>
+        </div>
     </div>
-    <div style="position: relative; height: 300px; width: 100%;">
+    <div style="position: relative; height: 320px; width: 100%;">
         <canvas id="ovSalesChart"></canvas>
     </div>
 </div>

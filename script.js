@@ -1019,31 +1019,221 @@ function renderTopProductsChart() {
 }
 
 
+// ---------- OVERVIEW: CONFIGURABLE SALES CHART ----------
 let ovSalesChartInstance = null;
+const SALES_PERIOD_KEY = 'pos_sales_period';
+
+function getSalesPeriodRange(period) {
+    const now = new Date();
+    let start, end, bucket;
+
+    switch (period) {
+        case '30d': {
+            end = new Date(now);
+            end.setHours(23, 59, 59, 999);
+            start = new Date(now);
+            start.setDate(start.getDate() - 29);
+            start.setHours(0, 0, 0, 0);
+            bucket = 'day';
+            break;
+        }
+        case '90d': {
+            end = new Date(now);
+            end.setHours(23, 59, 59, 999);
+            start = new Date(now);
+            start.setDate(start.getDate() - 89);
+            start.setHours(0, 0, 0, 0);
+            bucket = 'week';
+            break;
+        }
+        case 'this-month': {
+            start = new Date(now.getFullYear(), now.getMonth(), 1);
+            end = new Date(now);
+            end.setHours(23, 59, 59, 999);
+            bucket = 'day';
+            break;
+        }
+        case 'last-month': {
+            start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            end = new Date(now.getFullYear(), now.getMonth(), 0);
+            end.setHours(23, 59, 59, 999);
+            bucket = 'day';
+            break;
+        }
+        case 'this-year': {
+            start = new Date(now.getFullYear(), 0, 1);
+            end = new Date(now);
+            end.setHours(23, 59, 59, 999);
+            bucket = 'month';
+            break;
+        }
+        case 'last-year': {
+            start = new Date(now.getFullYear() - 1, 0, 1);
+            end = new Date(now.getFullYear() - 1, 11, 31);
+            end.setHours(23, 59, 59, 999);
+            bucket = 'month';
+            break;
+        }
+        case '7d':
+        default: {
+            end = new Date(now);
+            end.setHours(23, 59, 59, 999);
+            start = new Date(now);
+            start.setDate(start.getDate() - 6);
+            start.setHours(0, 0, 0, 0);
+            bucket = 'day';
+            break;
+        }
+    }
+
+    return { start, end, bucket };
+}
+
+function getPreviousPeriodRange(period) {
+    const { start, end, bucket } = getSalesPeriodRange(period);
+    const durationMs = end.getTime() - start.getTime();
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - durationMs);
+    return { start: prevStart, end: prevEnd, bucket };
+}
+
+function buildSalesBuckets(start, end, bucket) {
+    const buckets = [];
+
+    if (bucket === 'day') {
+        const d = new Date(start);
+        d.setHours(0, 0, 0, 0);
+        while (d <= end) {
+            const dayStart = new Date(d);
+            const dayEnd = new Date(d);
+            dayEnd.setHours(23, 59, 59, 999);
+            buckets.push({
+                label: d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
+                start: dayStart,
+                end: dayEnd
+            });
+            d.setDate(d.getDate() + 1);
+        }
+    } else if (bucket === 'week') {
+        const d = new Date(start);
+        d.setHours(0, 0, 0, 0);
+        // Snap to Monday
+        const dayOfWeek = d.getDay();
+        const diff = (dayOfWeek + 6) % 7;
+        d.setDate(d.getDate() - diff);
+        while (d <= end) {
+            const wkStart = new Date(d);
+            const wkEnd = new Date(d);
+            wkEnd.setDate(wkEnd.getDate() + 6);
+            wkEnd.setHours(23, 59, 59, 999);
+            buckets.push({
+                label: `Wk ${wkStart.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`,
+                start: wkStart,
+                end: wkEnd
+            });
+            d.setDate(d.getDate() + 7);
+        }
+    } else if (bucket === 'month') {
+        const d = new Date(start.getFullYear(), start.getMonth(), 1);
+        while (d <= end) {
+            const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
+            const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+            mEnd.setHours(23, 59, 59, 999);
+            buckets.push({
+                label: mStart.toLocaleDateString('en-PH', { month: 'short' }),
+                start: mStart,
+                end: mEnd
+            });
+            d.setMonth(d.getMonth() + 1);
+        }
+    }
+
+    return buckets;
+}
+
+function sumOrdersInRange(orders, rangeStart, rangeEnd) {
+    const startMs = rangeStart.getTime();
+    const endMs = rangeEnd.getTime();
+    let total = 0;
+    for (const o of orders) {
+        const ts = new Date(o.createdAt).getTime();
+        if (isNaN(ts)) continue;
+        if (ts >= startMs && ts <= endMs) {
+            total += Number(o.total) || 0;
+        }
+    }
+    return total;
+}
+
+function getPeriodLabel(period) {
+    const labels = {
+        '7d': 'Last 7 days',
+        '30d': 'Last 30 days',
+        '90d': 'Last 90 days',
+        'this-month': 'This Month',
+        'last-month': 'Last Month',
+        'this-year': 'This Year',
+        'last-year': 'Last Year'
+    };
+    return labels[period] || 'Last 7 days';
+}
+
+function formatSalesSummary(total, buckets, bucketType, compareTotal, compareEnabled) {
+    const bucketUnit = bucketType === 'day' ? 'day' : bucketType === 'week' ? 'week' : 'month';
+    const avg = buckets.length > 0 ? total / buckets.length : 0;
+    const peak = buckets.length > 0 ? Math.max(...buckets.map(b => b.value)) : 0;
+
+    let summary = `<strong>Total:</strong> ${formatAppCurrency(total)} · `;
+    summary += `<strong>Avg/${bucketUnit}:</strong> ${formatAppCurrency(avg)} · `;
+    summary += `<strong>Peak:</strong> ${formatAppCurrency(peak)}`;
+
+    if (compareEnabled && compareTotal > 0) {
+        const delta = ((total - compareTotal) / compareTotal) * 100;
+        const sign = delta >= 0 ? '+' : '';
+        const color = delta >= 0 ? '#4ade80' : '#f87171';
+        summary += ` · <strong style="color:${color}">${sign}${delta.toFixed(1)}%</strong> vs prev`;
+    }
+
+    return summary;
+}
 
 function renderSalesChart() {
     const canvas = document.getElementById('ovSalesChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
-    const orders = readOrdersFromStorage();
-    const labels = [];
-    const data = [];
-    let grandTotal = 0;
+    const periodSelect = document.getElementById('ovSalesPeriod');
+    const compareToggle = document.getElementById('ovSalesCompare');
+    const period = periodSelect?.value || localStorage.getItem(SALES_PERIOD_KEY) || '7d';
+    const compareEnabled = !!compareToggle?.checked;
 
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = d.toISOString().split('T')[0];
-        labels.push(d.toLocaleDateString('en-PH', { weekday: 'short', day: 'numeric' }));
-        const total = orders
-            .filter(o => o.createdAt?.startsWith(key))
-            .reduce((s, o) => s + (Number(o.total) || 0), 0);
-        data.push(total);
-        grandTotal += total;
+    const range = getSalesPeriodRange(period);
+    const buckets = buildSalesBuckets(range.start, range.end, range.bucket);
+    const orders = readOrdersFromStorage();
+
+    const labels = buckets.map(b => b.label);
+    const data = buckets.map(b => sumOrdersInRange(orders, b.start, b.end));
+    const total = data.reduce((s, v) => s + v, 0);
+
+    let compareData = null;
+    let compareTotal = 0;
+    if (compareEnabled) {
+        const prev = getPreviousPeriodRange(period);
+        const prevBuckets = buildSalesBuckets(prev.start, prev.end, prev.bucket);
+        // Align by index (both should have same bucket count for equivalent ranges)
+        compareData = buckets.map((_, i) => {
+            const pb = prevBuckets[i];
+            if (!pb) return 0;
+            return sumOrdersInRange(orders, pb.start, pb.end);
+        });
+        compareTotal = compareData.reduce((s, v) => s + v, 0);
     }
 
-    const totalEl = document.getElementById('ovSalesChartTotal');
-    if (totalEl) totalEl.textContent = `7-day total: ${formatAppCurrency(grandTotal)}`;
+    // Update summary line
+    const summaryEl = document.getElementById('ovSalesChartSummary');
+    if (summaryEl) {
+        const decorated = buckets.map((b, i) => ({ value: data[i] }));
+        summaryEl.innerHTML = formatSalesSummary(total, decorated, range.bucket, compareTotal, compareEnabled);
+    }
 
     if (ovSalesChartInstance) ovSalesChartInstance.destroy();
 
@@ -1051,29 +1241,55 @@ function renderSalesChart() {
     const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
     const tickColor = isLight ? '#475569' : '#94a3b8';
 
+    const datasets = [{
+        label: getPeriodLabel(period),
+        data,
+        borderColor: '#16a34a',
+        backgroundColor: 'rgba(22, 163, 74, 0.15)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.35,
+        pointBackgroundColor: '#16a34a',
+        pointBorderColor: '#16a34a',
+        pointRadius: data.length > 30 ? 0 : 4,
+        pointHoverRadius: 6
+    }];
+
+    if (compareEnabled && compareData) {
+        datasets.push({
+            label: 'Previous period',
+            data: compareData,
+            borderColor: isLight ? '#94a3b8' : '#64748b',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [6, 4],
+            fill: false,
+            tension: 0.35,
+            pointBackgroundColor: isLight ? '#94a3b8' : '#64748b',
+            pointBorderColor: isLight ? '#94a3b8' : '#64748b',
+            pointRadius: data.length > 30 ? 0 : 3,
+            pointHoverRadius: 5
+        });
+    }
+
     ovSalesChartInstance = new Chart(canvas, {
         type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Sales',
-                data,
-                borderColor: '#16a34a',
-                backgroundColor: 'rgba(22, 163, 74, 0.15)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.35,
-                pointBackgroundColor: '#16a34a',
-                pointBorderColor: '#16a34a',
-                pointRadius: 4,
-                pointHoverRadius: 6
-            }]
-        },
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: compareEnabled,
+                    labels: {
+                        color: tickColor,
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        padding: 12,
+                        font: { size: 12 }
+                    }
+                },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     titleColor: '#f1f5f9',
@@ -1081,9 +1297,9 @@ function renderSalesChart() {
                     borderColor: 'rgba(22, 163, 74, 0.4)',
                     borderWidth: 1,
                     padding: 10,
-                    displayColors: false,
+                    displayColors: compareEnabled,
                     callbacks: {
-                        label: ctx => formatAppCurrency(ctx.parsed.y)
+                        label: ctx => `${ctx.dataset.label}: ${formatAppCurrency(ctx.parsed.y)}`
                     }
                 }
             },
@@ -1098,11 +1314,37 @@ function renderSalesChart() {
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: tickColor }
+                    ticks: {
+                        color: tickColor,
+                        maxRotation: data.length > 14 ? 45 : 0,
+                        autoSkip: true,
+                        maxTicksLimit: 12
+                    }
                 }
             }
         }
     });
+}
+
+function setupSalesPeriodControls() {
+    const periodSelect = document.getElementById('ovSalesPeriod');
+    const compareToggle = document.getElementById('ovSalesCompare');
+
+    // Restore saved preference
+    if (periodSelect) {
+        const saved = localStorage.getItem(SALES_PERIOD_KEY);
+        if (saved && periodSelect.querySelector(`option[value="${saved}"]`)) {
+            periodSelect.value = saved;
+        }
+        periodSelect.addEventListener('change', () => {
+            try { localStorage.setItem(SALES_PERIOD_KEY, periodSelect.value); } catch (e) {}
+            renderSalesChart();
+        });
+    }
+
+    if (compareToggle) {
+        compareToggle.addEventListener('change', renderSalesChart);
+    }
 }
 
 // ---------- OVERVIEW: RECENT ACTIVITY ----------
@@ -2575,15 +2817,16 @@ async function checkAuth() {
 
     // ---------- INIT ----------
     function init() {
-        initializeTheme();
-        loadSettings();
-        renderCustomers();
-        setupOrderFeatures();
-        setupReportFeatures();
-        setupAuditFeatures();
-
-        // Check authentication status
-        checkAuth();
+    initializeTheme();
+    loadSettings();
+    renderCustomers();
+    setupOrderFeatures();
+    setupReportFeatures();
+    setupAuditFeatures();
+    setupSalesPeriodControls(); // ← ADD THIS LINE
+    
+    // Check authentication status
+    checkAuth();
 
         // Restore the admin account count from Supabase after refresh.
         refreshAdminAvailability();
