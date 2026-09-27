@@ -13,7 +13,82 @@
         initialized: false
     };
 
-    const supabaseApi = window.POS_SUPABASE;
+    // ---------- CATEGORIES MANAGEMENT ----------
+const CATEGORIES_KEY = 'pos_categories';
+const DEFAULT_CATEGORIES = [
+    'tools', 'hardware', 'electrical', 'plumbing', 'paint',
+    'garden', 'building', 'fasteners', 'safety'
+];
+
+function getCategories() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(CATEGORIES_KEY) || 'null');
+        if (Array.isArray(stored) && stored.length > 0) return stored;
+    } catch (e) {}
+    return [...DEFAULT_CATEGORIES];
+}
+
+function saveCategories(categories) {
+    try {
+        localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+    } catch (e) {
+        console.error('Unable to save categories', e);
+    }
+}
+
+function titleCase(value) {
+    return String(value || '')
+        .split(/[\s_]+/)
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[character]));
+}
+
+function renderCategoryOptions() {
+    const list = getCategories();
+    const optionsHtml = list.map(c =>
+        `<option value="${escapeHtml(c)}">${escapeHtml(titleCase(c))}</option>`
+    ).join('');
+
+    const filterSel = document.getElementById('categoryFilter');
+    if (filterSel) {
+        const current = filterSel.value;
+        filterSel.innerHTML = `<option value="">All Categories</option>${optionsHtml}`;
+        if (current && list.includes(current)) filterSel.value = current;
+    }
+
+    const formSel = document.getElementById('productCategory');
+    if (formSel) {
+        const current = formSel.value;
+        formSel.innerHTML = `<option value="">Select category</option>${optionsHtml}`;
+        if (current && list.includes(current)) formSel.value = current;
+    }
+}
+
+function addCategoryPrompt() {
+    const name = window.prompt('New category name:')?.trim();
+    if (!name) return;
+    const normalized = name.toLowerCase();
+    const list = getCategories();
+    if (list.some(c => c.toLowerCase() === normalized)) {
+        showToast('Category already exists', 'error');
+        return;
+    }
+    list.push(normalized);
+    saveCategories(list);
+    renderCategoryOptions();
+    const formSel = document.getElementById('productCategory');
+    if (formSel) formSel.value = normalized;
+    window.POS_APP_LOG?.('create', 'inventory', `Category "${name}" added`, 'info');
+    showToast(`Category "${name}" added`, 'success');
+}
+
     const formatCurrency = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
 
     function mapProduct(product) {
@@ -227,6 +302,9 @@
         if (inventoryState.initialized) return;
         inventoryState.initialized = true;
         document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
+        
+document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
+        
         document.getElementById('exportInventoryBtn')?.addEventListener('click', exportInventory);
         document.getElementById('inventorySearch')?.addEventListener('input', event => { inventoryState.searchTerm = event.target.value; filterProducts(); });
         document.getElementById('categoryFilter')?.addEventListener('change', event => { inventoryState.categoryFilter = event.target.value; filterProducts(); });
@@ -247,7 +325,8 @@
         if (!supabaseApi?.isConfigured?.()) {
             inventoryState.products = [];
             showToast('Firebase is not configured', 'error');
-            updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
+            renderCategoryOptions();
+updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
             return;
         }
         supabaseApi.getInventoryProducts().then(result => {
@@ -258,7 +337,8 @@
                 inventoryState.products = (result.data || []).map(mapProduct);
                 window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
             }
-            updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
+            renderCategoryOptions();
+updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
         });
         updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
     };
