@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed Data - Kirby's Hardware</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; max-width: 600px; margin: 0 auto; }
+        h1 { color: #4ade80; font-size: 20px; }
+        button { background: #16a34a; color: white; border: none; padding: 14px 20px; border-radius: 10px; font-size: 16px; font-weight: 600; width: 100%; margin: 10px 0; cursor: pointer; }
+        button:disabled { opacity: 0.5; }
+        #log { background: #1e293b; border-radius: 10px; padding: 14px; margin-top: 16px; font-size: 13px; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; font-family: monospace; }
+        .ok { color: #4ade80; }
+        .err { color: #f87171; }
+        .warn { color: #fb923c; }
+        .danger { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <h1>Seed Data - Kirby's Hardware</h1>
+    <p style="color: #94a3b8; font-size: 13px;">One-time use page. Delete this file after seeding.</p>
+
+    <button id="seedBtn">Insert 100 Hardware Items</button>
+    <button id="wipeBtn" class="danger">Wipe Inventory (Optional)</button>
+    <button id="backBtn" style="background: #334155;">Back to App</button>
+
+    <div id="log">Ready.</div>
+
+    <script>
+        const logEl = document.getElementById('log');
+        function log(msg, cls = '') {
+            const line = document.createElement('div');
+            line.className = cls;
+            line.textContent = msg;
+            logEl.appendChild(line);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        document.getElementById('backBtn').onclick = () => location.href = 'index.html';
+        document.getElementById('seedBtn').disabled = true;
+        document.getElementById('wipeBtn').disabled = true;
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (window.POS_SUPABASE) {
+                    document.getElementById('seedBtn').disabled = false;
+                    document.getElementById('wipeBtn').disabled = false;
+                    log('Firebase ready.', 'ok');
+                } else {
+                    log('Firebase not loaded. Open index.html first, sign in, then come back.', 'err');
+                }
+            }, 1500);
+        });
+
+        document.getElementById('wipeBtn').onclick = async () => {
+            if (!confirm('Delete ALL inventory items? Cannot undo.')) return;
+            log('Wiping inventory...', 'warn');
+            try {
+                const fb = await window.POS_SUPABASE.getFirebase();
+                const { collection, getDocs, doc, deleteDoc, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+                const snap = await getDocs(collection(fb.db, 'inventory'));
+                let batch = writeBatch(fb.db);
+                let count = 0;
+                for (const d of snap.docs) {
+                    batch.delete(doc(fb.db, 'inventory', d.id));
+                    count++;
+                    if (count === 400) { await batch.commit(); batch = writeBatch(fb.db); count = 0; }
+                }
+                if (count > 0) await batch.commit();
+                log('Deleted ' + snap.docs.length + ' items.', 'ok');
+            } catch (e) {
+                log('Error: ' + e.message, 'err');
+            }
+        };
+
+        document.getElementById('seedBtn').onclick = async () => {
+            document.getElementById('seedBtn').disabled = true;
+            log('Starting insert...', 'warn');
+            try {
+                const fb = await window.POS_SUPABASE.getFirebase();
+                const { collection, doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+
+                const items = [
+                    { name: 'Claw Hammer 16oz', sku: 'TL-001', category: 'tools', price: 250, quantity: 15, min_stock: 5, supplier: 'Ace Hardware PH', description: 'Steel claw hammer with rubber grip' },
+                    { name: 'Rubber Mallet', sku: 'TL-002', category: 'tools', price: 180, quantity: 12, min_stock: 4, supplier: 'Ace Hardware PH', description: 'White rubber head mallet' },
+                    { name: 'Screwdriver Set 6pc', sku: 'TL-003', category: 'tools', price: 350, quantity: 20, min_stock: 5, supplier: 'Stanley PH', description: 'Flat and Phillips screwdriver set' },
+                    { name: 'Adjustable Wrench 8in', sku: 'TL-004', category: 'tools', price: 280, quantity: 10, min_stock: 3, supplier: 'Stanley PH', description: 'Chrome vanadium adjustable wrench' },
+                    { name: 'Adjustable Wrench 10in', sku: 'TL-005', category: 'tools', price: 420, quantity: 8, min_stock: 3, supplier: 'Stanley PH', description: 'Chrome vanadium adjustable wrench' },
+                    { name: 'Combination Pliers 8in', sku: 'TL-006', category: 'tools', price: 220, quantity: 15, min_stock: 5, supplier: 'Stanley PH', description: 'Insulated grip combination pliers' },
+                    { name: 'Long Nose Pliers', sku: 'TL-007', category: 'tools', price: 250, quantity: 12, min_stock: 4, supplier: 'Stanley PH', description: 'Precision long nose pliers' },
+                    { name: 'Tape Measure 5m', sku: 'TL-008', category: 'tools', price: 150, quantity: 25, min_stock: 8, supplier: 'Stanley PH', description: 'Auto-lock measuring tape' },
+                    { name: 'Tape Measure 8m', sku: 'TL-009', category: 'tools', price: 220, quantity: 15, min_stock: 5, supplier: 'Stanley PH', description: 'Auto-lock measuring tape' },
+                    { name: 'Handsaw 20in', sku: 'TL-010', category: 'tools', price: 380, quantity: 10, min_stock: 3, supplier: 'Ace Hardware PH', description: 'Heavy-duty wood handsaw' },
+                    { name: 'Spirit Level 24in', sku: 'TL-011', category: 'tools', price: 450, quantity: 8, min_stock: 3, supplier: 'Ace Hardware PH', description: 'Aluminum spirit level with 3 vials' },
+                    { name: 'Hacksaw Frame', sku: 'TL-012', category: 'tools', price: 320, quantity: 10, min_stock: 3, supplier: 'Ace Hardware PH', description: 'Adjustable hacksaw frame' },
+                    { name: 'Bolt Cutter 18in', sku: 'TL-013', category: 'tools', price: 850, quantity: 5, min_stock: 2, supplier: 'Ace Hardware PH', description: 'Heavy-duty bolt cutter' },
+                    { name: 'Pipe Wrench 14in', sku: 'TL-014', category: 'tools', price: 680, quantity: 6, min_stock: 2, supplier: 'Ace Hardware PH', description: 'Cast iron pipe wrench' },
+                    { name: 'Wood Chisel Set 4pc', sku: 'TL-015', category: 'tools', price: 420, quantity: 8, min_stock: 3, supplier: 'Ace Hardware PH', description: 'Woodworking chisel set' },
+                    { name: 'Wood Plane', sku: 'TL-016', category: 'tools', price: 550, quantity: 5, min_stock: 2, supplier: 'Ace Hardware PH', description: 'Adjustable wood plane' },
+                    { name: 'Steel Trowel', sku: 'TL-017', category: 'tools', price: 180, quantity: 15, min_stock: 5, supplier: 'Ace Hardware PH', description: 'Masonry trowel' },
+                    { name: 'Putty Knife', sku: 'TL-018', category: 'tools', price: 120, quantity: 20, min_stock: 6, supplier: 'Ace Hardware PH', description: 'Stainless putty knife' },
+                    { name: 'Wire Stripper', sku: 'TL-019', category: 'tools', price: 280, quantity: 10, min_stock: 3, supplier: 'Stanley PH', description: 'Automatic wire stripper' },
+                    { name: 'Utility Knife', sku: 'TL-020', category: 'tools', price: 150, quantity: 20, min_stock: 6, supplier: 'Stanley PH', description: 'Retractable utility knife' },
+                    { name: 'Door Hinge 4in', sku: 'HW-001', category: 'hardware', price: 85, quantity: 40, min_stock: 12, supplier: 'Wilcon Depot', description: 'Stainless door hinge' },
+                    { name: 'Door Knob Set', sku: 'HW-002', category: 'hardware', price: 350, quantity: 15, min_stock: 5, supplier: 'Wilcon Depot', description: 'Entry door knob set with keys' },
+                    { name: 'Padlock 50mm', sku: 'HW-003', category: 'hardware', price: 220, quantity: 20, min_stock: 6, supplier: 'Wilcon Depot', description: 'Brass padlock with 3 keys' },
+                    { name: 'Padlock 60mm', sku: 'HW-004', category: 'hardware', price: 320, quantity: 12, min_stock: 4, supplier: 'Wilcon Depot', description: 'Brass padlock with 3 keys' },
+                    { name: 'Deadbolt Lock', sku: 'HW-005', category: 'hardware', price: 550, quantity: 8, min_stock: 3, supplier: 'Wilcon Depot', description: 'Single cylinder deadbolt' },
+                    { name: 'Cabinet Handle', sku: 'HW-006', category: 'hardware', price: 45, quantity: 50, min_stock: 15, supplier: 'Wilcon Depot', description: 'Stainless cabinet pull handle' },
+                    { name: 'Drawer Slide 12in', sku: 'HW-007', category: 'hardware', price: 180, quantity: 20, min_stock: 6, supplier: 'Wilcon Depot', description: 'Ball-bearing drawer slide, sold as pair' },
+                    { name: 'Door Stopper', sku: 'HW-008', category: 'hardware', price: 65, quantity: 30, min_stock: 10, supplier: 'Wilcon Depot', description: 'Rubber door stopper' },
+                    { name: 'Chain Lock 3ft', sku: 'HW-009', category: 'hardware', price: 280, quantity: 10, min_stock: 3, supplier: 'Wilcon Depot', description: 'Steel chain with padlock' },
+                    { name: 'Barrel Bolt 4in', sku: 'HW-010', category: 'hardware', price: 120, quantity: 25, min_stock: 8, supplier: 'Wilcon Depot', description: 'Steel barrel bolt' },
+                    { name: 'Electrical Tape', sku: 'EL-001', category: 'electrical', price: 35, quantity: 60, min_stock: 20, supplier: 'Cebu Hardware', description: 'PVC electrical insulation tape' },
+                    { name: 'Extension Cord 3m', sku: 'EL-002', category: 'electrical', price: 280, quantity: 15, min_stock: 5, supplier: 'Cebu Hardware', description: '3-gang extension cord with switch' },
+                    { name: 'Extension Cord 5m', sku: 'EL-003', category: 'electrical', price: 450, quantity: 10, min_stock: 3, supplier: 'Cebu Hardware', description: '4-gang extension cord with switch' },
+                    { name: 'Outlet 2-Gang', sku: 'EL-004', category: 'electrical', price: 180, quantity: 25, min_stock: 8, supplier: 'Cebu Hardware', description: 'Universal outlet with plate' },
+                    { name: 'Outlet 3-Gang', sku: 'EL-005', category: 'electrical', price: 260, quantity: 15, min_stock: 5, supplier: 'Cebu Hardware', description: 'Universal outlet with plate' },
+                    { name: 'Light Switch 1-Gang', sku: 'EL-006', category: 'electrical', price: 95, quantity: 30, min_stock: 10, supplier: 'Cebu Hardware', description: 'Single-pole wall switch' },
+                    { name: 'Light Switch 2-Gang', sku: 'EL-007', category: 'electrical', price: 145, quantity: 20, min_stock: 6, supplier: 'Cebu Hardware', description: 'Double-pole wall switch' },
+                    { name: 'Circuit Breaker 20A', sku: 'EL-008', category: 'electrical', price: 380, quantity: 12, min_stock: 4, supplier: 'Cebu Hardware', description: 'Plug-in circuit breaker' },
+                    { name: 'Circuit Breaker 30A', sku: 'EL-009', category: 'electrical', price: 450, quantity: 10, min_stock: 3, supplier: 'Cebu Hardware', description: 'Plug-in circuit breaker' },
+                    { name: 'LED Bulb 9W', sku: 'EL-010', category: 'electrical', price: 120, quantity: 50, min_stock: 15, supplier: 'Cebu Hardware', description: 'E27 daylight LED bulb' },
+                    { name: 'LED Bulb 12W', sku: 'EL-011', category: 'electrical', price: 180, quantity: 40, min_stock: 12, supplier: 'Cebu Hardware', description: 'E27 daylight LED bulb' },
+                    { name: 'LED Tube 18W', sku: 'EL-012', category: 'electrical', price: 280, quantity: 20, min_stock: 6, supplier: 'Cebu Hardware', description: 'T8 LED fluorescent tube replacement' },
+                    { name: 'Electrical Wire #14', sku: 'EL-013', category: 'electrical', price: 35, quantity: 200, min_stock: 50, supplier: 'Cebu Hardware', description: 'Stranded copper wire, per meter' },
+                    { name: 'Electrical Wire #12', sku: 'EL-014', category: 'electrical', price: 55, quantity: 150, min_stock: 50, supplier: 'Cebu Hardware', description: 'Stranded copper wire, per meter' },
+                    { name: 'Junction Box', sku: 'EL-015', category: 'electrical', price: 45, quantity: 40, min_stock: 12, supplier: 'Cebu Hardware', description: 'PVC junction box' },
+                    { name: 'Wire Connector', sku: 'EL-016', category: 'electrical', price: 15, quantity: 100, min_stock: 30, supplier: 'Cebu Hardware', description: 'Screw-on wire connector, sold per piece' },
+                    { name: 'Ceiling Fan 3-Blade', sku: 'EL-017', category: 'electrical', price: 2500, quantity: 5, min_stock: 2, supplier: 'Cebu Hardware', description: '16-inch ceiling fan with light' },
+                    { name: 'PVC Pipe 1/2in x 10ft', sku: 'PL-001', category: 'plumbing', price: 120, quantity: 40, min_stock: 12, supplier: 'Wilcon Depot', description: 'Schedule 40 PVC pipe' },
+                    { name: 'PVC Pipe 3/4in x 10ft', sku: 'PL-002', category: 'plumbing', price: 180, quantity: 30, min_stock: 10, supplier: 'Wilcon Depot', description: 'Schedule 40 PVC pipe' },
+                    { name: 'PVC Elbow 1/2in', sku: 'PL-003', category: 'plumbing', price: 15, quantity: 100, min_stock: 30, supplier: 'Wilcon Depot', description: '90-degree PVC elbow' },
+                    { name: 'PVC Elbow 3/4in', sku: 'PL-004', category: 'plumbing', price: 25, quantity: 80, min_stock: 25, supplier: 'Wilcon Depot', description: '90-degree PVC elbow' },
+                    { name: 'PVC Tee 1/2in', sku: 'PL-005', category: 'plumbing', price: 20, quantity: 80, min_stock: 25, supplier: 'Wilcon Depot', description: 'PVC tee connector' },
+                    { name: 'PVC Tee 3/4in', sku: 'PL-006', category: 'plumbing', price: 30, quantity: 60, min_stock: 20, supplier: 'Wilcon Depot', description: 'PVC tee connector' },
+                    { name: 'Faucet Chrome', sku: 'PL-007', category: 'plumbing', price: 450, quantity: 15, min_stock: 5, supplier: 'Wilcon Depot', description: 'Single-handle chrome faucet' },
+                    { name: 'Kitchen Faucet', sku: 'PL-008', category: 'plumbing', price: 680, quantity: 10, min_stock: 3, supplier: 'Wilcon Depot', description: 'Gooseneck kitchen faucet' },
+                    { name: 'Shower Head', sku: 'PL-009', category: 'plumbing', price: 320, quantity: 12, min_stock: 4, supplier: 'Wilcon Depot', description: 'Chrome hand shower with hose' },
+                    { name: 'Toilet Flush Valve', sku: 'PL-010', category: 'plumbing', price: 250, quantity: 10, min_stock: 3, supplier: 'Wilcon Depot', description: 'Replacement flush valve assembly' },
+                    { name: 'Teflon Tape', sku: 'PL-011', category: 'plumbing', price: 15, quantity: 200, min_stock: 50, supplier: 'Wilcon Depot', description: 'Thread seal tape, per roll' },
+                    { name: 'Water Hose 1/2in', sku: 'PL-012', category: 'plumbing', price: 45, quantity: 100, min_stock: 30, supplier: 'Wilcon Depot', description: 'Flexible water hose, per meter' },
+                    { name: 'Floor Drain 4in', sku: 'PL-013', category: 'plumbing', price: 180, quantity: 20, min_stock: 6, supplier: 'Wilcon Depot', description: 'Stainless floor drain with strainer' },
+                    { name: 'Latex Paint White 1L', sku: 'PT-001', category: 'paint', price: 380, quantity: 25, min_stock: 8, supplier: 'Boysen PH', description: 'Interior latex paint, white' },
+                    { name: 'Latex Paint White 4L', sku: 'PT-002', category: 'paint', price: 1250, quantity: 15, min_stock: 5, supplier: 'Boysen PH', description: 'Interior latex paint, white' },
+                    { name: 'Latex Paint White 16L', sku: 'PT-003', category: 'paint', price: 4200, quantity: 8, min_stock: 3, supplier: 'Boysen PH', description: 'Interior latex paint, white' },
+                    { name: 'Semi-Gloss Paint 1L', sku: 'PT-004', category: 'paint', price: 450, quantity: 20, min_stock: 6, supplier: 'Boysen PH', description: 'Semi-gloss enamel, various colors' },
+                    { name: 'Paint Brush 2in', sku: 'PT-005', category: 'paint', price: 85, quantity: 30, min_stock: 10, supplier: 'Ace Hardware PH', description: 'Flat paint brush' },
+                    { name: 'Paint Brush 4in', sku: 'PT-006', category: 'paint', price: 180, quantity: 20, min_stock: 6, supplier: 'Ace Hardware PH', description: 'Wide flat paint brush' },
+                    { name: 'Paint Roller 9in', sku: 'PT-007', category: 'paint', price: 220, quantity: 25, min_stock: 8, supplier: 'Ace Hardware PH', description: 'Roller with handle' },
+                    { name: 'Paint Tray', sku: 'PT-008', category: 'paint', price: 120, quantity: 25, min_stock: 8, supplier: 'Ace Hardware PH', description: 'Plastic paint tray' },
+                    { name: 'Sandpaper #120', sku: 'PT-009', category: 'paint', price: 35, quantity: 100, min_stock: 30, supplier: 'Ace Hardware PH', description: 'Wood sandpaper sheet, per piece' },
+                    { name: 'Sandpaper #220', sku: 'PT-010', category: 'paint', price: 35, quantity: 100, min_stock: 30, supplier: 'Ace Hardware PH', description: 'Fine finish sandpaper sheet' },
+                    { name: 'Garden Hose 10m', sku: 'GD-001', category: 'garden', price: 480, quantity: 10, min_stock: 3, supplier: 'Ace Hardware PH', description: 'Flexible garden hose with fittings' },
+                    { name: 'Watering Can 5L', sku: 'GD-002', category: 'garden', price: 250, quantity: 12, min_stock: 4, supplier: 'Ace Hardware PH', description: 'Plastic watering can' },
+                    { name: 'Garden Rake', sku: 'GD-003', category: 'garden', price: 380, quantity: 8, min_stock: 3, supplier: 'Ace Hardware PH', description: 'Steel leaf rake' },
+                    { name: 'Shovel', sku: 'GD-004', category: 'garden', price: 480, quantity: 10, min_stock: 3, supplier: 'Ace Hardware PH', description: 'Round-point shovel with wooden handle' },
+                    { name: 'Hand Trowel', sku: 'GD-005', category: 'garden', price: 120, quantity: 20, min_stock: 6, supplier: 'Ace Hardware PH', description: 'Steel garden hand trowel' },
+                    { name: 'Pruning Shears', sku: 'GD-006', category: 'garden', price: 380, quantity: 12, min_stock: 4, supplier: 'Ace Hardware PH', description: 'Bypass pruning shears' },
+                    { name: 'Cement 40kg', sku: 'BD-001', category: 'building', price: 280, quantity: 100, min_stock: 30, supplier: 'Holcim PH', description: 'Portland cement bag' },
+                    { name: 'Washed Sand', sku: 'BD-002', category: 'building', price: 1200, quantity: 10, min_stock: 3, supplier: 'Local Supplier', description: 'Per cubic meter' },
+                    { name: 'Gravel 3/4in', sku: 'BD-003', category: 'building', price: 1500, quantity: 10, min_stock: 3, supplier: 'Local Supplier', description: 'Per cubic meter' },
+                    { name: 'Steel Bar 10mm x 6m', sku: 'BD-004', category: 'building', price: 280, quantity: 50, min_stock: 15, supplier: 'Local Supplier', description: 'Deformed steel bar' },
+                    { name: 'Steel Bar 12mm x 6m', sku: 'BD-005', category: 'building', price: 420, quantity: 40, min_stock: 12, supplier: 'Local Supplier', description: 'Deformed steel bar' },
+                    { name: 'Hollow Block 4in', sku: 'BD-006', category: 'building', price: 18, quantity: 500, min_stock: 100, supplier: 'Local Supplier', description: 'Concrete hollow block' },
+                    { name: 'Hollow Block 6in', sku: 'BD-007', category: 'building', price: 25, quantity: 400, min_stock: 100, supplier: 'Local Supplier', description: 'Concrete hollow block' },
+                    { name: 'Plywood 1/4in x 4x8', sku: 'BD-008', category: 'building', price: 450, quantity: 30, min_stock: 8, supplier: 'Wilcon Depot', description: 'Ordinary plywood' },
+                    { name: 'Plywood 3/4in x 4x8', sku: 'BD-009', category: 'building', price: 950, quantity: 20, min_stock: 6, supplier: 'Wilcon Depot', description: 'Marine plywood' },
+                    { name: 'Lumber 2x3x10', sku: 'BD-010', category: 'building', price: 180, quantity: 40, min_stock: 12, supplier: 'Wilcon Depot', description: 'Coco lumber' },
+                    { name: 'Common Nail 2in', sku: 'FS-001', category: 'fasteners', price: 85, quantity: 100, min_stock: 30, supplier: 'Wilcon Depot', description: 'Per kilo' },
+                    { name: 'Common Nail 3in', sku: 'FS-002', category: 'fasteners', price: 85, quantity: 100, min_stock: 30, supplier: 'Wilcon Depot', description: 'Per kilo' },
+                    { name: 'Concrete Nail 2in', sku: 'FS-003', category: 'fasteners', price: 95, quantity: 80, min_stock: 25, supplier: 'Wilcon Depot', description: 'Per kilo' },
+                    { name: 'Wood Screw 1in', sku: 'FS-004', category: 'fasteners', price: 85, quantity: 60, min_stock: 20, supplier: 'Wilcon Depot', description: 'Per 100 pieces' },
+                    { name: 'Wood Screw 2in', sku: 'FS-005', category: 'fasteners', price: 120, quantity: 60, min_stock: 20, supplier: 'Wilcon Depot', description: 'Per 100 pieces' },
+                    { name: 'Self-Tapping Screw 1in', sku: 'FS-006', category: 'fasteners', price: 95, quantity: 60, min_stock: 20, supplier: 'Wilcon Depot', description: 'Per 100 pieces' },
+                    { name: 'Bolt and Nut 3/8 x 3in', sku: 'FS-007', category: 'fasteners', price: 25, quantity: 100, min_stock: 30, supplier: 'Wilcon Depot', description: 'Zinc-plated, sold per set' },
+                    { name: 'Washer 3/8in', sku: 'FS-008', category: 'fasteners', price: 45, quantity: 80, min_stock: 25, supplier: 'Wilcon Depot', description: 'Per 100 pieces' },
+                    { name: 'Cable Tie 8in', sku: 'FS-009', category: 'fasteners', price: 85, quantity: 100, min_stock: 30, supplier: 'Wilcon Depot', description: 'Nylon cable tie, per 100 pieces' },
+                    { name: 'Safety Gloves', sku: 'SF-001', category: 'safety', price: 120, quantity: 40, min_stock: 12, supplier: 'Ace Hardware PH', description: 'Cotton work gloves with rubber grip' },
+                    { name: 'Safety Goggles', sku: 'SF-002', category: 'safety', price: 180, quantity: 25, min_stock: 8, supplier: 'Ace Hardware PH', description: 'Anti-fog clear lens goggles' },
+                    { name: 'Dust Mask N95', sku: 'SF-003', category: 'safety', price: 45, quantity: 200, min_stock: 50, supplier: 'Ace Hardware PH', description: 'Surgical-grade dust mask, per piece' },
+                    { name: 'Hard Hat', sku: 'SF-004', category: 'safety', price: 350, quantity: 15, min_stock: 5, supplier: 'Ace Hardware PH', description: 'Adjustable safety helmet' },
+                    { name: 'Safety Vest', sku: 'SF-005', category: 'safety', price: 250, quantity: 20, min_stock: 6, supplier: 'Ace Hardware PH', description: 'Reflective vest, high visibility' }
+                ];
+
+                log('Prepared ' + items.length + ' items. Writing...', 'warn');
+
+                let batch = writeBatch(fb.db);
+                let count = 0;
+                let total = 0;
+
+                for (const item of items) {
+                    const ref = doc(collection(fb.db, 'inventory'));
+                    const payload = {
+                        ...item,
+                        id: ref.id,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        syncedAt: serverTimestamp()
+                    };
+                    batch.set(ref, payload);
+                    count++;
+                    total++;
+                    if (count === 400) {
+                        await batch.commit();
+                        log('Committed batch of ' + count + ' (total ' + total + ')', 'ok');
+                        batch = writeBatch(fb.db);
+                        count = 0;
+                    }
+                }
+                if (count > 0) await batch.commit();
+                log('Done. Inserted ' + total + ' items.', 'ok');
+                log('Go back to the app and reload.', 'ok');
+            } catch (e) {
+                log('Error: ' + e.message, 'err');
+                console.error(e);
+                document.getElementById('seedBtn').disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
