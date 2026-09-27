@@ -57,19 +57,30 @@
     }
 
     async function loadProductCatalog() {
-        const supabaseApi = window.POS_SUPABASE;
-        if (!supabaseApi?.isConfigured?.()) {
-            renderProductCatalog([]);
-            return;
-        }
-        const result = await supabaseApi.getInventoryProducts();
-        if (result.error) {
-            renderProductCatalog([]);
-            showToast(result.error.message, 'error');
-            return;
-        }
-        renderProductCatalog(result.data || []);
+    const supabaseApi = window.POS_SUPABASE;
+    if (!supabaseApi?.isConfigured?.()) {
+        renderProductCatalog([]);
+        return;
     }
+
+    const result = await supabaseApi.getInventoryProducts();
+    if (result.error) {
+        renderProductCatalog([]);
+
+        // Silent on permission errors — they occur on the login screen
+        // before the user authenticates and Firestore rules block the read.
+        const msg = (result.error.message || '').toLowerCase();
+        const isPermissionError = msg.includes('permission')
+                               || msg.includes('insufficient');
+
+        if (!isPermissionError) {
+            showToast(result.error.message || 'Failed to load products', 'error');
+        }
+        return;
+    }
+
+    renderProductCatalog(result.data || []);
+}
 
     // --- Helper: show toast (using existing toast container) ---
     function showToast(message, type = 'success', options = {}) {
@@ -231,7 +242,11 @@
     }
 
     loadProductCatalog();
-    window.addEventListener('inventory-products-loaded', event => renderProductCatalog(event.detail || []));
+window.addEventListener('inventory-products-loaded', event => renderProductCatalog(event.detail || []));
+
+// Allow other modules (script.js) to refresh the catalog after login
+// or when navigating to the POS page.
+window.reloadPosCatalog = loadProductCatalog;
 
     // --- Product search filter ---
     if (productSearch) {

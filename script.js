@@ -608,6 +608,8 @@
         }
         
         showToast(`Welcome, ${name}!`, 'success');
+        
+        window.reloadPosCatalog?.();
     }
 
     function showLoginView() {
@@ -1078,34 +1080,40 @@ if (signupForm) {
             const target = document.getElementById(`page-${page}`);
             if (target) target.classList.add('active');
             
-            // Initialize inventory if navigating to inventory page
-            if (page === 'inventory') {
-                window.initInventory?.();
-            }
-            
-            // Close mobile sidebar
-            if (sidebar) sidebar.classList.remove('open');
-        });
-    });
-
-    // ---------- NAVIGATION FUNCTION ----------
-    window.navigateToPage = function(page) {
-        if (!canAccessPage(page)) {
-            page = 'overview';
-        }
-
-        document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-        const sidebarLink = document.querySelector(`.sidebar-link[data-page="${page}"]`);
-        if (sidebarLink) sidebarLink.classList.add('active');
-        
-        document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
-        const target = document.getElementById(`page-${page}`);
-        if (target) target.classList.add('active');
-        
+        // Initialize inventory if navigating to inventory page
         if (page === 'inventory') {
             window.initInventory?.();
         }
-    };
+        if (page === 'pos') {
+            window.reloadPosCatalog?.();
+        }
+        
+        // Close mobile sidebar
+        if (sidebar) sidebar.classList.remove('open');
+        });
+        }); 
+        
+    // ---------- NAVIGATION FUNCTION ----------
+    window.navigateToPage = function(page) {
+    if (!canAccessPage(page)) {
+        page = 'overview';
+    }
+    
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    const sidebarLink = document.querySelector(`.sidebar-link[data-page="${page}"]`);
+    if (sidebarLink) sidebarLink.classList.add('active');
+    
+    document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+    const target = document.getElementById(`page-${page}`);
+    if (target) target.classList.add('active');
+    
+    if (page === 'inventory') {
+        window.initInventory?.();
+    }
+    if (page === 'pos') {
+        window.reloadPosCatalog?.(); // ← ADD
+    }
+};
 
     document.querySelectorAll('.inventory-alert-card[data-stock-filter]').forEach(card => {
         const showFilteredInventory = () => {
