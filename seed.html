@@ -7,27 +7,49 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; max-width: 600px; margin: 0 auto; }
         h1 { color: #4ade80; font-size: 20px; }
+        p { color: #94a3b8; font-size: 13px; }
         button { background: #16a34a; color: white; border: none; padding: 14px 20px; border-radius: 10px; font-size: 16px; font-weight: 600; width: 100%; margin: 10px 0; cursor: pointer; }
         button:disabled { opacity: 0.5; }
+        button.danger { background: #dc2626; }
+        button.neutral { background: #334155; }
         #log { background: #1e293b; border-radius: 10px; padding: 14px; margin-top: 16px; font-size: 13px; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; font-family: monospace; }
         .ok { color: #4ade80; }
         .err { color: #f87171; }
         .warn { color: #fb923c; }
-        .danger { background: #dc2626; }
     </style>
 </head>
 <body>
     <h1>Seed Data - Kirby's Hardware</h1>
-    <p style="color: #94a3b8; font-size: 13px;">One-time use page. Delete this file after seeding.</p>
+    <p>One-time use page. Delete this file after seeding.</p>
 
-    <button id="seedBtn">Insert 100 Hardware Items</button>
-    <button id="wipeBtn" class="danger">Wipe Inventory (Optional)</button>
-    <button id="backBtn" style="background: #334155;">Back to App</button>
+    <button id="seedBtn" disabled>Insert 100 Hardware Items</button>
+    <button id="wipeBtn" class="danger" disabled>Wipe Inventory (Optional)</button>
+    <button id="backBtn" class="neutral">Back to App</button>
 
-    <div id="log">Ready.</div>
+    <div id="log">Ready. Waiting for Firebase...</div>
 
+    <!-- Firebase config (must be before firebase.js) -->
+    <script>
+        window.FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBMt2AwW3cq8Og1gqV3MfPaUGearhnAWcU",
+            authDomain: "basedpos-inventory.firebaseapp.com",
+            projectId: "basedpos-inventory",
+            storageBucket: "basedpos-inventory.firebasestorage.app",
+            messagingSenderId: "563342767045",
+            appId: "1:563342767045:web:b4b4d839bfbe6fe94911ac",
+            measurementId: "G-FPG96DEDQS"
+        };
+    </script>
+
+    <!-- Load firebase.js to initialize Firebase -->
+    <script src="firebase.js"></script>
+
+    <!-- Seed logic -->
     <script>
         const logEl = document.getElementById('log');
+        const seedBtn = document.getElementById('seedBtn');
+        const wipeBtn = document.getElementById('wipeBtn');
+
         function log(msg, cls = '') {
             const line = document.createElement('div');
             line.className = cls;
@@ -37,27 +59,37 @@
         }
 
         document.getElementById('backBtn').onclick = () => location.href = 'index.html';
-        document.getElementById('seedBtn').disabled = true;
-        document.getElementById('wipeBtn').disabled = true;
 
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                if (window.POS_SUPABASE) {
-                    document.getElementById('seedBtn').disabled = false;
-                    document.getElementById('wipeBtn').disabled = false;
-                    log('Firebase ready.', 'ok');
-                } else {
-                    log('Firebase not loaded. Open index.html first, sign in, then come back.', 'err');
+        // Wait for firebase.js to finish initializing
+        (async () => {
+            logEl.innerHTML = '';
+            log('Waiting for Firebase...', 'warn');
+            for (let i = 0; i < 30; i++) {
+                if (window.POS_SUPABASE && typeof window.POS_SUPABASE.getFirebase === 'function') {
+                    try {
+                        const fb = await window.POS_SUPABASE.getFirebase();
+                        if (fb) {
+                            log('Firebase ready.', 'ok');
+                            seedBtn.disabled = false;
+                            wipeBtn.disabled = false;
+                            return;
+                        }
+                    } catch (e) {
+                        // keep waiting
+                    }
                 }
-            }, 1500);
-        });
+                await new Promise(r => setTimeout(r, 200));
+            }
+            log('Firebase failed to load after 6 seconds.', 'err');
+            log('Make sure firebase.js exists at the same folder level as seed.html.', 'err');
+        })();
 
-        document.getElementById('wipeBtn').onclick = async () => {
+        wipeBtn.onclick = async () => {
             if (!confirm('Delete ALL inventory items? Cannot undo.')) return;
             log('Wiping inventory...', 'warn');
             try {
                 const fb = await window.POS_SUPABASE.getFirebase();
-                const { collection, getDocs, doc, deleteDoc, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+                const { collection, getDocs, doc, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
                 const snap = await getDocs(collection(fb.db, 'inventory'));
                 let batch = writeBatch(fb.db);
                 let count = 0;
@@ -73,8 +105,8 @@
             }
         };
 
-        document.getElementById('seedBtn').onclick = async () => {
-            document.getElementById('seedBtn').disabled = true;
+        seedBtn.onclick = async () => {
+            seedBtn.disabled = true;
             log('Starting insert...', 'warn');
             try {
                 const fb = await window.POS_SUPABASE.getFirebase();
@@ -214,7 +246,7 @@
             } catch (e) {
                 log('Error: ' + e.message, 'err');
                 console.error(e);
-                document.getElementById('seedBtn').disabled = false;
+                seedBtn.disabled = false;
             }
         };
     </script>
