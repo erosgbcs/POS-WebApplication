@@ -2513,6 +2513,10 @@ body {
     font-size: 16px;
 }
 
+.cart-item {
+    color: var(--text-primary, #f8fafc);
+}
+
 /* Cart Section */
 .cart-section {
     background: rgba(30, 41, 59, 0.4);
