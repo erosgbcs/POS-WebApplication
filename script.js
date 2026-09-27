@@ -541,6 +541,9 @@
     if (document.getElementById('ovCategoryChart') && typeof renderSalesByCategoryChart === 'function') {
         renderSalesByCategoryChart();
     }
+    if (document.getElementById('ovHourlyHeatmap') && typeof renderHourlyHeatmap === 'function') {
+        renderHourlyHeatmap();
+    }
     }
 
     function initializeTheme() {
@@ -1139,6 +1142,115 @@ function renderLowStockWidget() {
     }).join('');
 }
 
+// ---------- OVERVIEW: HOURLY SALES HEATMAP ----------
+function renderHourlyHeatmap() {
+    const container = document.getElementById('ovHourlyHeatmap');
+    if (!container) return;
+    
+    const orders = readOrdersFromStorage();
+    const monthAgoTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recent = orders.filter(o => {
+        const ts = new Date(o.createdAt).getTime();
+        return !isNaN(ts) && ts >= monthAgoTime;
+    });
+    
+    // Business-hours window — adjust if your shop opens earlier/later
+    const START_HOUR = 6;
+    const END_HOUR = 22;
+    const HOURS = [];
+    for (let h = START_HOUR; h <= END_HOUR; h++) HOURS.push(h);
+    
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // grid[dayIndex][hourIndex] = total sales
+    const grid = DAYS.map(() => HOURS.map(() => 0));
+    let maxValue = 0;
+    let grandTotal = 0;
+    
+    recent.forEach(order => {
+        const d = new Date(order.createdAt);
+        const dayIdx = d.getDay();
+        const hour = d.getHours();
+        if (hour < START_HOUR || hour > END_HOUR) return;
+        const hourIdx = hour - START_HOUR;
+        const total = Number(order.total) || 0;
+        grid[dayIdx][hourIdx] += total;
+        grandTotal += total;
+        if (grid[dayIdx][hourIdx] > maxValue) maxValue = grid[dayIdx][hourIdx];
+    });
+    
+    const subtitleEl = document.getElementById('ovHourlySubtitle');
+    if (subtitleEl) {
+        subtitleEl.textContent = maxValue > 0 ?
+            `${recent.length} order${recent.length === 1 ? '' : 's'} · ${formatAppCurrency(grandTotal)} total` :
+            'No sales in the last 30 days';
+    }
+    
+    const isLight = document.documentElement.dataset.theme === 'light';
+    const hourLabelColor = isLight ? '#475569' : '#94a3b8';
+    const dayLabelColor = isLight ? '#334155' : '#cbd5e1';
+    
+    function formatHour(h) {
+        if (h === 0) return '12a';
+        if (h < 12) return h + 'a';
+        if (h === 12) return '12p';
+        return (h - 12) + 'p';
+    }
+    
+    function cellColor(value) {
+        if (value === 0 || maxValue === 0) {
+            return isLight ? 'rgba(148, 163, 184, 0.08)' : 'rgba(255, 255, 255, 0.03)';
+        }
+        const intensity = Math.pow(value / maxValue, 0.65); // gamma for better spread
+        const alpha = 0.15 + intensity * 0.85;
+        return `rgba(22, 163, 74, ${alpha.toFixed(2)})`;
+    }
+    
+    // Build the table
+    let html = '<div style="overflow-x: auto; padding-bottom: 0.5rem;">';
+    html += '<table style="border-collapse: separate; border-spacing: 2px; width: 100%; min-width: 720px; font-size: 11px;">';
+    
+    // Header
+    html += '<thead><tr>';
+    html += `<th style="text-align: left; padding: 4px 8px; color: ${hourLabelColor}; font-weight: 500;"></th>`;
+    HOURS.forEach(h => {
+        html += `<th style="padding: 4px 0; color: ${hourLabelColor}; font-weight: 500; text-align: center; min-width: 30px;">${formatHour(h)}</th>`;
+    });
+    html += '</tr></thead>';
+    
+    // Body
+    html += '<tbody>';
+    DAYS.forEach((day, dayIdx) => {
+        html += '<tr>';
+        html += `<td style="text-align: left; padding: 4px 8px; color: ${dayLabelColor}; font-weight: 600; white-space: nowrap;">${day}</td>`;
+        HOURS.forEach((hour, hourIdx) => {
+            const val = grid[dayIdx][hourIdx];
+            const bg = cellColor(val);
+            const title = `${day} ${formatHour(hour)}: ${formatAppCurrency(val)}`;
+            html += `<td title="${escapeCustomerText(title)}" style="padding: 0; text-align: center;"><div style="width: 100%; height: 22px; background: ${bg}; border-radius: 4px;"></div></td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    
+    // Legend
+    html += `
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; font-size: 11px; color: ${hourLabelColor};">
+            <span>Low</span>
+            <div style="display: flex; gap: 3px;">
+                <div style="width: 16px; height: 10px; border-radius: 2px; background: rgba(22, 163, 74, 0.2);"></div>
+                <div style="width: 16px; height: 10px; border-radius: 2px; background: rgba(22, 163, 74, 0.4);"></div>
+                <div style="width: 16px; height: 10px; border-radius: 2px; background: rgba(22, 163, 74, 0.6);"></div>
+                <div style="width: 16px; height: 10px; border-radius: 2px; background: rgba(22, 163, 74, 0.8);"></div>
+                <div style="width: 16px; height: 10px; border-radius: 2px; background: rgba(22, 163, 74, 1);"></div>
+            </div>
+            <span>High</span>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
 
 
 
@@ -1148,6 +1260,7 @@ function refreshOverview() {
     renderTopProductsChart();
     renderSalesByCategoryChart();
     renderLowStockWidget();
+    renderHourlyHeatmap();
     renderRecentActivity();
 }
 
