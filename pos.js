@@ -36,12 +36,19 @@
         return String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
     }
 
-    function renderProductCatalog(products) {
-        if (!productGrid) return;
-        productGrid.innerHTML = products.filter(product => Number(product.quantity) > 0).map(product => {
+    let productCache = {};
+
+function renderProductCatalog(products) {
+    if (!productGrid) return;
+    
+    // Build name -> product lookup for inventory decrement
+    productCache = {};
+    products.forEach(p => { if (p.name) productCache[p.name] = p; });
+    
+    productGrid.innerHTML = products.filter(product => Number(product.quantity) > 0).map(product => {
             const sizes = String(product.size || '').split(',').map(size => size.trim()).filter(Boolean);
             const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
-            return `<div class="product-card" data-name="${product.name}" data-price="${product.price}" data-category="${product.category}"${sizeOptions}>
+            return `<div class="product-card" data-id="${product.id}" data-name="${product.name}" data-price="${product.price}" data-category="${product.category}" data-stock="${product.quantity}"${sizeOptions}>
     <p>${product.name}</p>
     <span class="product-card-category">${escapeHtml(product.category || 'Uncategorized')}</span>
     <span class="product-card-sku">Product Code: ${escapeHtml(product.sku || 'N/A')}</span>
@@ -537,11 +544,57 @@ if (confirmPaymentBtn) {
                 }
                 localStorage.setItem('pos_customers', JSON.stringify(customers));
             } catch (err) {
-                console.warn('Customer sync failed:', err);
+        console.warn('Customer sync failed:', err);
+    }
+    }
+    
+    // ---------- DECREMENT INVENTORY ----------
+    try {
+        // Aggregate quantities by product ID (handles multi-size sales of same product)
+        const decrements = {};
+        for (const item of items) {
+            const product = productCache[item.name];
+            if (!product?.id) continue;
+            decrements[product.id] = (decrements[product.id] || 0) + item.quantity;
+        }
+        
+        // Apply decrement for each product
+        for (const [productId, soldQty] of Object.entries(decrements)) {
+            const product = Object.values(productCache).find(p => p.id === productId);
+            if (!product) continue;
+            
+            const currentQty = Number(product.quantity) || 0;
+            const newQty = Math.max(0, currentQty - soldQty);
+            
+            if (currentQty < soldQty) {
+                console.warn(`Oversold ${product.name}: sold ${soldQty}, had ${currentQty}`);
+            }
+            
+            const result = await window.POS_SUPABASE.updateInventoryProduct(productId, {
+                quantity: newQty
+            });
+            
+            if (result?.error) {
+                console.warn('Inventory decrement failed for', product.name, result.error);
+            } else {
+                product.quantity = newQty;
             }
         }
-
-        window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
+        
+        // Refresh POS catalog so out-of-stock items disappear
+        if (typeof window.reloadPosCatalog === 'function') {
+            window.reloadPosCatalog();
+        }
+        
+        // Notify dashboard / inventory to refresh
+        window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
+            detail: Object.values(productCache)
+        }));
+    } catch (err) {
+        console.warn('Inventory decrement error:', err);
+    }
+    
+    window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
         window.dispatchEvent(new CustomEvent('pos-order-created'));
 
         cart = {};
