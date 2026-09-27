@@ -625,48 +625,78 @@ function refreshOverviewStats() {
     const orders = readOrdersFromStorage();
     const customers = readCustomersFromStorage();
     const products = window.getInventorySnapshot?.() || [];
-
+    
     const todayKey = getOverviewDayKey(0);
     const yesterdayKey = getOverviewDayKey(1);
     const weekAgoTime = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
+    
     const todayOrders = orders.filter(o => o.createdAt?.startsWith(todayKey));
     const yesterdayOrders = orders.filter(o => o.createdAt?.startsWith(yesterdayKey));
-
+    
     const todaySales = todayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
     const yesterdaySales = yesterdayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-
-    const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
+    
+    const inStockCount = products.filter(p => (Number(p.quantity) || 0) > 0).length;
+    const lowStockCount = products.filter(p => {
+        const qty = Number(p.quantity) || 0;
+        const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+        return qty > 0 && qty <= min;
+    }).length;
+    const outOfStockCount = products.filter(p => (Number(p.quantity) || 0) === 0).length;
+    
+    // Count-up animation for KPI values
+    const animateNumber = (el, toValue, formatter) => {
+        if (!el) return;
+        const fromValue = Number(el.dataset.rawValue) || 0;
+        const duration = 500;
+        const start = performance.now();
+        const step = (now) => {
+            const t = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - t, 3);
+            const current = fromValue + (toValue - fromValue) * eased;
+            el.textContent = formatter(current);
+            if (t < 1) {
+                requestAnimationFrame(step);
+            } else {
+                el.dataset.rawValue = String(toValue);
+                el.textContent = formatter(toValue);
+            }
+        };
+        el.dataset.rawValue = String(toValue);
+        el.classList.remove('kpi-animate');
+        void el.offsetWidth;
+        el.classList.add('kpi-animate');
+        requestAnimationFrame(step);
     };
+    
+    const salesEl = document.getElementById('ovTodaySales');
+    const ordersEl = document.getElementById('ovOrdersToday');
+    const productsEl = document.getElementById('ovProductsInStock');
+    const customersEl = document.getElementById('ovActiveCustomers');
+    
+    animateNumber(salesEl, todaySales, v => formatAppCurrency(v));
+    animateNumber(ordersEl, todayOrders.length, v => String(Math.round(v)));
+    animateNumber(productsEl, inStockCount, v => String(Math.round(v)));
+    animateNumber(customersEl, customers.length, v => String(Math.round(v)));
+    
+    // Delta labels with arrows
     const setDelta = (id, delta) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.textContent = delta.text;
+        let arrow = '';
+        if (delta.cls === 'positive') arrow = '↗ ';
+        else if (delta.cls === 'negative') arrow = '↘ ';
+        el.textContent = delta.text === '—' ? '—' : arrow + delta.text;
         el.className = `stat-change ${delta.cls}`.trim();
     };
-
-    const inStockCount = products.filter(p => (Number(p.quantity) || 0) > 0).length;
-const lowStockCount = products.filter(p => {
-    const qty = Number(p.quantity) || 0;
-    const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
-    return qty > 0 && qty <= min;
-}).length;
-const outOfStockCount = products.filter(p => (Number(p.quantity) || 0) === 0).length;
-
-setText('ovTodaySales', formatAppCurrency(todaySales));
-setText('ovOrdersToday', String(todayOrders.length));
-setText('ovProductsInStock', String(inStockCount));
-setText('ovActiveCustomers', String(customers.length));
-
-setDelta('ovTodaySalesDelta', computeOverviewDelta(todaySales, yesterdaySales));
-setDelta('ovOrdersTodayDelta', computeOverviewDelta(todayOrders.length, yesterdayOrders.length));
-setDelta('ovProductsDelta', {
-    text: `${lowStockCount} low · ${outOfStockCount} out`,
-    cls: (lowStockCount + outOfStockCount) > 0 ? 'negative' : ''
-});
-
+    
+    setDelta('ovTodaySalesDelta', computeOverviewDelta(todaySales, yesterdaySales));
+    setDelta('ovOrdersTodayDelta', computeOverviewDelta(todayOrders.length, yesterdayOrders.length));
+    setDelta('ovProductsDelta', {
+        text: `${lowStockCount} low · ${outOfStockCount} out`,
+        cls: (lowStockCount + outOfStockCount) > 0 ? 'negative' : ''
+    });
+    
     const newThisWeek = customers.filter(c => {
         const ts = Number(c.id) || 0;
         return ts > 0 && ts >= weekAgoTime;
@@ -674,104 +704,6 @@ setDelta('ovProductsDelta', {
     setDelta('ovCustomersDelta', {
         text: newThisWeek > 0 ? `+${newThisWeek} this week` : '—',
         cls: newThisWeek > 0 ? 'positive' : ''
-    });
-}
-
-
-// ---------- OVERVIEW: TOP PRODUCTS CHART ----------
-let ovTopProductsChartInstance = null;
-
-function renderTopProductsChart() {
-    const canvas = document.getElementById('ovTopProductsChart');
-    if (!canvas || typeof Chart === 'undefined') return;
-
-    const orders = readOrdersFromStorage();
-    const monthAgoTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
-    // Only count sales from the last 30 days
-    const recentOrders = orders.filter(o => {
-        const ts = new Date(o.createdAt).getTime();
-        return !isNaN(ts) && ts >= monthAgoTime;
-    });
-
-    // Aggregate total units sold per product
-    const counts = {};
-    recentOrders.forEach(order => {
-        (order.items || []).forEach(item => {
-            const name = item.name || 'Unknown';
-            const qty = Number(item.quantity) || 0;
-            counts[name] = (counts[name] || 0) + qty;
-        });
-    });
-
-    // Take top 5 by units sold
-    const sorted = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
-
-    const labels = sorted.map(([name]) => name);
-    const data = sorted.map(([, qty]) => qty);
-
-    const subtitleEl = document.getElementById('ovTopProductsSubtitle');
-    if (subtitleEl) {
-        subtitleEl.textContent = labels.length > 0
-            ? `${recentOrders.length} order${recentOrders.length === 1 ? '' : 's'} · ${data.reduce((s, v) => s + v, 0)} units`
-            : 'No sales in the last 30 days';
-    }
-
-    if (ovTopProductsChartInstance) ovTopProductsChartInstance.destroy();
-
-    const isLight = document.documentElement.dataset.theme === 'light';
-    const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
-    const tickColor = isLight ? '#475569' : '#94a3b8';
-
-    ovTopProductsChartInstance = new Chart(canvas, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Units Sold',
-                data,
-                backgroundColor: 'rgba(22, 163, 74, 0.65)',
-                borderColor: '#16a34a',
-                borderWidth: 1,
-                borderRadius: 6
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    titleColor: '#f1f5f9',
-                    bodyColor: '#e2e8f0',
-                    borderColor: 'rgba(22, 163, 74, 0.4)',
-                    borderWidth: 1,
-                    padding: 10,
-                    displayColors: false,
-                    callbacks: {
-                        label: ctx => `${ctx.parsed.x} unit${ctx.parsed.x === 1 ? '' : 's'} sold`
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    grid: { color: gridColor },
-                    ticks: {
-                        color: tickColor,
-                        precision: 0
-                    }
-                },
-                y: {
-                    grid: { display: false },
-                    ticks: { color: tickColor }
-                }
-            }
-        }
     });
 }
 // ---------- OVERVIEW: SALES BY CATEGORY CHART ----------
@@ -893,6 +825,104 @@ function renderSalesByCategoryChart() {
         }
     });
 }
+
+// ---------- OVERVIEW: TOP PRODUCTS CHART ----------
+let ovTopProductsChartInstance = null;
+
+function renderTopProductsChart() {
+    const canvas = document.getElementById('ovTopProductsChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    
+    const orders = readOrdersFromStorage();
+    const monthAgoTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    
+    // Only count sales from the last 30 days
+    const recentOrders = orders.filter(o => {
+        const ts = new Date(o.createdAt).getTime();
+        return !isNaN(ts) && ts >= monthAgoTime;
+    });
+    
+    // Aggregate total units sold per product
+    const counts = {};
+    recentOrders.forEach(order => {
+        (order.items || []).forEach(item => {
+            const name = item.name || 'Unknown';
+            const qty = Number(item.quantity) || 0;
+            counts[name] = (counts[name] || 0) + qty;
+        });
+    });
+    
+    // Take top 5 by units sold
+    const sorted = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+    
+    const labels = sorted.map(([name]) => name);
+    const data = sorted.map(([, qty]) => qty);
+    
+    const subtitleEl = document.getElementById('ovTopProductsSubtitle');
+    if (subtitleEl) {
+        subtitleEl.textContent = labels.length > 0 ?
+            `${recentOrders.length} order${recentOrders.length === 1 ? '' : 's'} · ${data.reduce((s, v) => s + v, 0)} units` :
+            'No sales in the last 30 days';
+    }
+    
+    if (ovTopProductsChartInstance) ovTopProductsChartInstance.destroy();
+    
+    const isLight = document.documentElement.dataset.theme === 'light';
+    const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
+    const tickColor = isLight ? '#475569' : '#94a3b8';
+    
+    ovTopProductsChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Units Sold',
+                data,
+                backgroundColor: 'rgba(22, 163, 74, 0.65)',
+                borderColor: '#16a34a',
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#f1f5f9',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(22, 163, 74, 0.4)',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: ctx => `${ctx.parsed.x} unit${ctx.parsed.x === 1 ? '' : 's'} sold`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: tickColor,
+                        precision: 0
+                    }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: tickColor }
+                }
+            }
+        }
+    });
+}
+
 
 let ovSalesChartInstance = null;
 
