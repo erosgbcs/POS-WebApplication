@@ -647,24 +647,25 @@ function refreshOverviewStats() {
         el.className = `stat-change ${delta.cls}`.trim();
     };
 
-    setText('ovTodaySales', formatAppCurrency(todaySales));
-    setText('ovOrdersToday', String(todayOrders.length));
-    setText('ovProductsInStock', String(products.length));
-    setText('ovActiveCustomers', String(customers.length));
+    const inStockCount = products.filter(p => (Number(p.quantity) || 0) > 0).length;
+const lowStockCount = products.filter(p => {
+    const qty = Number(p.quantity) || 0;
+    const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+    return qty > 0 && qty <= min;
+}).length;
+const outOfStockCount = products.filter(p => (Number(p.quantity) || 0) === 0).length;
 
-    setDelta('ovTodaySalesDelta', computeOverviewDelta(todaySales, yesterdaySales));
-    setDelta('ovOrdersTodayDelta', computeOverviewDelta(todayOrders.length, yesterdayOrders.length));
+setText('ovTodaySales', formatAppCurrency(todaySales));
+setText('ovOrdersToday', String(todayOrders.length));
+setText('ovProductsInStock', String(inStockCount));
+setText('ovActiveCustomers', String(customers.length));
 
-    const lowStock = products.filter(p => {
-        const qty = Number(p.quantity) || 0;
-        const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
-        return qty > 0 && qty <= min;
-    }).length;
-    const outOfStock = products.filter(p => (Number(p.quantity) || 0) === 0).length;
-    setDelta('ovProductsDelta', {
-        text: `${lowStock} low · ${outOfStock} out`,
-        cls: (lowStock + outOfStock) > 0 ? 'negative' : ''
-    });
+setDelta('ovTodaySalesDelta', computeOverviewDelta(todaySales, yesterdaySales));
+setDelta('ovOrdersTodayDelta', computeOverviewDelta(todayOrders.length, yesterdayOrders.length));
+setDelta('ovProductsDelta', {
+    text: `${lowStockCount} low · ${outOfStockCount} out`,
+    cls: (lowStockCount + outOfStockCount) > 0 ? 'negative' : ''
+});
 
     const newThisWeek = customers.filter(c => {
         const ts = Number(c.id) || 0;
