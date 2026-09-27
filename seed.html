@@ -60,29 +60,50 @@
 
         document.getElementById('backBtn').onclick = () => location.href = 'index.html';
 
-        // Wait for firebase.js to finish initializing
-        (async () => {
-            logEl.innerHTML = '';
-            log('Waiting for Firebase...', 'warn');
-            for (let i = 0; i < 30; i++) {
-                if (window.POS_SUPABASE && typeof window.POS_SUPABASE.getFirebase === 'function') {
-                    try {
-                        const fb = await window.POS_SUPABASE.getFirebase();
-                        if (fb) {
-                            log('Firebase ready.', 'ok');
-                            seedBtn.disabled = false;
-                            wipeBtn.disabled = false;
-                            return;
-                        }
-                    } catch (e) {
-                        // keep waiting
-                    }
-                }
-                await new Promise(r => setTimeout(r, 200));
-            }
-            log('Firebase failed to load after 6 seconds.', 'err');
-            log('Make sure firebase.js exists at the same folder level as seed.html.', 'err');
-        })();
+        // Wait for firebase.js AND the signed-in user session
+(async () => {
+  logEl.innerHTML = '';
+  log('Waiting for Firebase...', 'warn');
+  
+  // Step 1: wait for Firebase to initialize
+  let fb = null;
+  for (let i = 0; i < 30; i++) {
+    if (window.POS_SUPABASE && typeof window.POS_SUPABASE.getFirebase === 'function') {
+      try {
+        fb = await window.POS_SUPABASE.getFirebase();
+        if (fb) break;
+      } catch (e) {}
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  
+  if (!fb) {
+    log('Firebase failed to load after 6 seconds.', 'err');
+    return;
+  }
+  log('Firebase ready.', 'ok');
+  
+  // Step 2: wait for auth state to restore the session
+  log('Checking signed-in user...', 'warn');
+  let user = null;
+  for (let i = 0; i < 30; i++) {
+    try {
+      const res = await window.POS_SUPABASE.getCurrentUser();
+      if (res && res.user) { user = res.user; break; }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 200));
+  }
+  
+  if (!user) {
+    log('No signed-in user detected.', 'err');
+    log('Open the app, sign in as admin, then come back to seed.html.', 'err');
+    return;
+  }
+  
+  log('Signed in as: ' + (user.email || user.uid), 'ok');
+  seedBtn.disabled = false;
+  wipeBtn.disabled = false;
+})();
 
         wipeBtn.onclick = async () => {
             if (!confirm('Delete ALL inventory items? Cannot undo.')) return;
