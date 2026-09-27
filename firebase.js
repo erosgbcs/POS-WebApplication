@@ -260,20 +260,25 @@ return state.fb;
     }
 
     // ---------- INVENTORY MANAGEMENT ----------
-    async function getInventoryProducts() {
-        const fb = await getFirebase();
-        if (!fb) return { data: [], error: new Error('Firebase is not configured.') };
-
-        try {
-            const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-            const q = query(collection(fb.db, 'inventory'), orderBy('created_at', 'desc'));
-            const querySnapshot = await getDocs(q);
-            const products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            return { data: products, error: null };
-        } catch (error) {
-            return { data: [], error };
-        }
+   async function getInventoryProducts() {
+    const fb = await getFirebase();
+    if (!fb) return { data: [], error: new Error('Firebase is not configured.') };
+    
+    try {
+        const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const querySnapshot = await getDocs(collection(fb.db, 'inventory'));
+        const products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Client-side sort — safe against missing created_at
+        products.sort((a, b) => {
+            const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return bTime - aTime;
+        });
+        return { data: products, error: null };
+    } catch (error) {
+        return { data: [], error };
     }
+}
 
     async function getInventoryProduct(productId) {
         const fb = await getFirebase();
@@ -450,7 +455,311 @@ return state.fb;
         if (error) return { data: [], error };
         return { data: products.filter(p => p.quantity === 0), error: null };
     }
+// ---------- ORDERS ----------
+async function addOrder(orderData) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const id = orderData.id || `ORD-${Date.now()}`;
+        const payload = { ...orderData, id, syncedAt: serverTimestamp() };
+        await setDoc(doc(fb.db, 'orders', id), payload);
+        return { data: [{ ...orderData, id }], error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
 
+async function getOrders() {
+    const fb = await getFirebase();
+    if (!fb) return { data: [], error: new Error('Firebase is not configured.') };
+    
+    try {
+        const { collection, getDocs, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const q = query(collection(fb.db, 'orders'), limit(500));
+        const snap = await getDocs(q);
+        const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Client-side sort
+        orders.sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+        });
+        return { data: orders, error: null };
+    } catch (error) {
+        return { data: [], error };
+    }
+}
+
+async function deleteOrder(orderId) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await deleteDoc(doc(fb.db, 'orders', String(orderId)));
+        return { data: null, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+function subscribeOrders(callback) {
+    let unsubscribe = () => {};
+    (async () => {
+        const fb = await getFirebase();
+        if (!fb) return;
+        const { collection, onSnapshot, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const q = query(collection(fb.db, 'orders'), limit(500));
+        unsubscribe = onSnapshot(q, snap => {
+            const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            orders.sort((a, b) => {
+                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return bTime - aTime;
+            });
+            callback(orders);
+        }, err => console.warn('Orders subscription error:', err.message));
+    })();
+    return () => unsubscribe();
+}
+
+// ---------- CUSTOMERS ----------
+async function getCustomers() {
+    const fb = await getFirebase();
+    if (!fb) return { data: [], error: new Error('Firebase is not configured.') };
+    try {
+        const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const snap = await getDocs(collection(fb.db, 'customers'));
+        const customers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        customers.sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+        });
+        return { data: customers, error: null };
+    } catch (error) {
+        return { data: [], error };
+    }
+}
+
+async function addCustomer(customerData) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const payload = {
+            ...customerData,
+            orders: customerData.orders ?? 0,
+            totalSpent: customerData.totalSpent ?? 0,
+            createdAt: customerData.createdAt || new Date().toISOString(),
+            syncedAt: serverTimestamp()
+        };
+        const ref = await addDoc(collection(fb.db, 'customers'), payload);
+        return { data: [{ id: ref.id, ...payload }], error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function updateCustomer(customerId, updates) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await updateDoc(doc(fb.db, 'customers', String(customerId)), updates);
+        return { data: [{ id: customerId, ...updates }], error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function deleteCustomer(customerId) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await deleteDoc(doc(fb.db, 'customers', String(customerId)));
+        return { data: null, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+function subscribeCustomers(callback) {
+    let unsubscribe = () => {};
+    (async () => {
+        const fb = await getFirebase();
+        if (!fb) return;
+        const { collection, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        unsubscribe = onSnapshot(collection(fb.db, 'customers'), snap => {
+            const customers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            customers.sort((a, b) => {
+                const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return bTime - aTime;
+            });
+            callback(customers);
+        }, err => console.warn('Customers subscription error:', err.message));
+    })();
+    return () => unsubscribe();
+}
+
+// ---------- AUDIT LOGS ----------
+async function addAuditLog(logData) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const payload = {
+            timestamp: logData.timestamp || new Date().toISOString(),
+            user: logData.user || 'Unknown',
+            action: logData.action || 'info',
+            module: logData.module || 'system',
+            description: logData.description || '',
+            ip: logData.ip || 'Client',
+            severity: logData.severity || 'info',
+            syncedAt: serverTimestamp()
+        };
+        const ref = await addDoc(collection(fb.db, 'audit_logs'), payload);
+        return { data: [{ id: ref.id, ...payload }], error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function getAuditLogs(maxRecords = 500) {
+    const fb = await getFirebase();
+    if (!fb) return { data: [], error: new Error('Firebase is not configured.') };
+    try {
+        const { collection, getDocs, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const q = query(collection(fb.db, 'audit_logs'), limit(maxRecords));
+        const snap = await getDocs(q);
+        const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        logs.sort((a, b) => {
+            const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return bTime - aTime;
+        });
+        return { data: logs, error: null };
+    } catch (error) {
+        return { data: [], error };
+    }
+}
+
+async function clearAuditLogs() {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { collection, getDocs, doc, deleteDoc, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const snap = await getDocs(collection(fb.db, 'audit_logs'));
+        const batches = [];
+        let batch = writeBatch(fb.db);
+        let count = 0;
+        for (const d of snap.docs) {
+            batch.delete(doc(fb.db, 'audit_logs', d.id));
+            count++;
+            if (count === 400) {
+                batches.push(batch.commit());
+                batch = writeBatch(fb.db);
+                count = 0;
+            }
+        }
+        if (count > 0) batches.push(batch.commit());
+        await Promise.all(batches);
+        return { data: null, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+function subscribeAuditLogs(callback) {
+    let unsubscribe = () => {};
+    (async () => {
+        const fb = await getFirebase();
+        if (!fb) return;
+        const { collection, onSnapshot, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const q = query(collection(fb.db, 'audit_logs'), limit(500));
+        unsubscribe = onSnapshot(q, snap => {
+            const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            logs.sort((a, b) => {
+                const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                return bTime - aTime;
+            });
+            callback(logs);
+        }, err => console.warn('Audit subscription error:', err.message));
+    })();
+    return () => unsubscribe();
+}
+
+// ---------- CONFIG (Settings & Categories) ----------
+async function getSettings() {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const snap = await getDoc(doc(fb.db, 'config', 'settings'));
+        return { data: snap.exists() ? snap.data() : null, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function saveSettings(settings) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await setDoc(doc(fb.db, 'config', 'settings'), settings, { merge: true });
+        return { data: settings, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function getCategories() {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const snap = await getDoc(doc(fb.db, 'config', 'categories'));
+        return { data: snap.exists() ? snap.data().list : null, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function saveCategories(list) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await setDoc(doc(fb.db, 'config', 'categories'), { list }, { merge: true });
+        return { data: list, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+// ---------- REALTIME INVENTORY ----------
+function subscribeInventory(callback) {
+    let unsubscribe = () => {};
+    (async () => {
+        const fb = await getFirebase();
+        if (!fb) return;
+        const { collection, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        unsubscribe = onSnapshot(collection(fb.db, 'inventory'), snap => {
+            const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            products.sort((a, b) => {
+                const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return bTime - aTime;
+            });
+            callback(products);
+        }, err => console.warn('Inventory subscription error:', err.message));
+    })();
+    return () => unsubscribe();
+}
     // ---------- EXPORT ----------
     window.POS_FIREBASE = {
         DEFAULT_CONFIG,
@@ -480,10 +789,31 @@ return state.fb;
         bulkUpdateInventory,
         getInventoryCategories,
         getLowStockProducts,
-        getOutOfStockProducts
+        getOutOfStockProducts,
+        subscribeInventory,
+        // Orders (NEW)
+        addOrder,
+        getOrders,
+        deleteOrder,
+        subscribeOrders,
+        // Customers (NEW)
+        getCustomers,
+        addCustomer,
+        updateCustomer,
+        deleteCustomer,
+        subscribeCustomers,
+        // Audit Logs (NEW)
+        addAuditLog,
+        getAuditLogs,
+        clearAuditLogs,
+        subscribeAuditLogs,
+        // Config (NEW)
+        getSettings,
+        saveSettings,
+        getCategories,
+        saveCategories
     };
-
-    // Alias for backward compatibility so script.js / inventory.js / pos.js
-    // can keep calling window.POS_SUPABASE.* without modification.
+    
+    // Alias for backward compatibility
     window.POS_SUPABASE = window.POS_FIREBASE;
-})();
+    })();

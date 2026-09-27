@@ -15,16 +15,16 @@
 
 const supabaseApi = window.POS_SUPABASE; // ← ADD THIS LINE
 
-// ---------- CATEGORIES MANAGEMENT ----------
-
-    // ---------- CATEGORIES MANAGEMENT ----------
+// ---------- CATEGORIES MANAGEMENT (Firestore-backed) ----------
 const CATEGORIES_KEY = 'pos_categories';
 const DEFAULT_CATEGORIES = [
     'tools', 'hardware', 'electrical', 'plumbing', 'paint',
     'garden', 'building', 'fasteners', 'safety'
 ];
 
-function getCategories() {
+let categoriesCache = null;
+
+function getCategoriesLocal() {
     try {
         const stored = JSON.parse(localStorage.getItem(CATEGORIES_KEY) || 'null');
         if (Array.isArray(stored) && stored.length > 0) return stored;
@@ -32,11 +32,43 @@ function getCategories() {
     return [...DEFAULT_CATEGORIES];
 }
 
-function saveCategories(categories) {
+function saveCategoriesLocal(list) {
     try {
-        localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+        localStorage.setItem(CATEGORIES_KEY, JSON.stringify(list));
     } catch (e) {
-        console.error('Unable to save categories', e);
+        console.error('Unable to save categories locally', e);
+    }
+}
+
+async function loadCategoriesFromCloud() {
+    try {
+        const { data, error } = await window.POS_SUPABASE.getCategories();
+        if (!error && Array.isArray(data) && data.length > 0) {
+            categoriesCache = data;
+            saveCategoriesLocal(data);
+        } else if (!categoriesCache) {
+            categoriesCache = getCategoriesLocal();
+            if (!error && (!data || data.length === 0)) {
+                await window.POS_SUPABASE.saveCategories(categoriesCache).catch(() => {});
+            }
+        }
+    } catch (e) {
+        categoriesCache = getCategoriesLocal();
+    }
+    renderCategoryOptions();
+}
+
+function getCategories() {
+    return categoriesCache || getCategoriesLocal();
+}
+
+async function saveCategories(list) {
+    categoriesCache = list;
+    saveCategoriesLocal(list);
+    try {
+        await window.POS_SUPABASE.saveCategories(list);
+    } catch (e) {
+        console.warn('Categories cloud sync failed:', e);
     }
 }
 
@@ -75,7 +107,7 @@ function renderCategoryOptions() {
     }
 }
 
-function addCategoryPrompt() {
+async function addCategoryPrompt() {
     const name = window.prompt('New category name:')?.trim();
     if (!name) return;
     const normalized = name.toLowerCase();
@@ -85,14 +117,13 @@ function addCategoryPrompt() {
         return;
     }
     list.push(normalized);
-    saveCategories(list);
+    await saveCategories(list);
     renderCategoryOptions();
     const formSel = document.getElementById('productCategory');
     if (formSel) formSel.value = normalized;
     window.POS_APP_LOG?.('create', 'inventory', `Category "${name}" added`, 'info');
     showToast(`Category "${name}" added`, 'success');
 }
-
     const formatCurrency = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
 
     function mapProduct(product) {
@@ -326,26 +357,35 @@ document.getElementById('addCategoryBtn')?.addEventListener('click', addCategory
     }
 
     window.initInventory = function() {
-        if (!supabaseApi?.isConfigured?.()) {
+    // Always load categories from cloud (realtime-safe)
+    loadCategoriesFromCloud();
+    
+    if (!supabaseApi?.isConfigured?.()) {
+        inventoryState.products = [];
+        showToast('Firebase is not configured', 'error');
+        renderCategoryOptions();
+        updateInventoryStats();
+        filterProducts();
+        setupInventoryEventListeners();
+        return;
+    }
+    supabaseApi.getInventoryProducts().then(result => {
+        if (result.error) {
+            showToast(result.error.message, 'error');
             inventoryState.products = [];
-            showToast('Firebase is not configured', 'error');
-            renderCategoryOptions();
-updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
-            return;
+        } else {
+            inventoryState.products = (result.data || []).map(mapProduct);
+            window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
         }
-        supabaseApi.getInventoryProducts().then(result => {
-            if (result.error) {
-                showToast(result.error.message, 'error');
-                inventoryState.products = [];
-            } else {
-                inventoryState.products = (result.data || []).map(mapProduct);
-                window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
-            }
-            renderCategoryOptions();
-updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
-        });
-        updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
-    };
+        renderCategoryOptions();
+        updateInventoryStats();
+        filterProducts();
+        setupInventoryEventListeners();
+    });
+    updateInventoryStats();
+    filterProducts();
+    setupInventoryEventListeners();
+};
 
     window.filterInventoryByStock = function(stockFilter) {
         inventoryState.stockFilter = stockFilter || '';

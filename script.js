@@ -224,40 +224,47 @@
     const THEME_KEY = 'pos_theme';
     const SETTINGS_KEY = 'pos_settings';
 
-    function loadSettings() {
-        let settings = {};
-        try {
-            settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-        } catch (e) {}
+    async function loadSettings() {
+    let settings = {};
+    try {
+        settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    } catch (e) {}
+    
+    try {
+        const { data } = await window.POS_SUPABASE.getSettings();
+        if (data) settings = { ...settings, ...data };
+    } catch (e) {}
+    
+    if (settingStoreName && typeof settings.storeName === 'string') settingStoreName.value = settings.storeName;
+    if (settingCurrency && settings.currency) settingCurrency.value = settings.currency;
+    if (settingTimeZone && settings.timeZone) settingTimeZone.value = settings.timeZone;
+    if (settingLowStockNotifications && typeof settings.lowStockNotifications === 'boolean') settingLowStockNotifications.checked = settings.lowStockNotifications;
+    if (settingDailyReports && typeof settings.dailyReports === 'boolean') settingDailyReports.checked = settings.dailyReports;
+    if (settingWeeklySummary && typeof settings.weeklySummary === 'boolean') settingWeeklySummary.checked = settings.weeklySummary;
+    
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+}
 
-        if (settingStoreName && typeof settings.storeName === 'string') settingStoreName.value = settings.storeName;
-        if (settingCurrency && settings.currency) settingCurrency.value = settings.currency;
-        if (settingTimeZone && settings.timeZone) settingTimeZone.value = settings.timeZone;
-        if (settingLowStockNotifications && typeof settings.lowStockNotifications === 'boolean') settingLowStockNotifications.checked = settings.lowStockNotifications;
-        if (settingDailyReports && typeof settings.dailyReports === 'boolean') settingDailyReports.checked = settings.dailyReports;
-        if (settingWeeklySummary && typeof settings.weeklySummary === 'boolean') settingWeeklySummary.checked = settings.weeklySummary;
+    async function saveSettings() {
+    const settings = {
+        storeName: settingStoreName?.value.trim() || "Kirby's Hardware",
+        currency: settingCurrency?.value || 'PHP',
+        timeZone: settingTimeZone?.value || 'UTC-8',
+        lowStockNotifications: settingLowStockNotifications?.checked ?? true,
+        dailyReports: settingDailyReports?.checked ?? true,
+        weeklySummary: settingWeeklySummary?.checked ?? false
+    };
+    
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+    
+    const { error } = await window.POS_SUPABASE.saveSettings(settings);
+    if (error) {
+        showToast('Unable to save settings to cloud', 'error');
+        return;
     }
-
-    function saveSettings() {
-        const settings = {
-            storeName: settingStoreName?.value.trim() || "Kirby's Hardware",
-            currency: settingCurrency?.value || 'PHP',
-            timeZone: settingTimeZone?.value || 'UTC-8',
-            lowStockNotifications: settingLowStockNotifications?.checked ?? true,
-            dailyReports: settingDailyReports?.checked ?? true,
-            weeklySummary: settingWeeklySummary?.checked ?? false
-        };
-
-        try {
-            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-            addAuditLog('update', 'settings', 'System settings updated', 'info');
-            showToast('Settings saved successfully', 'success');
-        } catch (error) {
-            showToast('Unable to save settings', 'error');
-        }
-    }
-
-    if (saveSettingsBtn) saveSettingsBtn.addEventListener('click', saveSettings);
+    addAuditLog('update', 'settings', 'System settings updated', 'info');
+    showToast('Settings saved successfully', 'success');
+};
 
     function readStoredRecords(key) {
         try {
@@ -281,67 +288,83 @@
     }
 
     function addAuditLog(action, module, description, severity = 'info') {
-        const logs = readStoredRecords(AUDIT_KEY);
-        logs.unshift({
-            id: Date.now() + Math.random(),
-            timestamp: new Date().toISOString(),
-            user: getActorName(),
-            action,
-            module,
-            description,
-            ip: 'Local session',
-            severity
-        });
-        writeStoredRecords(AUDIT_KEY, logs.slice(0, 500));
-        renderAuditLogs();
-    }
+    const logEntry = {
+        timestamp: new Date().toISOString(),
+        user: getActorName(),
+        action,
+        module,
+        description,
+        ip: 'Client',
+        severity
+    };
+    // Local cache — instant UI + offline
+    const logs = readStoredRecords(AUDIT_KEY);
+    logs.unshift({ id: Date.now() + Math.random(), ...logEntry });
+    writeStoredRecords(AUDIT_KEY, logs.slice(0, 100));
+    renderAuditLogs();
+    // Firestore sync — cross-device
+    window.POS_SUPABASE?.addAuditLog?.(logEntry).catch(() => {});
+}
 
-    window.POS_APP_LOG = addAuditLog;
-
-    function renderOrders() {
-        if (!ordersTableBody) return;
-        const status = orderStatusFilter?.value || '';
-        const dateRange = orderDateFilter?.value || '';
-        const now = Date.now();
-        const orders = readStoredRecords(ORDERS_KEY).filter(order => {
-            if (status && order.status !== status) return false;
-            if (!dateRange) return true;
-            const age = now - new Date(order.createdAt).getTime();
-            const day = 24 * 60 * 60 * 1000;
-            if (dateRange === 'Today') return age < day;
-            if (dateRange === 'This Week') return age < day * 7;
-            if (dateRange === 'This Month') return age < day * 31;
-            return true;
-        });
-
-        if (!orders.length) {
-            ordersTableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No orders found</td></tr>';
-            return;
+    async function renderOrders() {
+    if (!ordersTableBody) return;
+    
+    let orders = [];
+    try {
+        const { data, error } = await window.POS_SUPABASE.getOrders();
+        if (!error && Array.isArray(data)) {
+            orders = data;
+            writeStoredRecords(ORDERS_KEY, orders.slice(0, 500));
+        } else {
+            orders = readStoredRecords(ORDERS_KEY);
         }
-
-        ordersTableBody.innerHTML = orders.map(order => {
-            const items = (order.items || []).map(item => `${escapeCustomerText(item.name)} x${item.quantity}`).join(', ');
-            return `<tr>
-                <td>${escapeCustomerText(order.id)}</td>
-                <td>${escapeCustomerText(order.customerName || 'Walk-in customer')}</td>
-                <td>${items || 'No items'}</td>
-                <td>${formatAppCurrency(order.total)}</td>
-                <td><span class="stock-badge in-stock">${escapeCustomerText(order.status)}</span></td>
-                <td>${new Date(order.createdAt).toLocaleString()}</td>
-                <td><button class="btn-icon delete order-delete-btn" type="button" data-order-id="${escapeCustomerText(order.id)}" title="Delete order"><i class="fas fa-trash"></i></button></td>
-            </tr>`;
-        }).join('');
+    } catch {
+        orders = readStoredRecords(ORDERS_KEY);
     }
-
-    function deleteOrder(orderId) {
-        const orders = readStoredRecords(ORDERS_KEY);
-        const nextOrders = orders.filter(order => order.id !== orderId);
-        if (nextOrders.length === orders.length) return;
-        writeStoredRecords(ORDERS_KEY, nextOrders);
-        addAuditLog('delete', 'orders', `Order ${orderId} deleted`, 'warning');
-        renderOrders();
-        showToast('Order deleted', 'success');
+    
+    const status = orderStatusFilter?.value || '';
+    const dateRange = orderDateFilter?.value || '';
+    const now = Date.now();
+    
+    const filtered = orders.filter(order => {
+        if (status && order.status !== status) return false;
+        if (!dateRange) return true;
+        const age = now - new Date(order.createdAt).getTime();
+        const day = 24 * 60 * 60 * 1000;
+        if (dateRange === 'Today') return age < day;
+        if (dateRange === 'This Week') return age < day * 7;
+        if (dateRange === 'This Month') return age < day * 31;
+        return true;
+    });
+    
+    if (!filtered.length) {
+        ordersTableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No orders found</td></tr>';
+        return;
     }
+    
+    ordersTableBody.innerHTML = filtered.map(order => {
+        const items = (order.items || []).map(item => `${escapeCustomerText(item.name)} x${item.quantity}`).join(', ');
+        return `<tr>
+            <td>${escapeCustomerText(order.id)}</td>
+            <td>${escapeCustomerText(order.customerName || 'Walk-in customer')}</td>
+            <td>${items || 'No items'}</td>
+            <td>${formatAppCurrency(order.total)}</td>
+            <td><span class="stock-badge in-stock">${escapeCustomerText(order.status)}</span></td>
+            <td>${new Date(order.createdAt).toLocaleString()}</td>
+            <td><button class="btn-icon delete order-delete-btn" type="button" data-order-id="${escapeCustomerText(order.id)}" title="Delete order"><i class="fas fa-trash"></i></button></td>
+        </tr>`;
+    }).join('');
+}
+
+    async function deleteOrder(orderId) {
+    const { error } = await window.POS_SUPABASE.deleteOrder(orderId);
+    if (error) { showToast(error.message, 'error'); return; }
+    const orders = readStoredRecords(ORDERS_KEY).filter(order => order.id !== orderId);
+    writeStoredRecords(ORDERS_KEY, orders);
+    addAuditLog('delete', 'orders', `Order ${orderId} deleted`, 'warning');
+    renderOrders();
+    showToast('Order deleted', 'success');
+}
 
     function setupOrderFeatures() {
         orderStatusFilter?.addEventListener('change', renderOrders);
@@ -401,12 +424,40 @@
         });
     }
 
-    function renderAuditLogs() {
-        if (!auditLogTableBody) return;
-        const logs = getFilteredAuditLogs();
-        const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
-        const pageLogs = logs.slice(start, start + AUDIT_PAGE_SIZE);
-        auditLogTableBody.innerHTML = pageLogs.length ? pageLogs.map(log => `<tr>
+    async function renderAuditLogs() {
+    if (!auditLogTableBody) return;
+    
+    let logs = [];
+    try {
+        const { data, error } = await window.POS_SUPABASE.getAuditLogs(500);
+        if (!error && Array.isArray(data)) {
+            logs = data;
+            writeStoredRecords(AUDIT_KEY, logs.slice(0, 100));
+        } else {
+            logs = readStoredRecords(AUDIT_KEY);
+        }
+    } catch {
+        logs = readStoredRecords(AUDIT_KEY);
+    }
+    
+    const search = (auditSearch?.value || '').toLowerCase();
+    const action = auditActionFilter?.value || '';
+    const module = auditModuleFilter?.value || '';
+    const date = auditDateFilter?.value || '';
+    
+    const filtered = logs.filter(log => {
+        const haystack = `${log.user} ${log.action} ${log.module} ${log.description}`.toLowerCase();
+        return (!search || haystack.includes(search)) &&
+            (!action || log.action === action) &&
+            (!module || log.module === module) &&
+            (!date || (log.timestamp || '').startsWith(date));
+    });
+    
+    const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
+    const pageLogs = filtered.slice(start, start + AUDIT_PAGE_SIZE);
+    
+    auditLogTableBody.innerHTML = pageLogs.length ?
+        pageLogs.map(log => `<tr>
             <td>${new Date(log.timestamp).toLocaleString()}</td>
             <td>${escapeCustomerText(log.user)}</td>
             <td>${escapeCustomerText(log.action)}</td>
@@ -414,17 +465,28 @@
             <td>${escapeCustomerText(log.description)}</td>
             <td>${escapeCustomerText(log.ip)}</td>
             <td>${escapeCustomerText(log.severity)}</td>
-        </tr>`).join('') : '<tr><td colspan="7" class="empty-table-message">No audit records found</td></tr>';
-        const pages = Math.ceil(logs.length / AUDIT_PAGE_SIZE);
-        if (auditPagination) auditPagination.innerHTML = pages > 1 ? Array.from({ length: pages }, (_, index) => `<button class="page-btn ${index + 1 === auditPage ? 'active' : ''}" type="button" data-audit-page="${index + 1}">${index + 1}</button>`).join('') : '';
-        const allLogs = readStoredRecords(AUDIT_KEY);
-        const today = new Date().toISOString().split('T')[0];
-        const setText = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
-        setText('totalLogs', allLogs.length);
-        setText('todayLogs', allLogs.filter(log => log.timestamp.startsWith(today)).length);
-        setText('criticalLogs', allLogs.filter(log => log.severity === 'critical' || log.severity === 'error').length);
-        setText('dataChanges', allLogs.filter(log => ['create', 'update', 'delete'].includes(log.action)).length);
+        </tr>`).join('') :
+        '<tr><td colspan="7" class="empty-table-message">No audit records found</td></tr>';
+    
+    const pages = Math.ceil(filtered.length / AUDIT_PAGE_SIZE);
+    if (auditPagination) {
+        auditPagination.innerHTML = pages > 1 ?
+            Array.from({ length: pages }, (_, index) =>
+                `<button class="page-btn ${index + 1 === auditPage ? 'active' : ''}" type="button" data-audit-page="${index + 1}">${index + 1}</button>`
+            ).join('') :
+            '';
     }
+    
+    const today = new Date().toISOString().split('T')[0];
+    const setText = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+    };
+    setText('totalLogs', filtered.length);
+    setText('todayLogs', filtered.filter(log => (log.timestamp || '').startsWith(today)).length);
+    setText('criticalLogs', filtered.filter(log => log.severity === 'critical' || log.severity === 'error').length);
+    setText('dataChanges', filtered.filter(log => ['create', 'update', 'delete'].includes(log.action)).length);
+}
 
     function setupAuditFeatures() {
         [auditSearch, auditActionFilter, auditModuleFilter, auditDateFilter].forEach(control => control?.addEventListener('input', () => { auditPage = 1; renderAuditLogs(); }));
@@ -438,12 +500,14 @@
             downloadCsv(`audit_logs_${new Date().toISOString().split('T')[0]}.csv`, ['Timestamp', 'User', 'Action', 'Module', 'Description', 'IP Address', 'Severity'], logs.map(log => [log.timestamp, log.user, log.action, log.module, log.description, log.ip, log.severity]));
             addAuditLog('export', 'audit', 'Audit log exported', 'info');
         });
-        document.getElementById('clearAllLogs')?.addEventListener('click', () => {
-            if (!window.confirm('Clear all audit logs?')) return;
-            writeStoredRecords(AUDIT_KEY, []);
-            renderAuditLogs();
-            showToast('Audit logs cleared', 'success');
-        });
+        document.getElementById('clearAllLogs')?.addEventListener('click', async () => {
+    if (!window.confirm('Clear all audit logs?')) return;
+    const { error } = await window.POS_SUPABASE.clearAuditLogs();
+    if (error) { showToast(error.message, 'error'); return; }
+    writeStoredRecords(AUDIT_KEY, []);
+    renderAuditLogs();
+    showToast('Audit logs cleared', 'success');
+});
         auditPagination?.addEventListener('click', event => {
             const button = event.target.closest('[data-audit-page]');
             if (!button) return;
@@ -470,56 +534,87 @@
         }[character]));
     }
 
-    function renderCustomers(searchTerm = '') {
-        if (!customersTableBody) return;
-        const search = searchTerm.trim().toLowerCase();
-        const customers = getCustomers().filter(customer =>
-            [customer.name, customer.email, customer.phone].some(value => String(value || '').toLowerCase().includes(search))
-        );
+    async function renderCustomers(searchTerm = '') {
+    if (!customersTableBody) return;
 
-        if (!customers.length) {
-            customersTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-users" style="font-size: 3rem; color: #cbd5e0; display: block; margin-bottom: 1rem;"></i><p style="color: #718096;">No customers found</p></td></tr>';
-            return;
+    let customers = [];
+    try {
+        const { data, error } = await window.POS_SUPABASE.getCustomers();
+        if (!error && Array.isArray(data)) {
+            customers = data;
+            localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+        } else {
+            customers = getCustomers();
         }
-
-        customersTableBody.innerHTML = customers.map(customer => `
-            <tr>
-                <td>${escapeCustomerText(customer.name)}</td>
-                <td>${escapeCustomerText(customer.email) || '&mdash;'}</td>
-                <td>${escapeCustomerText(customer.phone) || '&mdash;'}</td>
-                <td>${Number(customer.orders) || 0}</td>
-                <td>₱${(Number(customer.totalSpent) || 0).toFixed(2)}</td>
-                <td><button class="btn-icon delete" type="button" data-customer-id="${customer.id}" title="Delete customer"><i class="fas fa-trash"></i></button></td>
-            </tr>`).join('');
+    } catch {
+        customers = getCustomers();
     }
 
-    function addCustomer() {
-        const name = window.prompt('Customer name:')?.trim();
-        if (!name) return;
-        const email = window.prompt('Customer email (optional):')?.trim() || '';
-        const phone = window.prompt('Customer phone (optional):')?.trim() || '';
-        const customers = getCustomers();
-        customers.push({ id: Date.now(), name, email, phone, orders: 0, totalSpent: 0 });
-        localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
-        renderCustomers(customerSearch?.value || '');
-        addAuditLog('create', 'customers', `Customer ${name} added`, 'info');
-        showToast('Customer added successfully', 'success');
+    const search = searchTerm.trim().toLowerCase();
+    const filtered = customers.filter(customer =>
+        [customer.name, customer.email, customer.phone].some(value =>
+            String(value || '').toLowerCase().includes(search)
+        )
+    );
+
+    if (!filtered.length) {
+        customersTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-users" style="font-size: 3rem; color: #cbd5e0; display: block; margin-bottom: 1rem;"></i><p style="color: #718096;">No customers found</p></td></tr>';
+        return;
     }
+
+    customersTableBody.innerHTML = filtered.map(customer => `
+        <tr>
+            <td>${escapeCustomerText(customer.name)}</td>
+            <td>${escapeCustomerText(customer.email) || '&mdash;'}</td>
+            <td>${escapeCustomerText(customer.phone) || '&mdash;'}</td>
+            <td>${Number(customer.orders) || 0}</td>
+            <td>₱${(Number(customer.totalSpent) || 0).toFixed(2)}</td>
+            <td><button class="btn-icon delete" type="button" data-customer-id="${customer.id}" title="Delete customer"><i class="fas fa-trash"></i></button></td>
+        </tr>`).join('');
+}
+
+    async function addCustomer() {
+    const name = window.prompt('Customer name:')?.trim();
+    if (!name) return;
+    const email = window.prompt('Customer email (optional):')?.trim() || '';
+    const phone = window.prompt('Customer phone (optional):')?.trim() || '';
+
+    // Local cache (instant)
+    const customers = getCustomers();
+    customers.push({ id: Date.now(), name, email, phone, orders: 0, totalSpent: 0 });
+    localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+
+    // Firestore sync
+    const { error } = await window.POS_SUPABASE.addCustomer({
+        name, email, phone, orders: 0, totalSpent: 0
+    });
+    if (error) { showToast(error.message, 'error'); return; }
+
+    addAuditLog('create', 'customers', `Customer ${name} added`, 'info');
+    showToast('Customer added successfully', 'success');
+    renderCustomers(customerSearch?.value || '');
+}
 
     if (customerSearch) customerSearch.addEventListener('input', event => renderCustomers(event.target.value));
     if (addCustomerBtn) addCustomerBtn.addEventListener('click', addCustomer);
     if (customersTableBody) {
-        customersTableBody.addEventListener('click', event => {
-            const deleteButton = event.target.closest('[data-customer-id]');
-            if (!deleteButton) return;
-            const customerId = Number(deleteButton.dataset.customerId);
-            const customers = getCustomers().filter(customer => customer.id !== customerId);
-            localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
-            renderCustomers(customerSearch?.value || '');
-            addAuditLog('delete', 'customers', `Customer ${customerId} deleted`, 'warning');
-            showToast('Customer deleted successfully', 'success');
-        });
-    }
+    customersTableBody.addEventListener('click', async event => {
+        const deleteButton = event.target.closest('[data-customer-id]');
+        if (!deleteButton) return;
+        const customerId = deleteButton.dataset.customerId;
+        if (!window.confirm('Delete this customer?')) return;
+        
+        const { error } = await window.POS_SUPABASE.deleteCustomer(customerId);
+        if (error) { showToast(error.message, 'error'); return; }
+        
+        const customers = getCustomers().filter(customer => String(customer.id) !== String(customerId));
+        localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+        
+        addAuditLog('delete', 'customers', `Customer ${customerId} deleted`, 'warning');
+        showToast('Customer deleted successfully', 'success');
+        renderCustomers(customerSearch?.value || '');
+    });
+}
 
     function applyTheme(theme) {
     const isLight = theme === 'light';
@@ -1297,39 +1392,78 @@ function refreshOverview() {
 
 
 
-    // ---------- DASHBOARD FUNCTIONS ----------
-    function loadDashboard(user) {
-        // Hide login, show dashboard
-        loginContainer.style.display = 'none';
-        dashboardContainer.style.display = 'flex';
-        
-        // Set user name
-        const name = user?.user_metadata?.full_name || 
-                     user?.email?.split('@')[0] || 
-                     'User';
-        currentUser = user;
-        applyRoleAccess(user);
-        
-        if (userDisplayName) userDisplayName.textContent = name;
-        if (dashboardUserName) dashboardUserName.textContent = name;
-        
-        // Update user dropdown avatar
-        const avatar = userDropdownBtn?.querySelector('img');
-        if (avatar) {
-            avatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4F46E5&color=fff`;
-        }
-        
-        // Update account status
-        if (accountStatusText) {
-            accountStatusText.textContent = `Logged in as ${name}`;
-        }
-        
-               showToast(`Welcome, ${name}!`, 'success');
+// ---------- DASHBOARD FUNCTIONS ----------
+function loadDashboard(user) {
+    loginContainer.style.display = 'none';
+    dashboardContainer.style.display = 'flex';
+    
+    const name = user?.user_metadata?.full_name ||
+        user?.email?.split('@')[0] ||
+        'User';
+    currentUser = user;
+    applyRoleAccess(user);
+    
+    if (userDisplayName) userDisplayName.textContent = name;
+    if (dashboardUserName) dashboardUserName.textContent = name;
+    
+    const avatar = userDropdownBtn?.querySelector('img');
+    if (avatar) {
+        avatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4F46E5&color=fff`;
+    }
+    
+    if (accountStatusText) {
+        accountStatusText.textContent = `Logged in as ${name}`;
+    }
+    
+    showToast(`Welcome, ${name}!`, 'success');
     
     window.reloadPosCatalog?.();
     window.initInventory?.();
     refreshOverview();
+    
+    // ---------- CLOUD BOOTSTRAP ----------
+    (async () => {
+        try {
+            const [orders, customers, logs] = await Promise.all([
+                window.POS_SUPABASE.getOrders(),
+                window.POS_SUPABASE.getCustomers(),
+                window.POS_SUPABASE.getAuditLogs(200)
+            ]);
+            if (!orders.error) writeStoredRecords(ORDERS_KEY, orders.data.slice(0, 500));
+            if (!customers.error) localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers.data));
+            if (!logs.error) writeStoredRecords(AUDIT_KEY, logs.data.slice(0, 100));
+            renderOrders();
+            renderCustomers();
+            renderAuditLogs();
+            refreshOverview();
+        } catch (err) {
+            console.warn('Cloud bootstrap failed:', err);
+        }
+    })();
+    
+    // ---------- REAL-TIME SUBSCRIPTIONS ----------
+    if (window._posUnsubscribers) {
+        window._posUnsubscribers.forEach(fn => { try { fn(); } catch (e) {} });
     }
+    window._posUnsubscribers = [
+        window.POS_SUPABASE.subscribeOrders(() => {
+            renderOrders();
+            refreshOverview();
+        }),
+        window.POS_SUPABASE.subscribeCustomers(() => {
+            renderCustomers(customerSearch?.value || '');
+            refreshOverview();
+        }),
+        window.POS_SUPABASE.subscribeInventory(() => {
+            refreshOverview();
+            window.reloadPosCatalog?.();
+        }),
+        window.POS_SUPABASE.subscribeAuditLogs(() => {
+            renderAuditLogs();
+            renderRecentActivity();
+        })
+    ];
+}
 
     function showLoginView() {
         loginContainer.style.display = 'flex';
@@ -1740,22 +1874,24 @@ if (signupForm) {
     }
 
     // ---------- LOGOUT ----------
-    async function logout() {
-        try {
-            if (getAuthMode() === authMode.supabase) {
-                const { error } = await signOutWithSupabase();
-                if (error) throw error;
-            }
-            
-            showLoginView();
-            showToast('Logged out successfully', 'success');
-            
-            // Close dropdown
-            if (userDropdownMenu) userDropdownMenu.classList.remove('show');
-        } catch (error) {
-            showToast(error?.message || 'Error logging out', 'error');
+    // ---------- LOGOUT ----------
+async function logout() {
+    try {
+        if (window._posUnsubscribers) {
+            window._posUnsubscribers.forEach(fn => { try { fn(); } catch (e) {} });
+            window._posUnsubscribers = null;
         }
+        if (getAuthMode() === authMode.supabase) {
+            const { error } = await signOutWithSupabase();
+            if (error) throw error;
+        }
+        showLoginView();
+        showToast('Logged out successfully', 'success');
+        if (userDropdownMenu) userDropdownMenu.classList.remove('show');
+    } catch (error) {
+        showToast(error?.message || 'Error logging out', 'error');
     }
+}
 
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
     if (sidebarLogoutBtn) sidebarLogoutBtn.addEventListener('click', logout);

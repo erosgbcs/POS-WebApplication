@@ -440,86 +440,121 @@ window.reloadPosCatalog = loadProductCatalog;
     }
 
     // --- Confirm payment ---
-    if (confirmPaymentBtn) {
-        confirmPaymentBtn.addEventListener('click', () => {
-            const totalText = paymentTotal.textContent.replace(/[^\d.-]/g, '');
-            const total = parseFloat(totalText) || 0;
-            const name = customerName ? customerName.value.trim() : '';
-            const phone = customerPhone ? customerPhone.value.trim() : '';
-            const items = Object.entries(cart).map(([cartKey, quantity]) => {
-                const { name: itemName, size } = parseCartKey(cartKey);
-                return {
-                    name: itemName,
-                    size,
-                    quantity,
-                    price: getProductPriceByName(itemName)
-                };
-            });
-            const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            const tax = subtotal * 0.08;
-            const receiptNumber = createReceiptNumber();
-            let cash = 0;
-            let change = 0;
-
-            if (selectedPaymentMethod === 'cash') {
-    cash = parseFloat(cashReceived.value) || 0;
-    if (cash < total) {
-        showToast('Insufficient cash amount', 'error');
-        return;
-    }
-    change = cash - total;
-    let message = `Payment successful! Change: ${formatCurrency(change)}`;
-    if (name) message += ` | Customer: ${name}`;
-    showToast(message, 'success');
-} else {
-    let message = 'GCash payment processed successfully!';
-    if (name) message += ` | Customer: ${name}`;
-    showToast(message, 'success');
-}
-
-            const order = {
-                id: receiptNumber,
-                createdAt: new Date().toISOString(),
-                customerName: name,
-                customerPhone: phone,
-                items,
-                subtotal,
-                tax,
-                total,
-                paymentMethod: selectedPaymentMethod,
-                status: 'Completed'
+    // --- Confirm payment ---
+if (confirmPaymentBtn) {
+    confirmPaymentBtn.addEventListener('click', async () => {
+        const totalText = paymentTotal.textContent.replace(/[^\d.-]/g, '');
+        const total = parseFloat(totalText) || 0;
+        const name = customerName ? customerName.value.trim() : '';
+        const phone = customerPhone ? customerPhone.value.trim() : '';
+        const items = Object.entries(cart).map(([cartKey, quantity]) => {
+            const { name: itemName, size } = parseCartKey(cartKey);
+            return {
+                name: itemName,
+                size,
+                quantity,
+                price: getProductPriceByName(itemName)
             };
-            try {
-                const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-                orders.unshift(order);
-                localStorage.setItem('pos_orders', JSON.stringify(orders.slice(0, 500)));
-                if (name) {
-                    const customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
-                    const existing = customers.find(customer => customer.name.toLowerCase() === name.toLowerCase());
-                    if (existing) {
-                        existing.orders = (Number(existing.orders) || 0) + 1;
-                        existing.totalSpent = (Number(existing.totalSpent) || 0) + total;
-                        if (phone) existing.phone = phone;
-                    } else {
-                        customers.push({ id: Date.now(), name, email: '', phone, orders: 1, totalSpent: total });
-                    }
-                    localStorage.setItem('pos_customers', JSON.stringify(customers));
-                }
-            } catch (error) {
-                showToast('Payment completed, but order history could not be saved', 'error');
-            }
-            window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
-
-// Notify dashboard to refresh stats + chart
-window.dispatchEvent(new CustomEvent('pos-order-created'));
-
-// Clear cart and close modal
-cart = {};
-            updateCartDisplay();
-            paymentModal.classList.remove('show');
-            showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
         });
-    }
+        const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const tax = subtotal * 0.08;
+        const receiptNumber = createReceiptNumber();
+        let cash = 0;
+        let change = 0;
+
+        if (selectedPaymentMethod === 'cash') {
+            cash = parseFloat(cashReceived.value) || 0;
+            if (cash < total) {
+                showToast('Insufficient cash amount', 'error');
+                return;
+            }
+            change = cash - total;
+            let message = `Payment successful! Change: ${formatCurrency(change)}`;
+            if (name) message += ` | Customer: ${name}`;
+            showToast(message, 'success');
+        } else {
+            let message = 'GCash payment processed successfully!';
+            if (name) message += ` | Customer: ${name}`;
+            showToast(message, 'success');
+        }
+
+        const order = {
+            id: receiptNumber,
+            createdAt: new Date().toISOString(),
+            customerName: name,
+            customerPhone: phone,
+            items,
+            subtotal,
+            tax,
+            total,
+            paymentMethod: selectedPaymentMethod,
+            status: 'Completed'
+        };
+
+        // ---------- LOCAL CACHE (instant UI) ----------
+        try {
+            const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+            orders.unshift(order);
+            localStorage.setItem('pos_orders', JSON.stringify(orders.slice(0, 500)));
+        } catch (e) {
+            console.warn('Local order cache failed:', e);
+        }
+
+        // ---------- FIRESTORE SYNC (cross-device) ----------
+        try {
+            await window.POS_SUPABASE?.addOrder?.(order);
+        } catch (err) {
+            console.warn('Order sync to cloud failed:', err);
+            showToast('Order saved locally. Will retry when online.', 'error');
+        }
+
+        // ---------- CUSTOMER UPSERT (Firestore + local cache) ----------
+        if (name) {
+            try {
+                const { data } = await window.POS_SUPABASE.getCustomers();
+                const existing = (data || []).find(c =>
+                    c.name?.toLowerCase() === name.toLowerCase()
+                );
+
+                if (existing) {
+                    await window.POS_SUPABASE.updateCustomer(existing.id, {
+                        orders: (Number(existing.orders) || 0) + 1,
+                        totalSpent: (Number(existing.totalSpent) || 0) + total,
+                        ...(phone ? { phone } : {})
+                    });
+                } else {
+                    await window.POS_SUPABASE.addCustomer({
+                        name, email: '', phone, orders: 1, totalSpent: total
+                    });
+                }
+
+                // Keep local customer cache in sync
+                const customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
+                const localExisting = customers.find(c =>
+                    c.name?.toLowerCase() === name.toLowerCase()
+                );
+                if (localExisting) {
+                    localExisting.orders = (Number(localExisting.orders) || 0) + 1;
+                    localExisting.totalSpent = (Number(localExisting.totalSpent) || 0) + total;
+                    if (phone) localExisting.phone = phone;
+                } else {
+                    customers.push({ id: Date.now(), name, email: '', phone, orders: 1, totalSpent: total });
+                }
+                localStorage.setItem('pos_customers', JSON.stringify(customers));
+            } catch (err) {
+                console.warn('Customer sync failed:', err);
+            }
+        }
+
+        window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
+        window.dispatchEvent(new CustomEvent('pos-order-created'));
+
+        cart = {};
+        updateCartDisplay();
+        paymentModal.classList.remove('show');
+        showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
+    });
+}
 
     // Initialize cart display
     updateCartDisplay();
