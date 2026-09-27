@@ -3688,3 +3688,48 @@ body {
         flex-direction: column-reverse;
     }
 }
+
+/* ============================================
+   OVERVIEW 2-COLUMN GRID LAYOUT
+   ============================================ */
+.ov-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    align-items: start;
+}
+
+/* When inside the grid, recent-activity blocks don't need their own bottom margin */
+.ov-grid-2 > .recent-activity {
+    margin-bottom: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.ov-grid-2 > .recent-activity > .activity-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 360px;
+}
+
+/* Responsive — stack on tablet and below */
+@media (max-width: 968px) {
+    .ov-grid-2 {
+        grid-template-columns: 1fr;
+    }
+    .ov-grid-2 > .recent-activity > .activity-list {
+        max-height: none;
+    }
+}
+
+/* Extra polish — subtle hover lift */
+.ov-grid-2 > .recent-activity {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ov-grid-2 > .recent-activity:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}

@@ -411,6 +411,7 @@
 </div>
 
 <!-- Sales Chart — Last 7 Days -->
+<!-- Sales Chart — Last 7 Days (FULL WIDTH) -->
 <div class="recent-activity" style="margin-bottom: 2rem;">
     <div class="activity-header">
         <h2>Sales — Last 7 Days</h2>
@@ -421,40 +422,30 @@
     </div>
 </div>
 
-<!-- Top 5 Products — Last 30 Days -->
-<div class="recent-activity" style="margin-bottom: 2rem;">
-    <div class="activity-header">
-        <h2>Top 5 Products — Last 30 Days</h2>
-        <span style="font-size: 13px; color: var(--text-secondary);" id="ovTopProductsSubtitle">—</span>
+<!-- ROW: Top Products | Sales by Category -->
+<div class="ov-grid-2">
+    <div class="recent-activity">
+        <div class="activity-header">
+            <h2>Top 5 Products — Last 30 Days</h2>
+            <span style="font-size: 12px; color: var(--text-secondary);" id="ovTopProductsSubtitle">—</span>
+        </div>
+        <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="ovTopProductsChart"></canvas>
+        </div>
     </div>
-    <div style="position: relative; height: 300px; width: 100%;">
-        <canvas id="ovTopProductsChart"></canvas>
-    </div>
-</div>
-<!-- Sales by Category -->
-<div class="recent-activity" style="margin-bottom: 2rem;">
-    <div class="activity-header">
-        <h2>Sales by Category</h2>
-        <span style="font-size: 13px; color: var(--text-secondary);" id="ovCategorySubtitle">—</span>
-    </div>
-    <div style="position: relative; height: 320px; width: 100%;">
-        <canvas id="ovCategoryChart"></canvas>
-    </div>
-</div>
-<!-- Low Stock Alerts -->
-<div class="recent-activity" style="margin-bottom: 2rem;">
-    <div class="activity-header">
-        <h2>Low Stock Alerts</h2>
-        <span style="font-size: 13px; color: var(--text-secondary);" id="ovLowStockSubtitle">—</span>
-    </div>
-    <div class="activity-list" id="ovLowStockList">
-        <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
-            <span>Loading stock levels...</span>
+    
+    <div class="recent-activity">
+        <div class="activity-header">
+            <h2>Sales by Category</h2>
+            <span style="font-size: 12px; color: var(--text-secondary);" id="ovCategorySubtitle">—</span>
+        </div>
+        <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="ovCategoryChart"></canvas>
         </div>
     </div>
 </div>
 
-<!-- Hourly Sales Heatmap -->
+<!-- Hourly Sales Heatmap (FULL WIDTH) -->
 <div class="recent-activity" style="margin-bottom: 2rem;">
     <div class="activity-header">
         <h2>Hourly Sales Heatmap</h2>
@@ -467,6 +458,19 @@
     </div>
 </div>
 
+<!-- ROW: Low Stock Alerts | Recent Activity -->
+<div class="ov-grid-2">
+    <div class="recent-activity">
+        <div class="activity-header">
+            <h2>Low Stock Alerts</h2>
+            <span style="font-size: 12px; color: var(--text-secondary);" id="ovLowStockSubtitle">—</span>
+        </div>
+        <div class="activity-list" id="ovLowStockList">
+            <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
+                <span>Loading stock levels...</span>
+            </div>
+        </div>
+    </div>
 
                    <!-- Recent Activity -->
 <div class="recent-activity">
@@ -479,7 +483,7 @@
         </div>
     </div>
 </div>
-
+</div>
                     <!-- Quick Actions -->
                     <div class="quick-actions">
                         <h2>Quick Actions</h2>
