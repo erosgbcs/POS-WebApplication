@@ -244,8 +244,7 @@
     loadProductCatalog();
 window.addEventListener('inventory-products-loaded', event => renderProductCatalog(event.detail || []));
 
-// Allow other modules (script.js) to refresh the catalog after login
-// or when navigating to the POS page.
+// Allow script.js to refresh the catalog after login or on POS navigation
 window.reloadPosCatalog = loadProductCatalog;
 
     // --- Product search filter ---
@@ -349,35 +348,34 @@ window.reloadPosCatalog = loadProductCatalog;
     }
 
     function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change) {
-        const itemRows = items.map(item => `
-            <div class="receipt-line">
-                <span>${escapeHtml(item.name)} x${item.quantity}</span>
-                <strong>$${(item.price * item.quantity).toFixed(2)}</strong>
-            </div>
-        `).join('');
-        const customer = [name, phone].filter(Boolean).map(escapeHtml).join(' | ');
-        const paymentLabel = paymentMethod === 'card' ? 'Credit/Debit Card' : paymentMethod === 'mobile' ? 'Mobile Payment' : 'Cash';
-
-        receiptContent.innerHTML = `
-            <div class="receipt-store-name">Kirby's Hardware</div>
-            <div class="receipt-heading">POS TRANSACTION</div>
-            <div class="receipt-number">Receipt No: ${escapeHtml(receiptNumber)}</div>
-            <div class="receipt-store-details">
-                <div>Gimeno Bldg, Gungon St</div>
-                <div>Santa Maria, 3022 Bulacan</div>
-                <div>Contact: 0935 491 9766</div>
-            </div>
-            ${customer ? `<div class="receipt-meta">Customer: ${customer}</div>` : ''}
-            <div class="receipt-items">${itemRows}</div>
-            <div class="receipt-total-line"><span>Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
-            <div class="receipt-total-line"><span>Tax (8%)</span><span>$${tax.toFixed(2)}</span></div>
-            <div class="receipt-total-line receipt-grand-total"><strong>Total</strong><strong>$${total.toFixed(2)}</strong></div>
-            <div class="receipt-meta">Payment: ${paymentLabel}</div>
-            ${paymentMethod === 'cash' ? `<div class="receipt-total-line"><span>Cash received</span><span>$${cash.toFixed(2)}</span></div><div class="receipt-total-line"><span>Change</span><span>$${change.toFixed(2)}</span></div>` : ''}
-        `;
-        receiptModal.classList.add('show');
-    }
-
+    const itemRows = items.map(item => `
+        <div class="receipt-line">
+            <span>${escapeHtml(item.name)} x${item.quantity}</span>
+            <strong>${formatCurrency(item.price * item.quantity)}</strong>
+        </div>
+    `).join('');
+    const customer = [name, phone].filter(Boolean).map(escapeHtml).join(' | ');
+    const paymentLabel = paymentMethod === 'card' ? 'Credit/Debit Card' : paymentMethod === 'mobile' ? 'Mobile Payment' : 'Cash';
+    
+    receiptContent.innerHTML = `
+        <div class="receipt-store-name">Kirby's Hardware</div>
+        <div class="receipt-heading">POS TRANSACTION</div>
+        <div class="receipt-number">Receipt No: ${escapeHtml(receiptNumber)}</div>
+        <div class="receipt-store-details">
+            <div>Gimeno Bldg, Gungon St</div>
+            <div>Santa Maria, 3022 Bulacan</div>
+            <div>Contact: 0935 491 9766</div>
+        </div>
+        ${customer ? `<div class="receipt-meta">Customer: ${customer}</div>` : ''}
+        <div class="receipt-items">${itemRows}</div>
+        <div class="receipt-total-line"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
+        <div class="receipt-total-line"><span>Tax (8%)</span><span>${formatCurrency(tax)}</span></div>
+        <div class="receipt-total-line receipt-grand-total"><strong>Total</strong><strong>${formatCurrency(total)}</strong></div>
+        <div class="receipt-meta">Payment: ${paymentLabel}</div>
+        ${paymentMethod === 'cash' ? `<div class="receipt-total-line"><span>Cash received</span><span>${formatCurrency(cash)}</span></div><div class="receipt-total-line"><span>Change</span><span>${formatCurrency(change)}</span></div>` : ''}
+    `;
+    receiptModal.classList.add('show');
+}
     function printReceipt() {
         const printWindow = window.open('', '_blank', 'width=420,height=700');
         if (!printWindow) {
