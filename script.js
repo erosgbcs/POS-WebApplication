@@ -1069,11 +1069,85 @@ function renderRecentActivity() {
     `).join('');
 }
 
+// ---------- OVERVIEW: LOW STOCK ALERTS ----------
+function getStockStatusForWidget(product) {
+    const qty = Number(product.quantity) || 0;
+    const min = Number(product.minStock ?? product.min_stock ?? 0) || 0;
+    if (qty === 0) return 'out_of_stock';
+    if (qty <= min) return 'low_stock';
+    return 'in_stock';
+}
+
+function renderLowStockWidget() {
+    const listEl = document.getElementById('ovLowStockList');
+    if (!listEl) return;
+    
+    const products = window.getInventorySnapshot?.() || [];
+    
+    // Filter to low/out-of-stock products, sorted by urgency
+    const alerts = products
+        .map(p => ({
+            product: p,
+            status: getStockStatusForWidget(p),
+            qty: Number(p.quantity) || 0,
+            min: Number(p.minStock ?? p.min_stock ?? 0) || 0
+        }))
+        .filter(item => item.status !== 'in_stock')
+        .sort((a, b) => {
+            // Out-of-stock items first, then lowest qty relative to min
+            if (a.status !== b.status) return a.status === 'out_of_stock' ? -1 : 1;
+            return (a.qty - a.min) - (b.qty - b.min);
+        })
+        .slice(0, 6);
+    
+    const subtitleEl = document.getElementById('ovLowStockSubtitle');
+    if (subtitleEl) {
+        const outCount = alerts.filter(a => a.status === 'out_of_stock').length;
+        const lowCount = alerts.filter(a => a.status === 'low_stock').length;
+        subtitleEl.textContent = alerts.length > 0 ?
+            `${outCount} out · ${lowCount} low` :
+            '';
+    }
+    
+    if (alerts.length === 0) {
+        listEl.innerHTML = `
+            <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
+                <span><i class="fas fa-check-circle" style="color: #4ade80; margin-right: 6px;"></i> All stock levels are healthy</span>
+            </div>
+        `;
+        return;
+    }
+    
+    listEl.innerHTML = alerts.map(({ product, status, qty, min }) => {
+        const isOut = status === 'out_of_stock';
+        const color = isOut ? 'orange' : 'blue';
+        const icon = isOut ? 'fa-times-circle' : 'fa-exclamation-triangle';
+        const badgeClass = isOut ? 'stock-badge out-of-stock' : 'stock-badge low-stock';
+        const badgeLabel = isOut ? 'Out of Stock' : `Low: ${qty} / ${min}`;
+        return `
+            <div class="activity-item" style="cursor: pointer;" onclick="window.navigateToPage?.('inventory')">
+                <div class="activity-icon ${color}">
+                    <i class="fas ${icon}"></i>
+                </div>
+                <div class="activity-content" style="flex: 1;">
+                    <p><strong>${escapeCustomerText(product.name)}</strong></p>
+                    <span class="activity-time">Product Code: ${escapeCustomerText(product.sku || 'N/A')} · Qty: ${qty}</span>
+                </div>
+                <span class="${badgeClass}">${badgeLabel}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+
+
+
 function refreshOverview() {
     refreshOverviewStats();
     renderSalesChart();
     renderTopProductsChart();
     renderSalesByCategoryChart();
+    renderLowStockWidget();
     renderRecentActivity();
 }
 
@@ -1106,9 +1180,10 @@ function refreshOverview() {
             accountStatusText.textContent = `Logged in as ${name}`;
         }
         
-            showToast(`Welcome, ${name}!`, 'success');
+               showToast(`Welcome, ${name}!`, 'success');
     
     window.reloadPosCatalog?.();
+    window.initInventory?.();
     refreshOverview();
     }
 
