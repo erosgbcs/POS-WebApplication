@@ -111,9 +111,9 @@
                 return `<tr>
                     <td><div class="product-info"><div class="product-image"><i class="fas ${categoryIcons[product.category] || 'fa-box'}"></i></div><div class="product-details"><p class="product-name">${product.name}</p>${sizeLabel}<span class="product-sku">Product Code: ${product.sku}</span></div></div></td>
                     <td>${product.category}</td><td>${formatCurrency(product.price)}</td>
-                    <td><input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity(${product.id}, this.value)"></td>
+                    <td><input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)"></td>
                     <td>${getStockBadge(status)}</td><td>${product.lastUpdated}</td>
-                    <td><div class="action-buttons"><button class="btn-icon edit" type="button" onclick="editProduct(${product.id})" title="Edit"><i class="fas fa-edit"></i></button><button class="btn-icon delete" type="button" onclick="showDeleteModal(${product.id})" title="Delete"><i class="fas fa-trash"></i></button></div></td>
+                    <td><div class="action-buttons"><button class="btn-icon edit" type="button" onclick="editProduct('${product.id}')" title="Edit"><i class="fas fa-edit"></i></button><button class="btn-icon delete" type="button" onclick="showDeleteModal('${product.id}')" title="Delete"><i class="fas fa-trash"></i></button></div></td>
                 </tr>`;
             }).join('');
         }, 300);
@@ -246,7 +246,7 @@
     window.initInventory = function() {
         if (!supabaseApi?.isConfigured?.()) {
             inventoryState.products = [];
-            showToast('Supabase is not configured', 'error');
+            showToast('Firebase is not configured', 'error');
             updateInventoryStats(); filterProducts(); setupInventoryEventListeners();
             return;
         }

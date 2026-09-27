@@ -1125,11 +1125,25 @@
     </div>
 </div>
   
+<!-- Firebase Config (regular script - runs synchronously) -->
+<script>
+    window.FIREBASE_CONFIG = {
+        apiKey: "AIzaSyBMt2AwW3cq8Og1gqV3MfPaUGearhnAWcU",
+        authDomain: "basedpos-inventory.firebaseapp.com",
+        projectId: "basedpos-inventory",
+        storageBucket: "basedpos-inventory.firebasestorage.app",
+        messagingSenderId: "563342767045",
+        appId: "1:563342767045:web:b4b4d839bfbe6fe94911ac",
+        measurementId: "G-FPG96DEDQS"
+    };
+</script>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase.js"></script>
-    <script src="inventory.js"></script>
-    <script src="script.js"></script>
-    <script src="pos.js"></script>
+<!-- Firebase wrapper (uses dynamic import() internally) -->
+<script src="firebase.js"></script>
+
+<!-- App scripts -->
+<script src="inventory.js"></script>
+<script src="script.js"></script>
+<script src="pos.js"></script>
 </body>
 </html>

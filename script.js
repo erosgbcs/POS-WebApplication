@@ -52,31 +52,13 @@
         return supabaseApi.signOut();
     }
 
-    async function getCurrentUser() {
-        if (!isSupabaseReady()) {
-            return { user: null, error: new Error('Supabase is not configured.') };
-        }
-        const client = supabaseApi.getClient();
-        const { data: { user } } = await client.auth.getUser();
-
-        if (user && typeof supabaseApi.getUsers === 'function') {
-            const { data: profiles, error: profileError } = await supabaseApi.getUsers();
-            const profile = !profileError && Array.isArray(profiles)
-                ? profiles.find(item => item.id === user.id || item.email?.toLowerCase() === user.email?.toLowerCase())
-                : null;
-
-            if (profile) {
-                user.role = profile.role;
-                user.user_metadata = {
-                    ...(user.user_metadata || {}),
-                    ...(profile.full_name ? { full_name: profile.full_name } : {}),
-                    ...(profile.role ? { role: profile.role } : {})
-                };
-            }
-        }
-
-        return { user, error: null };
+   async function getCurrentUser() {
+    if (!isSupabaseReady()) {
+        return { user: null, error: new Error('Backend is not configured.') };
     }
+    // Delegate to firebase.js — it correctly uses user.uid
+    return supabaseApi.getCurrentUser();
+}
 
     // ---------- RESPONSIVE DETECTION ----------
     const isMobile = () => window.innerWidth < 768;
@@ -641,7 +623,7 @@
         if (!accountStatusText) return;
         
         if (isSupabaseReady()) {
-            accountStatusText.textContent = 'Supabase connected ✓';
+            accountStatusText.textContent = 'Firebase connected ✓';
             return;
         }
         
@@ -868,87 +850,87 @@
         });
     }
 
-    // ---------- SIGN UP ----------
-    if (signupForm) {
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearErrors();
-            const name = document.getElementById('signupFullName')?.value.trim() || '';
-            const email = document.getElementById('signupEmail')?.value.trim() || '';
-            const role = document.getElementById('signupRole')?.value || 'cashier';
-            const password = document.getElementById('signupPassword')?.value || '';
-            const confirm = document.getElementById('signupConfirmPassword')?.value || '';
-            const agree = document.getElementById('agreeTerms')?.checked || false;
-            let valid = true;
+// ---------- SIGN UP ----------
+if (signupForm) {
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearErrors();
+        const name = document.getElementById('signupFullName')?.value.trim() || '';
+        const email = document.getElementById('signupEmail')?.value.trim() || '';
+        const role = document.getElementById('signupRole')?.value || 'cashier';
+        const password = document.getElementById('signupPassword')?.value || '';
+        const confirm = document.getElementById('signupConfirmPassword')?.value || '';
+        const agree = document.getElementById('agreeTerms')?.checked || false;
+        let valid = true;
 
-            if (role === 'admin' && getAdminAccountCount() >= MAX_ADMIN_ACCOUNTS) {
-                if (signupRoleInfo) signupRoleInfo.textContent = 'Two Admin accounts are already registered. You can create a Cashier.';
-                updateSignupRoleAvailability();
-                return;
-            }
+        if (role === 'admin' && getAdminAccountCount() >= MAX_ADMIN_ACCOUNTS) {
+            if (signupRoleInfo) signupRoleInfo.textContent = 'Two Admin accounts are already registered. You can create a Cashier.';
+            updateSignupRoleAvailability();
+            return;
+        }
 
-            if (!name) { setError('signupFullNameError', 'Your name is required'); valid = false; }
-            else if (name.length < 2) { setError('signupFullNameError', 'Minimum 2 characters'); valid = false; }
-            if (!email) { setError('signupEmailError', 'Email is required'); valid = false; }
-            else if (!validateEmail(email)) { setError('signupEmailError', 'Invalid email format'); valid = false; }
-            else if (!isSupabaseReady() && findUserByEmail(email)) { 
-                setError('signupEmailError', 'Email already registered'); valid = false; 
-            }
-            if (!password) { setError('signupPasswordError', 'Password is required'); valid = false; }
-            else if (password.length < 6) { setError('signupPasswordError', 'Minimum 6 characters'); valid = false; }
-            if (password !== confirm) { setError('signupConfirmPasswordError', 'Passwords do not match'); valid = false; }
-            if (!agree) { setError('termsError', 'You must agree to terms'); valid = false; }
+        if (!name) { setError('signupFullNameError', 'Your name is required'); valid = false; }
+        else if (name.length < 2) { setError('signupFullNameError', 'Minimum 2 characters'); valid = false; }
+        if (!email) { setError('signupEmailError', 'Email is required'); valid = false; }
+        else if (!validateEmail(email)) { setError('signupEmailError', 'Invalid email format'); valid = false; }
+        else if (!isSupabaseReady() && findUserByEmail(email)) {
+            setError('signupEmailError', 'Email already registered'); valid = false;
+        }
+        if (!password) { setError('signupPasswordError', 'Password is required'); valid = false; }
+        else if (password.length < 6) { setError('signupPasswordError', 'Minimum 6 characters'); valid = false; }
+        if (password !== confirm) { setError('signupConfirmPasswordError', 'Passwords do not match'); valid = false; }
+        if (!agree) { setError('termsError', 'You must agree to terms'); valid = false; }
 
-            if (!valid) return;
+        if (!valid) return;
 
-            const btn = document.getElementById('signupSubmitBtn');
-            if (btn) {
-                btn.classList.add('loading');
-                btn.disabled = true;
-            }
+        const btn = document.getElementById('signupSubmitBtn');
+        if (btn) {
+            btn.classList.add('loading');
+            btn.disabled = true;
+        }
 
-            try {
-                if (getAuthMode() === authMode.supabase) {
-                    const { data, error } = await signUpWithSupabase({ fullName: name, email, password, role });
-                    if (error) throw error;
+        try {
+            if (getAuthMode() === authMode.supabase) {
+                const { data, error } = await signUpWithSupabase({ fullName: name, email, password, role });
+                if (error) throw error;
 
-                    const signinEmail = document.getElementById('signinEmail');
-                    const signinPassword = document.getElementById('signinPassword');
-                    if (signinEmail) signinEmail.value = email;
-                    if (signinPassword) signinPassword.value = '';
-                    showView(signinView);
-                    selectedRole = role;
-                    if (role === 'admin') {
-                        localStorage.setItem(ADMIN_COUNT_KEY, String(getAdminAccountCount() + 1));
-                        localStorage.setItem(ADMIN_CREATED_KEY, 'true');
-                        updateSignupRoleAvailability();
-                    }
-                    showToast(`Account created for ${name} (${role})! Please sign in.`, 'success');
-                    return;
-                }
-
-                // Local mode
-                await new Promise(r => setTimeout(r, 800));
-                addUser({ name, email, password, role });
-                updateSystemStatus();
-                showToast(`Account created for ${name} (${role})!`, 'success');
                 const signinEmail = document.getElementById('signinEmail');
                 const signinPassword = document.getElementById('signinPassword');
                 if (signinEmail) signinEmail.value = email;
                 if (signinPassword) signinPassword.value = '';
                 showView(signinView);
                 selectedRole = role;
-            } catch (error) {
-                const message = error?.message || 'Unable to create account.';
-                showToast(message, 'error');
-            } finally {
-                if (btn) {
-                    btn.classList.remove('loading');
-                    btn.disabled = false;
+                if (role === 'admin') {
+                    localStorage.setItem(ADMIN_CREATED_KEY, 'true');
+                    refreshAdminAvailability(); // Let Firestore be the source of truth
+                    updateSignupRoleAvailability();
                 }
+                showToast(`Account created for ${name} (${role})! Please sign in.`, 'success');
+                return; // exit before local mode runs
             }
-        });
-    }
+
+            // Local mode
+            await new Promise(r => setTimeout(r, 800));
+            addUser({ name, email, password, role });
+            updateSystemStatus();
+            showToast(`Account created for ${name} (${role})!`, 'success');
+            const signinEmail = document.getElementById('signinEmail');
+            const signinPassword = document.getElementById('signinPassword');
+            if (signinEmail) signinEmail.value = email;
+            if (signinPassword) signinPassword.value = '';
+            showView(signinView);
+            selectedRole = role;
+        } catch (error) {
+            const message = error?.message || 'Unable to create account.';
+            showToast(message, 'error');
+        } finally {
+            if (btn) {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+    });
+}
 
     // ---------- FORGOT PASSWORD ----------
     if (forgotForm) {
@@ -1433,7 +1415,7 @@
         }
         
         // Search Input
-        const searchInput = document.getElementById('inventorySearch');
+        const searchInput = document.('inventorySearch');
         if (searchInput) {
             searchInput.oninput = function() {
                 inventoryState.searchTerm = this.value;
@@ -1659,42 +1641,46 @@
     */
 
     // ---------- CHECK AUTH STATUS ON LOAD ----------
-    async function checkAuth() {
-        try {
-            if (getAuthMode() === authMode.supabase) {
-                const { user, error } = await getCurrentUser();
-                if (user && !error) {
-                    loadDashboard(user);
-                    return;
-                }
+   // ---------- CHECK AUTH STATUS ON LOAD ----------
+async function checkAuth() {
+    try {
+        // If Firebase is configured, use it exclusively
+        if (getAuthMode() === authMode.supabase) {
+            const { user, error } = await getCurrentUser();
+            if (user && !error) {
+                loadDashboard(user);
+            } else {
+                showLoginView(); // Firebase active but no session — show login
             }
-            
-            // Check if user is already logged in (local mode or no session)
-            const sessionUser = localStorage.getItem('pos_current_user');
-            if (sessionUser) {
-                try {
-                    const user = JSON.parse(sessionUser);
-                    const storedAccount = user?.email ? findUserByEmail(user.email) : null;
-                    if (storedAccount) {
-                        user.role = storedAccount.role;
-                        user.user_metadata = {
-                            ...(user.user_metadata || {}),
-                            role: storedAccount.role
-                        };
-                    }
-                    loadDashboard(user);
-                    return;
-                } catch (e) {
-                    localStorage.removeItem('pos_current_user');
-                }
-            }
-            
-            showLoginView();
-        } catch (error) {
-            console.error('Auth check error:', error);
-            showLoginView();
+            return; // Prevent falling through to localStorage check
         }
+        
+        // Local mode fallback: check for a saved session
+        const sessionUser = localStorage.getItem('pos_current_user');
+        if (sessionUser) {
+            try {
+                const user = JSON.parse(sessionUser);
+                const storedAccount = user?.email ? findUserByEmail(user.email) : null;
+                if (storedAccount) {
+                    user.role = storedAccount.role;
+                    user.user_metadata = {
+                        ...(user.user_metadata || {}),
+                        role: storedAccount.role
+                    };
+                }
+                loadDashboard(user);
+                return;
+            } catch (e) {
+                localStorage.removeItem('pos_current_user');
+            }
+        }
+        
+        showLoginView();
+    } catch (error) {
+        console.error('Auth check error:', error);
+        showLoginView();
     }
+}
 
     // ---------- WINDOW RESIZE HANDLER ----------
     let resizeTimeout;
@@ -1741,9 +1727,9 @@
         
         // Show Supabase status
         if (isSupabaseReady()) {
-            console.log('✅ Supabase connected');
+            
             if (accountStatusText) {
-                accountStatusText.textContent = 'Supabase connected ✓';
+                accountStatusText.textContent = 'Firebase connected ✓';
             }
         } else {
             console.log('⚠️ Using local storage mode');
