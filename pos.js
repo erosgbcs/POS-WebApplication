@@ -36,7 +36,8 @@
         return String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
     }
 
-    let productCache = {};
+
+let productCache = {};
 
 function renderProductCatalog(products) {
     if (!productGrid) return;
@@ -45,18 +46,45 @@ function renderProductCatalog(products) {
     productCache = {};
     products.forEach(p => { if (p.name) productCache[p.name] = p; });
     
-    productGrid.innerHTML = products.filter(product => Number(product.quantity) > 0).map(product => {
-            const sizes = String(product.size || '').split(',').map(size => size.trim()).filter(Boolean);
-            const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
-            return `<div class="product-card" data-id="${product.id}" data-name="${product.name}" data-price="${product.price}" data-category="${product.category}" data-stock="${product.quantity}"${sizeOptions}>
-    <p>${product.name}</p>
-    <span class="product-card-category">${escapeHtml(product.category || 'Uncategorized')}</span>
-    <span class="product-card-sku">Product Code: ${escapeHtml(product.sku || 'N/A')}</span>
-    ${sizes.length ? `<small class="product-card-sizes">Sizes: ${sizes.map(escapeHtml).join(', ')}</small>` : ''}
-    <strong>${formatCurrency(product.price)}</strong>
-</div>`;
-        }).join('');
-    }
+    productGrid.innerHTML = products.map(product => {
+        const qty = Number(product.quantity) || 0;
+        const sizes = String(product.size || '').split(',').map(s => s.trim()).filter(Boolean);
+        
+        // Stock badge
+        let stockClass = 'in-stock';
+        let stockLabel = `${qty} in stock`;
+        if (qty === 0) {
+            stockClass = 'out-of-stock';
+            stockLabel = 'Out of stock';
+        } else if (qty <= 5) {
+            stockClass = 'low-stock';
+            stockLabel = `${qty} left`;
+        }
+        
+        // Meta line: category + SKU
+        const category = product.category || 'uncategorized';
+        const sku = product.sku || 'N/A';
+        const meta = `${escapeHtml(category)} · ${escapeHtml(sku)}`;
+        
+        // Size chips
+        const sizesHtml = sizes.length ?
+            `<div class="product-card-chips">${sizes.map(s => `<span class="size-chip">${escapeHtml(s)}</span>`).join('')}</div>` :
+            '';
+        
+        const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
+        const outClass = qty === 0 ? ' is-out-of-stock' : '';
+        
+        return `<div class="product-card${outClass}" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-category="${escapeHtml(category)}" data-stock="${qty}"${sizeOptions}>
+            <div class="product-card-header">
+                <h4 class="product-card-name">${escapeHtml(product.name)}</h4>
+                <span class="product-card-stock ${stockClass}">${stockLabel}</span>
+            </div>
+            <div class="product-card-meta">${meta}</div>
+            ${sizesHtml}
+            <div class="product-card-price">${formatCurrency(product.price)}</div>
+        </div>`;
+    }).join('');
+}
 
     async function loadProductCatalog() {
     const supabaseApi = window.POS_SUPABASE;
@@ -544,57 +572,52 @@ if (confirmPaymentBtn) {
                 }
                 localStorage.setItem('pos_customers', JSON.stringify(customers));
             } catch (err) {
-        console.warn('Customer sync failed:', err);
-    }
-    }
-    
-    // ---------- DECREMENT INVENTORY ----------
-    try {
-        // Aggregate quantities by product ID (handles multi-size sales of same product)
-        const decrements = {};
-        for (const item of items) {
-            const product = productCache[item.name];
-            if (!product?.id) continue;
-            decrements[product.id] = (decrements[product.id] || 0) + item.quantity;
-        }
-        
-        // Apply decrement for each product
-        for (const [productId, soldQty] of Object.entries(decrements)) {
-            const product = Object.values(productCache).find(p => p.id === productId);
-            if (!product) continue;
-            
-            const currentQty = Number(product.quantity) || 0;
-            const newQty = Math.max(0, currentQty - soldQty);
-            
-            if (currentQty < soldQty) {
-                console.warn(`Oversold ${product.name}: sold ${soldQty}, had ${currentQty}`);
-            }
-            
-            const result = await window.POS_SUPABASE.updateInventoryProduct(productId, {
-                quantity: newQty
-            });
-            
-            if (result?.error) {
-                console.warn('Inventory decrement failed for', product.name, result.error);
-            } else {
-                product.quantity = newQty;
+                console.warn('Customer sync failed:', err);
             }
         }
-        
-        // Refresh POS catalog so out-of-stock items disappear
-        if (typeof window.reloadPosCatalog === 'function') {
-            window.reloadPosCatalog();
-        }
-        
-        // Notify dashboard / inventory to refresh
-        window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
-            detail: Object.values(productCache)
-        }));
-    } catch (err) {
-        console.warn('Inventory decrement error:', err);
+// ---------- DECREMENT INVENTORY ----------
+try {
+    const decrements = {};
+    for (const item of items) {
+        const product = productCache[item.name];
+        if (!product?.id) continue;
+        decrements[product.id] = (decrements[product.id] || 0) + item.quantity;
     }
-    
-    window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
+
+    for (const [productId, soldQty] of Object.entries(decrements)) {
+        const product = Object.values(productCache).find(p => p.id === productId);
+        if (!product) continue;
+
+        const currentQty = Number(product.quantity) || 0;
+        const newQty = Math.max(0, currentQty - soldQty);
+
+        if (currentQty < soldQty) {
+            console.warn(`Oversold ${product.name}: sold ${soldQty}, had ${currentQty}`);
+        }
+
+        const result = await window.POS_SUPABASE.updateInventoryProduct(productId, {
+            quantity: newQty
+        });
+
+        if (result?.error) {
+            console.warn('Inventory decrement failed for', product.name, result.error);
+        } else {
+            product.quantity = newQty;
+        }
+    }
+
+    if (typeof window.reloadPosCatalog === 'function') {
+        window.reloadPosCatalog();
+    }
+
+    window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
+        detail: Object.values(productCache)
+    }));
+} catch (err) {
+    console.warn('Inventory decrement error:', err);
+}
+
+        window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
         window.dispatchEvent(new CustomEvent('pos-order-created'));
 
         cart = {};
