@@ -196,38 +196,52 @@ async function addCategoryPrompt() {
     }
 
     function renderInventoryTable() {
-        const tbody = document.getElementById('inventoryTableBody');
-        const table = document.getElementById('inventoryTable');
-        const emptyState = document.getElementById('inventoryEmpty');
-        const loading = document.getElementById('inventoryLoading');
-        if (!tbody) return;
-        if (loading) loading.style.display = 'block';
-        if (table) table.style.display = 'none';
-        setTimeout(() => {
-            if (loading) loading.style.display = 'none';
-            const products = inventoryState.filteredProducts;
-            if (!products.length) {
-                if (emptyState) emptyState.style.display = 'block';
-                return;
-            }
-            if (emptyState) emptyState.style.display = 'none';
-            if (table) table.style.display = 'table';
-            const start = (inventoryState.currentPage - 1) * inventoryState.itemsPerPage;
-            const pageProducts = products.slice(start, start + inventoryState.itemsPerPage);
-            const categoryIcons = { tools: 'fa-tools', hardware: 'fa-cog', electrical: 'fa-bolt', plumbing: 'fa-wrench', paint: 'fa-paint-brush', garden: 'fa-leaf', building: 'fa-building', fasteners: 'fa-link', safety: 'fa-shield-alt' };
-            tbody.innerHTML = pageProducts.map(product => {
-                const status = getStockStatus(product.quantity, product.minStock);
-                const sizeLabel = product.size ? `<span class="product-sku">Size: ${product.size}</span>` : '';
-                return `<tr>
-                    <td><div class="product-info"><div class="product-image"><i class="fas ${categoryIcons[product.category] || 'fa-box'}"></i></div><div class="product-details"><p class="product-name">${product.name}</p>${sizeLabel}<span class="product-sku">Product Code: ${product.sku}</span></div></div></td>
-                    <td>${product.category}</td><td>${formatCurrency(product.price)}</td>
-                    <td><input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)"></td>
-                    <td>${getStockBadge(status)}</td><td>${product.lastUpdated}</td>
-                    <td><div class="action-buttons"><button class="btn-icon edit" type="button" onclick="editProduct('${product.id}')" title="Edit"><i class="fas fa-edit"></i></button><button class="btn-icon delete" type="button" onclick="showDeleteModal('${product.id}')" title="Delete"><i class="fas fa-trash"></i></button></div></td>
-                </tr>`;
-            }).join('');
-        }, 300);
-    }
+    const tbody = document.getElementById('inventoryTableBody');
+    const table = document.getElementById('inventoryTable');
+    const emptyState = document.getElementById('inventoryEmpty');
+    const loading = document.getElementById('inventoryLoading');
+    if (!tbody) return;
+    if (loading) loading.style.display = 'block';
+    if (table) table.style.display = 'none';
+    setTimeout(() => {
+        if (loading) loading.style.display = 'none';
+        const products = inventoryState.filteredProducts;
+        if (!products.length) {
+            if (emptyState) emptyState.style.display = 'block';
+            return;
+        }
+        if (emptyState) emptyState.style.display = 'none';
+        if (table) table.style.display = 'table';
+        const start = (inventoryState.currentPage - 1) * inventoryState.itemsPerPage;
+        const pageProducts = products.slice(start, start + inventoryState.itemsPerPage);
+        tbody.innerHTML = pageProducts.map(product => {
+            const status = getStockStatus(product.quantity, product.minStock);
+            const sizeLabel = product.size ? `<span class="product-sku">Size: ${product.size}</span>` : '';
+            return `<tr>
+                <td>
+                    <div class="product-info">
+                        <div class="product-details">
+                            <p class="product-name">${product.name}</p>
+                            ${sizeLabel}
+                            <span class="product-sku">Product Code: ${product.sku}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>${product.category}</td>
+                <td>${formatCurrency(product.price)}</td>
+                <td><input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)"></td>
+                <td>${getStockBadge(status)}</td>
+                <td>${product.lastUpdated}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon edit" type="button" onclick="editProduct('${product.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon delete" type="button" onclick="showDeleteModal('${product.id}')" title="Delete"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }, 300);
+}
 
     function renderPagination() {
         const pagination = document.getElementById('inventoryPagination');

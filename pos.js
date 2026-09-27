@@ -38,21 +38,16 @@
 
     function renderProductCatalog(products) {
         if (!productGrid) return;
-        const categoryIcons = {
-            tools: 'fa-tools', hardware: 'fa-cog', electrical: 'fa-bolt', plumbing: 'fa-wrench',
-            paint: 'fa-paint-brush', garden: 'fa-leaf', building: 'fa-building', fasteners: 'fa-link', safety: 'fa-shield-alt'
-        };
         productGrid.innerHTML = products.filter(product => Number(product.quantity) > 0).map(product => {
             const sizes = String(product.size || '').split(',').map(size => size.trim()).filter(Boolean);
             const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
             return `<div class="product-card" data-name="${product.name}" data-price="${product.price}" data-category="${product.category}"${sizeOptions}>
-                <i class="fas ${categoryIcons[product.category] || 'fa-box'}"></i>
-                <p>${product.name}</p>
-                <span class="product-card-category">${escapeHtml(product.category || 'Uncategorized')}</span>
-                <span class="product-card-sku">Product Code: ${escapeHtml(product.sku || 'N/A')}</span>
-                ${sizes.length ? `<small class="product-card-sizes">Sizes: ${sizes.map(escapeHtml).join(', ')}</small>` : ''}
-                <strong>${formatCurrency(product.price)}</strong>
-            </div>`;
+    <p>${product.name}</p>
+    <span class="product-card-category">${escapeHtml(product.category || 'Uncategorized')}</span>
+    <span class="product-card-sku">Product Code: ${escapeHtml(product.sku || 'N/A')}</span>
+    ${sizes.length ? `<small class="product-card-sizes">Sizes: ${sizes.map(escapeHtml).join(', ')}</small>` : ''}
+    <strong>${formatCurrency(product.price)}</strong>
+</div>`;
         }).join('');
     }
 
