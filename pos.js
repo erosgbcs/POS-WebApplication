@@ -355,7 +355,7 @@ window.reloadPosCatalog = loadProductCatalog;
         </div>
     `).join('');
     const customer = [name, phone].filter(Boolean).map(escapeHtml).join(' | ');
-    const paymentLabel = paymentMethod === 'card' ? 'Credit/Debit Card' : paymentMethod === 'mobile' ? 'Mobile Payment' : 'Cash';
+    const paymentLabel = paymentMethod === 'gcash' ? 'GCash' : 'Cash';
     
     receiptContent.innerHTML = `
         <div class="receipt-store-name">Kirby's Hardware</div>
@@ -462,22 +462,20 @@ window.reloadPosCatalog = loadProductCatalog;
             let change = 0;
 
             if (selectedPaymentMethod === 'cash') {
-                cash = parseFloat(cashReceived.value) || 0;
-                if (cash < total) {
-                    showToast('Insufficient cash amount', 'error');
-                    return;
-                }
-                change = cash - total;
-                let message = `Payment successful! Change: ${formatCurrency(change)}`;
-                if (name) message += ` | Customer: ${name}`;
-                showToast(message, 'success');
-            } else {
-                let message = selectedPaymentMethod === 'card' 
-                    ? 'Card payment processed successfully!' 
-                    : 'Mobile payment processed successfully!';
-                if (name) message += ` | Customer: ${name}`;
-                showToast(message, 'success');
-            }
+    cash = parseFloat(cashReceived.value) || 0;
+    if (cash < total) {
+        showToast('Insufficient cash amount', 'error');
+        return;
+    }
+    change = cash - total;
+    let message = `Payment successful! Change: ${formatCurrency(change)}`;
+    if (name) message += ` | Customer: ${name}`;
+    showToast(message, 'success');
+} else {
+    let message = 'GCash payment processed successfully!';
+    if (name) message += ` | Customer: ${name}`;
+    showToast(message, 'success');
+}
 
             const order = {
                 id: receiptNumber,
