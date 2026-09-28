@@ -127,17 +127,33 @@ async function addCategoryPrompt() {
     const formatCurrency = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
 
     function mapProduct(product) {
-        return {
-            ...product,
-            size: normalizeSizes(product.size),
-            minStock: product.minStock ?? product.min_stock ?? 0,
-            lastUpdated: product.lastUpdated || product.updated_at || product.created_at || ''
-        };
+    const rawSize = String(product.size || '').trim();
+    let inferredMode = product.sizeMode;
+    if (!inferredMode) {
+        // Legacy: comma present -> treat as variants
+        inferredMode = rawSize.includes(',') ? 'variants' : 'spec';
     }
+    return {
+        ...product,
+        size: rawSize,
+        sizeMode: inferredMode,
+        minStock: product.minStock ?? product.min_stock ?? 0,
+        lastUpdated: product.lastUpdated || product.updated_at || product.created_at || ''
+    };
+}
 
-    function normalizeSizes(size) {
-        return [...new Set(String(size || '').split(',').map(value => value.trim()).filter(Boolean))].join(',');
-    }
+function specIconClass(spec) {
+    const s = String(spec || '').trim().toLowerCase();
+    if (!s) return 'fas fa-ruler';
+    if (/\d+\s*(kg|kgs|g|lb|lbs|oz|ton|tonne)\b/.test(s)) return 'fas fa-weight-hanging';
+    if (/\d+\s*(v|vac|a|amp|amps|w|watt|watts|volt|volts|awg)\b/.test(s)) return 'fas fa-bolt';
+    if (/\d+\s*(l|ml|gal|gallon|liter|litre|liters|litres)\b/.test(s)) return 'fas fa-flask';
+    if (/\d+\s*(pc|pcs|set|sets|unit|units|pack|packs|pair|pairs)\b/.test(s)) return 'fas fa-list-ol';
+    if (/\d+\s*[x×]\s*\d+/.test(s)) return 'fas fa-ruler-combined';
+    if (/\d+\s*(mm|cm|in|inch|inches|ft|foot|feet|meter|meters)\b/.test(s)) return 'fas fa-ruler-combined';
+    return 'fas fa-ruler';
+}
+
 
     function showToast(message, type = 'success') {
         const container = document.getElementById('toastContainer');
@@ -216,7 +232,7 @@ async function addCategoryPrompt() {
         const pageProducts = products.slice(start, start + inventoryState.itemsPerPage);
         tbody.innerHTML = pageProducts.map(product => {
             const status = getStockStatus(product.quantity, product.minStock);
-            const sizeLabel = product.size ? `<span class="product-sku">Size: ${product.size}</span>` : '';
+            const sizeLabel = product.size ? `<span class="product-sku"><i class="${specIconClass(product.size)}"></i> ${escapeHtml(product.size)}</span>` : '';
             return `<tr>
                 <td>
                     <div class="product-info">
@@ -273,10 +289,19 @@ async function addCategoryPrompt() {
                 document.getElementById('productMinStock').value = product.minStock;
                 document.getElementById('productSupplier').value = product.supplier || '';
                 document.getElementById('productSize').value = product.size || '';
+const mode = product.sizeMode || 'spec';
+const modeRadio = document.querySelector(`input[name="sizeMode"][value="${mode}"]`);
+if (modeRadio) modeRadio.checked = true;
+updateSizePreview();
                 document.getElementById('productDescription').value = product.description || '';
             }
-        } else title.textContent = 'Add Product';
-        modal.classList.add('active');
+        } else {
+    title.textContent = 'Add Product';
+    const specRadio = document.querySelector('input[name="sizeMode"][value="spec"]');
+    if (specRadio) specRadio.checked = true;
+    updateSizePreview();
+}
+modal.classList.add('active');
     }
 
     function closeProductModal() {
@@ -286,10 +311,23 @@ async function addCategoryPrompt() {
 
     async function saveProduct(event) {
         event.preventDefault();
-        const productData = {
-            name: document.getElementById('productName').value.trim(), sku: document.getElementById('productSKU').value.trim(), category: document.getElementById('productCategory').value,
-            price: parseFloat(document.getElementById('productPrice').value), quantity: parseInt(document.getElementById('productQuantity').value), minStock: parseInt(document.getElementById('productMinStock').value),
-            supplier: document.getElementById('productSupplier').value.trim(), size: normalizeSizes(document.getElementById('productSize').value), description: document.getElementById('productDescription').value.trim()
+        const sizeMode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
+const rawSize = document.getElementById('productSize').value.trim();
+const normalizedSize = sizeMode === 'spec' ?
+    rawSize :
+    [...new Set(rawSize.split(',').map(v => v.trim()).filter(Boolean))].join(',');
+
+const productData = {
+    name: document.getElementById('productName').value.trim(),
+    sku: document.getElementById('productSKU').value.trim(),
+    category: document.getElementById('productCategory').value,
+    price: parseFloat(document.getElementById('productPrice').value),
+    quantity: parseInt(document.getElementById('productQuantity').value),
+    minStock: parseInt(document.getElementById('productMinStock').value),
+    supplier: document.getElementById('productSupplier').value.trim(),
+    size: normalizedSize,
+    sizeMode: sizeMode,
+    description: document.getElementById('productDescription').value.trim()
         };
         const skuExists = inventoryState.products.some(p => p.sku === productData.sku && p.id !== inventoryState.editingProductId);
         if (skuExists) { showToast('Product code already exists', 'error'); return; }
@@ -347,28 +385,70 @@ async function addCategoryPrompt() {
         showToast('Inventory exported successfully', 'success');
     }
 
-    function setupInventoryEventListeners() {
-        if (inventoryState.initialized) return;
-        inventoryState.initialized = true;
-        document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
-        
-document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
-        
-        document.getElementById('exportInventoryBtn')?.addEventListener('click', exportInventory);
-        document.getElementById('inventorySearch')?.addEventListener('input', event => { inventoryState.searchTerm = event.target.value; filterProducts(); });
-        document.getElementById('categoryFilter')?.addEventListener('change', event => { inventoryState.categoryFilter = event.target.value; filterProducts(); });
-        document.getElementById('stockFilter')?.addEventListener('change', event => { inventoryState.stockFilter = event.target.value; filterProducts(); });
-        document.getElementById('closeProductModal')?.addEventListener('click', closeProductModal);
-        document.getElementById('cancelProductBtn')?.addEventListener('click', closeProductModal);
-        document.getElementById('productForm')?.addEventListener('submit', saveProduct);
-        document.getElementById('closeDeleteModal')?.addEventListener('click', closeDeleteModal);
-        document.getElementById('cancelDeleteBtn')?.addEventListener('click', closeDeleteModal);
-        document.getElementById('confirmDeleteBtn')?.addEventListener('click', confirmDelete);
-        window.addEventListener('click', event => {
-            if (event.target === document.getElementById('productModal')) closeProductModal();
-            if (event.target === document.getElementById('deleteModal')) closeDeleteModal();
-        });
+function updateSizePreview() {
+    const previewEl = document.getElementById('sizePreview');
+    const inputEl = document.getElementById('productSize');
+    const labelEl = document.getElementById('productSizeLabel');
+    const mode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
+
+    if (!previewEl || !inputEl || !labelEl) return;
+
+    if (mode === 'spec') {
+        labelEl.textContent = 'Specification (optional)';
+        inputEl.placeholder = 'e.g., 2 in, 40 kg, 20 A, or leave blank';
+        previewEl.style.display = 'none';
+        previewEl.innerHTML = '';
+        return;
     }
+
+    labelEl.textContent = 'Variants (separated by comma)';
+    inputEl.placeholder = 'e.g., S, M, L, XL';
+
+    const raw = inputEl.value.trim();
+    const parts = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
+
+    if (parts.length === 0) {
+        previewEl.style.display = 'none';
+        previewEl.innerHTML = '';
+        return;
+    }
+
+    previewEl.style.display = 'flex';
+    previewEl.innerHTML =
+        '<span class="size-preview-label">Preview:</span> ' +
+        parts.map(p => `<span class="size-chip">${escapeHtml(p)}</span>`).join('');
+}
+
+function setupInventoryEventListeners() {
+    if (inventoryState.initialized) return;
+    inventoryState.initialized = true;
+
+    document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
+
+    // Size mode radios + live preview
+    document.querySelectorAll('input[name="sizeMode"]').forEach(radio => {
+        radio.addEventListener('change', updateSizePreview);
+    });
+    document.getElementById('productSize')?.addEventListener('input', updateSizePreview);
+
+    document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
+
+    document.getElementById('exportInventoryBtn')?.addEventListener('click', exportInventory);
+    document.getElementById('inventorySearch')?.addEventListener('input', event => { inventoryState.searchTerm = event.target.value; filterProducts(); });
+    document.getElementById('categoryFilter')?.addEventListener('change', event => { inventoryState.categoryFilter = event.target.value; filterProducts(); });
+    document.getElementById('stockFilter')?.addEventListener('change', event => { inventoryState.stockFilter = event.target.value; filterProducts(); });
+    document.getElementById('closeProductModal')?.addEventListener('click', closeProductModal);
+    document.getElementById('cancelProductBtn')?.addEventListener('click', closeProductModal);
+    document.getElementById('productForm')?.addEventListener('submit', saveProduct);
+    document.getElementById('closeDeleteModal')?.addEventListener('click', closeDeleteModal);
+    document.getElementById('cancelDeleteBtn')?.addEventListener('click', closeDeleteModal);
+    document.getElementById('confirmDeleteBtn')?.addEventListener('click', confirmDelete);
+    window.addEventListener('click', event => {
+        if (event.target === document.getElementById('productModal')) closeProductModal();
+        if (event.target === document.getElementById('deleteModal')) closeDeleteModal();
+    });
+}
+
 
     window.initInventory = function() {
     // Always load categories from cloud (realtime-safe)

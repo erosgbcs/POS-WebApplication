@@ -1036,9 +1036,26 @@
                         <input type="text" id="productSupplier" placeholder="Supplier name">
                     </div>
                     <div class="form-group">
-                        <label for="productSize">Size (optional)</label>
-                        <input type="text" id="productSize" placeholder="e.g., S, M, L, 10kg, 8oz, or leave blank">
-                    </div>
+    <label>Size Type</label>
+    <div class="size-mode-radio">
+        <label class="radio-wrapper">
+            <input type="radio" name="sizeMode" value="spec" id="sizeModeSpec" checked>
+            <span class="radio-mark"></span>
+            <span>Single spec &mdash; e.g., 2 in, 40 kg, 20 A</span>
+        </label>
+        <label class="radio-wrapper">
+            <input type="radio" name="sizeMode" value="variants" id="sizeModeVariants">
+            <span class="radio-mark"></span>
+            <span>Multiple variants &mdash; e.g., S, M, L</span>
+        </label>
+    </div>
+</div>
+
+<div class="form-group">
+    <label for="productSize" id="productSizeLabel">Specification (optional)</label>
+    <input type="text" id="productSize" placeholder="e.g., 2 in, 40 kg, 20 A, or leave blank">
+    <div id="sizePreview" class="size-preview" style="display: none;"></div>
+</div>
                     <div class="form-group">
                         <label for="productDescription">Description</label>
                         <textarea id="productDescription" rows="3" placeholder="Product description..."></textarea>

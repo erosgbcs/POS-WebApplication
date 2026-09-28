@@ -4136,3 +4136,125 @@ body {
 [data-theme="light"] .sales-summary strong {
     color: #1f2937;
 }
+
+/* ===== SIZE MODE RADIO ===== */
+.size-mode-radio {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.radio-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: #cbd5e1;
+    font-size: 13px;
+    user-select: none;
+}
+
+.radio-wrapper input {
+    display: none;
+}
+
+.radio-mark {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #475569;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.radio-wrapper input:checked+.radio-mark {
+    border-color: #16a34a;
+    background: #16a34a;
+}
+
+.radio-wrapper input:checked+.radio-mark::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+}
+
+.radio-wrapper:hover .radio-mark {
+    border-color: #16a34a;
+}
+
+/* ===== SIZE PREVIEW ===== */
+.size-preview {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #94a3b8;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.size-preview-label {
+    color: #64748b;
+    font-weight: 500;
+    margin-right: 4px;
+}
+
+.size-preview .size-chip {
+    font-size: 11px;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(22, 163, 74, 0.12);
+    border: 1px solid rgba(22, 163, 74, 0.25);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Spec icon sizing inside chips */
+.size-chip i {
+    font-size: 10px;
+    margin-right: 3px;
+    opacity: 0.85;
+}
+
+/* Light theme */
+[data-theme="light"] .radio-wrapper {
+    color: #334155;
+}
+
+[data-theme="light"] .radio-mark {
+    border-color: #94a3b8;
+}
+
+[data-theme="light"] .radio-wrapper:hover .radio-mark {
+    border-color: #15803d;
+}
+
+[data-theme="light"] .radio-wrapper input:checked+.radio-mark {
+    border-color: #15803d;
+    background: #15803d;
+}
+
+[data-theme="light"] .size-preview {
+    background: rgba(226, 232, 240, 0.4);
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #475569;
+}
+
+[data-theme="light"] .size-preview .size-chip {
+    color: #166534;
+    background: rgba(22, 163, 74, 0.12);
+    border-color: rgba(22, 163, 74, 0.3);
+}
