@@ -7,6 +7,20 @@
     <meta name="description" content="Secure login for a POS and inventory management system.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- PWA manifest -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#16a34a">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- iOS Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kirby's POS">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/icon-180.png">
+
+<!-- Favicons -->
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="tailwind.css">
@@ -1237,5 +1251,14 @@
 <script src="audit.js"></script>
 <script src="script.js"></script>
 <script src="pos.js"></script>
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('✅ Service worker registered:', reg.scope))
+                .catch(err => console.warn('⚠️ Service worker failed:', err));
+        });
+    }
+</script>
 </body>
 </html>
