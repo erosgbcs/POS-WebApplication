@@ -2756,45 +2756,44 @@ async function logout() {
     */
 
     // ---------- CHECK AUTH STATUS ON LOAD ----------
-   // ---------- CHECK AUTH STATUS ON LOAD ----------
 async function checkAuth() {
-    try {
-        // If Firebase is configured, use it exclusively
-        if (getAuthMode() === authMode.supabase) {
-            const { user, error } = await getCurrentUser();
-            if (user && !error) {
-                loadDashboard(user);
-            } else {
-                showLoginView(); // Firebase active but no session — show login
-            }
-            return; // Prevent falling through to localStorage check
-        }
-        
-        // Local mode fallback: check for a saved session
-        const sessionUser = localStorage.getItem('pos_current_user');
-        if (sessionUser) {
-            try {
-                const user = JSON.parse(sessionUser);
-                const storedAccount = user?.email ? findUserByEmail(user.email) : null;
-                if (storedAccount) {
-                    user.role = storedAccount.role;
-                    user.user_metadata = {
-                        ...(user.user_metadata || {}),
-                        role: storedAccount.role
-                    };
-                }
+    // Step 1: try Firebase (works offline via browserLocalPersistence)
+    if (getAuthMode() === authMode.supabase) {
+        try {
+            const { user } = await getCurrentUser();
+            if (user) {
                 loadDashboard(user);
                 return;
-            } catch (e) {
-                localStorage.removeItem('pos_current_user');
             }
+        } catch (err) {
+            console.warn('checkAuth: getCurrentUser failed, falling back to cache', err);
         }
-        
-        showLoginView();
-    } catch (error) {
-        console.error('Auth check error:', error);
-        showLoginView();
     }
+
+    // Step 2: fall back to cached session
+    const cached = localStorage.getItem('pos_current_user');
+    if (cached) {
+        try {
+            const user = JSON.parse(cached);
+            if (getAuthMode() !== authMode.supabase && user?.email) {
+                const stored = findUserByEmail(user.email);
+                if (stored) {
+                    user.role = stored.role;
+                    user.user_metadata = {
+                        ...(user.user_metadata || {}),
+                        role: stored.role
+                    };
+                }
+            }
+            loadDashboard(user);
+            return;
+        } catch (e) {
+            localStorage.removeItem('pos_current_user');
+        }
+    }
+
+    // Step 3: no session — show login
+    showLoginView();
 }
 
     // ---------- WINDOW RESIZE HANDLER ----------
@@ -2853,16 +2852,13 @@ setupTopProductsPeriodControls();
         }
     }
     
-    // Override loadDashboard to save session
+        // Override loadDashboard to always save session (offline fallback)
     const originalLoadDashboard = loadDashboard;
     loadDashboard = function(user) {
         originalLoadDashboard(user);
-        // Save session for local mode
-        if (getAuthMode() !== authMode.supabase) {
-            try {
-                localStorage.setItem('pos_current_user', JSON.stringify(user));
-            } catch (e) {}
-        }
+        try {
+            localStorage.setItem('pos_current_user', JSON.stringify(user));
+        } catch (e) {}
     };
     
     // Override showLoginView to clear session

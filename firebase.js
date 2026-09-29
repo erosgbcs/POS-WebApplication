@@ -49,13 +49,27 @@ try {
     db = getFirestore(app);
 }
 
+const auth = getAuth(app);
+
+// Enable persistent offline session — user stays signed in across reloads
+// and while offline. Firebase stores the session in IndexedDB.
+try {
+    const { setPersistence, browserLocalPersistence } =
+        await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    await setPersistence(auth, browserLocalPersistence);
+    console.log('✅ Auth persistence set to browserLocalPersistence');
+} catch (err) {
+    console.warn('⚠️ Could not set auth persistence:', err?.message);
+}
+
 state.fb = {
     app,
     db,
-    auth: getAuth(app)
+    auth
 };
 console.log('✅ Firebase initialized');
 return state.fb;
+
         } catch (error) {
             console.error('❌ Firebase initialization failed:', error);
             return null;
@@ -190,7 +204,7 @@ return state.fb;
                         return;
                     }
 
-                    try {
+                                        try {
                         const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
                         const profileDoc = await getDoc(doc(fb.db, 'profiles', user.uid));
                         const profile = profileDoc.exists() ? profileDoc.data() : null;
@@ -202,12 +216,46 @@ return state.fb;
                                 full_name: profile.full_name,
                                 role: profile.role
                             };
+                            // Cache the decorated profile so offline reloads keep the role.
+                            try {
+                                localStorage.setItem('pos_user_profile_' + user.uid, JSON.stringify({
+                                    full_name: profile.full_name,
+                                    role: profile.role
+                                }));
+                            } catch (e) {}
+                        } else {
+                            // Profile not reachable (offline) — hydrate from cache if we have it.
+                            try {
+                                const cached = JSON.parse(localStorage.getItem('pos_user_profile_' + user.uid) || 'null');
+                                if (cached) {
+                                    user.role = cached.role;
+                                    user.user_metadata = {
+                                        ...(user.user_metadata || {}),
+                                        full_name: cached.full_name,
+                                        role: cached.role
+                                    };
+                                }
+                            } catch (e) {}
                         }
 
                         state.currentUser = user;
                         resolve({ user, error: null });
                     } catch (error) {
-                        resolve({ user, error });
+                        // Firestore unreachable — still return the authenticated user, don't fail.
+                        // Try to hydrate role from cache one more time.
+                        try {
+                            const cached = JSON.parse(localStorage.getItem('pos_user_profile_' + user.uid) || 'null');
+                            if (cached) {
+                                user.role = cached.role;
+                                user.user_metadata = {
+                                    ...(user.user_metadata || {}),
+                                    full_name: cached.full_name,
+                                    role: cached.role
+                                };
+                            }
+                        } catch (e) {}
+                        state.currentUser = user;
+                        resolve({ user, error: null });
                     }
                 });
             });
