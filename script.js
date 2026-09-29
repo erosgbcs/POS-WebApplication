@@ -2947,5 +2947,73 @@ setupTopProductsPeriodControls();
     window.addEventListener('pos-order-created', refreshOverview);
     window.addEventListener('inventory-products-loaded', refreshOverview);
     
+    // ---------- NOTIFICATIONS BELL ----------
+    (function setupNotificationsBell() {
+        const btn = document.getElementById('notificationsBtn');
+        const badge = document.getElementById('notificationsBadge');
+        if (!btn || !badge) return;
+
+        const LOW_STOCK_BUFFER = 0;  // set to N to also count items within N of minStock
+
+        function getLowOrOutCount() {
+            const products = window.getInventorySnapshot?.() || [];
+            return products.filter(p => {
+                const qty = Number(p.quantity) || 0;
+                const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+                if (qty === 0) return true;                              // out of stock
+                if (qty > 0 && qty <= min + LOW_STOCK_BUFFER) return true; // at/under threshold
+                return false;
+            }).length;
+        }
+
+        function updateBadge() {
+            const count = getLowOrOutCount();
+
+            if (count === 0) {
+                badge.style.display = 'none';
+                btn.setAttribute('aria-label', 'No alerts');
+                btn.setAttribute('title', 'No alerts');
+                return;
+            }
+
+            badge.style.display = '';
+            badge.textContent = count > 99 ? '99+' : String(count);
+
+            const label = `${count} alert${count === 1 ? '' : 's'} — low or out of stock`;
+            btn.setAttribute('aria-label', label);
+            btn.setAttribute('title', label);
+        }
+
+        function handleClick() {
+            const count = getLowOrOutCount();
+
+            // If there's nothing wrong with stock, go to the audit trail anyway —
+            // the owner can see recent activity there.
+            // If there IS something wrong, jump straight to Inventory.
+            window.navigateToPage?.(count > 0 ? 'inventory' : 'audit');
+
+            // Small visual feedback
+            btn.style.transform = 'scale(0.92)';
+            setTimeout(() => { btn.style.transform = ''; }, 120);
+        }
+
+        btn.addEventListener('click', handleClick);
+
+        // Live updates when data changes
+        window.addEventListener('inventory-products-loaded', updateBadge);
+        window.addEventListener('pos-order-created', updateBadge);
+        window.addEventListener('pos-queue-changed', updateBadge);
+
+        // Periodic safety net (in case a subscription missed an update)
+        setInterval(updateBadge, 30000);
+
+        // Expose so other modules can force-refresh
+        window.updateNotificationsBadge = updateBadge;
+
+        updateBadge();
+    })();
+
+
+
     init();
     })();

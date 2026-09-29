@@ -4763,3 +4763,12 @@ html, body {
 [data-theme="light"] .action-btn i {
     color: #15803d;
 }
+
+/* Notifications bell — pointer feedback */
+#notificationsBtn {
+    transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+#notificationsBtn:active {
+    transform: scale(0.92);
+}
