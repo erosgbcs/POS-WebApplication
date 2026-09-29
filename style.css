@@ -3187,6 +3187,7 @@ body {
    brighter overlay. (Do not add a solid color here — it would hide the image.) */
 [data-theme="light"] .bg-gradient {
     background:
+        radial-gradient(ellipse at 15% 50%, rgba(22, 163, 74, 0.10) 0%, transparent 60%),
         radial-gradient(ellipse at 85% 50%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
         url('bg.jpg') center/cover no-repeat;
 }
