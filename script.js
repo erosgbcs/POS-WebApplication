@@ -2947,24 +2947,165 @@ setupTopProductsPeriodControls();
     window.addEventListener('pos-order-created', refreshOverview);
     window.addEventListener('inventory-products-loaded', refreshOverview);
     
-    // ---------- NOTIFICATIONS BELL ----------
+        // ---------- NOTIFICATIONS BELL + PANEL ----------
     (function setupNotificationsBell() {
         const btn = document.getElementById('notificationsBtn');
         const badge = document.getElementById('notificationsBadge');
-        if (!btn || !badge) return;
+        const panel = document.getElementById('notificationsPanel');
+        const list = document.getElementById('notificationsList');
+        const countEl = document.getElementById('notificationsPanelCount');
+        const footer = document.getElementById('notificationsFooter');
+        const viewAllBtn = document.getElementById('notificationsViewAll');
 
-        const LOW_STOCK_BUFFER = 0;  // set to N to also count items within N of minStock
+        if (!btn || !badge || !panel || !list) return;
 
-        function getLowOrOutCount() {
-            const products = window.getInventorySnapshot?.() || [];
-            return products.filter(p => {
-                const qty = Number(p.quantity) || 0;
-                const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
-                if (qty === 0) return true;                              // out of stock
-                if (qty > 0 && qty <= min + LOW_STOCK_BUFFER) return true; // at/under threshold
-                return false;
-            }).length;
+        const MAX_VISIBLE = 8;
+        const LOW_STOCK_BUFFER = 0;
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
         }
+
+        function getAlerts() {
+            const products = window.getInventorySnapshot?.() || [];
+            return products
+                .map(p => {
+                    const qty = Number(p.quantity) || 0;
+                    const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+                    let status = null;
+                    if (qty === 0) status = 'out_of_stock';
+                    else if (qty <= min + LOW_STOCK_BUFFER) status = 'low_stock';
+                    return status ? { product: p, qty, min, status } : null;
+                })
+                .filter(Boolean)
+                .sort((a, b) => {
+                    if (a.status !== b.status) return a.status === 'out_of_stock' ? -1 : 1;
+                    return (a.qty - a.min) - (b.qty - b.min);
+                });
+        }
+
+        function renderBadge(alerts) {
+            const count = alerts.length;
+            if (count === 0) {
+                badge.style.display = 'none';
+                btn.setAttribute('title', 'No alerts');
+            } else {
+                badge.style.display = '';
+                badge.textContent = count > 99 ? '99+' : String(count);
+                btn.setAttribute('title', `${count} alert${count === 1 ? '' : 's'}`);
+            }
+        }
+
+        function renderPanel(alerts) {
+            if (countEl) countEl.textContent = String(alerts.length);
+
+            if (alerts.length === 0) {
+                list.innerHTML = `
+                    <div class="notifications-empty">
+                        <i class="fas fa-check-circle"></i>
+                        <p>All stock levels are healthy</p>
+                    </div>`;
+                if (footer) footer.style.display = 'none';
+                return;
+            }
+
+            const visible = alerts.slice(0, MAX_VISIBLE);
+            list.innerHTML = visible.map(({ product, qty, min, status }) => {
+                const isOut = status === 'out_of_stock';
+                const badgeClass = isOut ? 'stock-badge out-of-stock' : 'stock-badge low-stock';
+                const badgeLabel = isOut ? 'Out of Stock' : `Low: ${qty} / ${min}`;
+                const icon = isOut ? 'fa-times-circle' : 'fa-exclamation-triangle';
+                const iconClass = isOut ? 'orange' : 'blue';
+                return `
+                    <button type="button" class="notification-item">
+                        <div class="notification-icon ${iconClass}">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="notification-body">
+                            <p class="notification-title">${escapeHtml(product.name)}</p>
+                            <span class="notification-meta">${escapeHtml(product.sku || 'N/A')} · Qty ${qty}${min ? ` / min ${min}` : ''}</span>
+                        </div>
+                        <span class="${badgeClass}">${badgeLabel}</span>
+                    </button>`;
+            }).join('');
+
+            if (footer) footer.style.display = alerts.length > MAX_VISIBLE ? '' : 'none';
+        }
+
+        function refresh() {
+            const alerts = getAlerts();
+            renderBadge(alerts);
+            renderPanel(alerts);
+        }
+
+        function openPanel() {
+            panel.classList.add('show');
+            btn.setAttribute('aria-expanded', 'true');
+            refresh();
+        }
+
+        function closePanel() {
+            panel.classList.remove('show');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+
+        function togglePanel() {
+            if (panel.classList.contains('show')) closePanel();
+            else openPanel();
+        }
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePanel();
+            btn.style.transform = 'scale(0.92)';
+            setTimeout(() => { btn.style.transform = ''; }, 120);
+        });
+
+        // Outside click closes the panel
+        document.addEventListener('click', (e) => {
+            if (!panel.classList.contains('show')) return;
+            if (panel.contains(e.target) || btn.contains(e.target)) return;
+            closePanel();
+        });
+
+        // Esc closes
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && panel.classList.contains('show')) closePanel();
+        });
+
+        // Click a row → jump to inventory and close
+        list.addEventListener('click', (e) => {
+            const item = e.target.closest('.notification-item');
+            if (!item) return;
+            closePanel();
+            window.navigateToPage?.('inventory');
+        });
+
+        // "View all" → inventory
+        if (viewAllBtn) {
+            viewAllBtn.addEventListener('click', () => {
+                closePanel();
+                window.navigateToPage?.('inventory');
+            });
+        }
+
+        // Live updates
+        window.addEventListener('inventory-products-loaded', refresh);
+        window.addEventListener('pos-order-created', refresh);
+        window.addEventListener('pos-queue-changed', refresh);
+        setInterval(refresh, 30000);
+
+                        // Expose for other modules
+        window.updateNotificationsBadge = refresh;
+
+        refresh();
+    })();
+
+
+    init();
+    })();
 
         function updateBadge() {
             const count = getLowOrOutCount();
@@ -3011,9 +3152,4 @@ setupTopProductsPeriodControls();
         window.updateNotificationsBadge = updateBadge;
 
         updateBadge();
-    })();
-
-
-
-    init();
     })();
