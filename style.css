@@ -5000,3 +5000,14 @@ html, body {
 [data-theme="light"] .notifications-view-all:hover {
     background: rgba(34, 197, 94, 0.1);
 }
+
+/* Cap the Items column so a big order doesn't stretch the whole row */
+.order-items-cell {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 300px;
+    line-height: 1.4;
+    vertical-align: top;
+}

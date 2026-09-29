@@ -320,11 +320,11 @@ const CUSTOMERS_KEY = 'pos_customers';
     }
     
     ordersTableBody.innerHTML = filtered.map(order => {
-        const items = (order.items || []).map(item => `${escapeCustomerText(item.name)} x${item.quantity}`).join(', ');
-        return `<tr>
-            <td>${escapeCustomerText(order.id)}</td>
-            <td>${escapeCustomerText(order.customerName || 'Walk-in customer')}</td>
-            <td>${items || 'No items'}</td>
+            const items = (order.items || []).map(item => `${escapeCustomerText(item.name)} x${item.quantity}`).join(', ');
+            return `<tr>
+        <td>${escapeCustomerText(order.id)}</td>
+        <td>${escapeCustomerText(order.customerName || 'Walk-in customer')}</td>
+        <td class="order-items-cell" title="${items || 'No items'}">${items || 'No items'}</td>
             <td>${formatAppCurrency(order.total)}</td>
             <td><span class="stock-badge in-stock">${escapeCustomerText(order.status)}</span></td>
             <td>${new Date(order.createdAt).toLocaleString()}</td>
