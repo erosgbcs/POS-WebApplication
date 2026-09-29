@@ -1787,29 +1787,31 @@ applyRoleAccess(user);
                     if (error) throw error;
                     
                     if (data?.user) {
-                        loadDashboard(data.user);
-                        // Close dropdown if open
-                        if (userDropdownMenu) userDropdownMenu.classList.remove('show');
-                    }
-                    return;
+    loadDashboard(data.user);
+    // Log the login for owner monitoring.
+    window.POS_APP_LOG?.('login', 'auth', `${data.user.user_metadata?.full_name || data.user.email} signed in`, 'info');
+    // Close dropdown if open
+    if (userDropdownMenu) userDropdownMenu.classList.remove('show');
+}
+return;
                 }
 
                 // Local mode
                 await new Promise(r => setTimeout(r, 800));
                 const user = findUserByEmail(email);
                 if (user && user.password === password) {
-                    showToast(`Welcome back, ${user.name}!`, 'success');
-                    // For local mode, create a fake user object
-                    loadDashboard({
-                        email: user.email,
-                        role: user.role,
-                        user_metadata: { full_name: user.name, role: user.role }
-                    });
-                } else if (user) {
-                    showToast('Incorrect password.', 'error');
-                } else {
-                    showToast('No account found with this email.', 'error');
-                }
+    showToast(`Welcome back, ${user.name}!`, 'success');
+    loadDashboard({
+        email: user.email,
+        role: user.role,
+        user_metadata: { full_name: user.name, role: user.role }
+    });
+    window.POS_APP_LOG?.('login', 'auth', `${user.name} signed in`, 'info');
+} else if (user) {
+    showToast('Incorrect password.', 'error');
+} else {
+    showToast('No account found with this email.', 'error');
+}
             } catch (error) {
                 const message = error?.message || 'Unable to sign in.';
                 showToast(message, 'error');
@@ -1993,16 +1995,20 @@ if (signupForm) {
     // ---------- LOGOUT ----------
     // ---------- LOGOUT ----------
 async function logout() {
-    try {
-        if (window._posUnsubscribers) {
-            window._posUnsubscribers.forEach(fn => { try { fn(); } catch (e) {} });
-            window._posUnsubscribers = null;
-        }
-        if (getAuthMode() === authMode.supabase) {
-            const { error } = await signOutWithSupabase();
-            if (error) throw error;
-        }
-        showLoginView();
+        try {
+            // Log BEFORE we clear the session so we still know who it was.
+            const name = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown user';
+            window.POS_APP_LOG?.('logout', 'auth', `${name} signed out`, 'info');
+            
+            if (window._posUnsubscribers) {
+                window._posUnsubscribers.forEach(fn => { try { fn(); } catch (e) {} });
+                window._posUnsubscribers = null;
+            }
+            if (getAuthMode() === authMode.supabase) {
+                const { error } = await signOutWithSupabase();
+                if (error) throw error;
+            }
+            showLoginView();
         showToast('Logged out successfully', 'success');
         if (userDropdownMenu) userDropdownMenu.classList.remove('show');
     } catch (error) {

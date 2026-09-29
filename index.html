@@ -823,9 +823,22 @@
 <div class="page-content" id="page-audit">
     <div class="page-header">
         <h1>Audit Trail & System Logs</h1>
-        <p>Track all system activities and user actions</p>
+        <p>Monitor who is doing what on the system</p>
     </div>
-
+    
+    <!-- Active Users panel (populated by audit.js) -->
+    <div class="recent-activity" style="margin-bottom: 1.5rem;">
+        <div class="activity-header">
+            <h2>Active Users</h2>
+            <span style="font-size: 12px; color: var(--text-secondary);" id="activeUsersCount">—</span>
+        </div>
+        <div id="activeUsersList" class="activity-list">
+            <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
+                <span>Loading active users...</span>
+            </div>
+        </div>
+    </div>
+    
     <!-- Audit Stats -->
     <div class="stats-grid">
         <div class="stat-card">
@@ -866,12 +879,38 @@
         </div>
     </div>
 
-    <!-- Audit Tools -->
-    <div class="inventory-tools">
-        <div class="nav-search" style="max-width: 300px; flex: 1;">
-            <i class="fas fa-search"></i>
-            <input type="text" id="auditSearch" placeholder="Search logs...">
+    <!-- Per-user activity summary (populated by audit.js) -->
+<div class="recent-activity" style="margin-bottom: 1.5rem;">
+    <div class="activity-header">
+        <h2>Activity by User (Today)</h2>
+        <span style="font-size: 12px; color: var(--text-secondary);" id="userSummarySubtitle">—</span>
+    </div>
+    <div id="userSummaryList" class="activity-list">
+        <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
+            <span>Loading user activity...</span>
         </div>
+    </div>
+</div>
+
+<!-- Audit Tools -->
+<div class="inventory-tools">
+    <div class="nav-search" style="max-width: 300px; flex: 1;">
+        <i class="fas fa-search"></i>
+        <input type="text" id="auditSearch" placeholder="Search logs, receipts, users...">
+    </div>
+    <select class="filter-select" id="auditUserFilter" aria-label="Filter by user" style="min-width: 180px;">
+        <option value="">All users</option>
+    </select>
+    <select class="filter-select" id="auditActionFilter" aria-label="Filter by action" style="min-width: 150px;">
+        <option value="">All actions</option>
+        <option value="login">Login</option>
+        <option value="logout">Logout</option>
+        <option value="transaction">Transaction</option>
+        <option value="create">Create</option>
+        <option value="update">Update</option>
+        <option value="delete">Delete</option>
+        <option value="export">Export</option>
+    </select>
         <div class="inventory-actions">
             <button class="secondary-btn" id="exportAuditLogs">
                 <i class="fas fa-download"></i> Export Logs
@@ -882,34 +921,6 @@
         </div>
     </div>
 
-    <!-- Audit Filters -->
-    <div class="audit-filters" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-        <select id="auditActionFilter" class="filter-select">
-            <option value="">All Actions</option>
-            <option value="create">Create</option>
-            <option value="update">Update</option>
-            <option value="delete">Delete</option>
-            <option value="login">Login</option>
-            <option value="logout">Logout</option>
-            <option value="export">Export</option>
-            <option value="view">View</option>
-        </select>
-        <select id="auditModuleFilter" class="filter-select">
-            <option value="">All Modules</option>
-            <option value="auth">Authentication</option>
-            <option value="inventory">Inventory</option>
-            <option value="pos">Point of Sale</option>
-            <option value="orders">Orders</option>
-            <option value="customers">Customers</option>
-            <option value="reports">Reports</option>
-            <option value="settings">Settings</option>
-            <option value="audit">Audit Trail</option>
-        </select>
-        <input type="date" id="auditDateFilter" class="filter-select">
-        <button class="secondary-btn" id="clearAuditFilters">
-            <i class="fas fa-times"></i> Clear Filters
-        </button>
-    </div>
 
     <!-- Audit Table -->
     <div class="inventory-table-container">
@@ -933,8 +944,6 @@
         </div>
     </div>
 
-    <!-- Pagination -->
-    <div class="pagination" id="auditPaginationMain"></div>
 </div>
                 <!-- Settings Page -->
                 <div class="page-content" id="page-settings">

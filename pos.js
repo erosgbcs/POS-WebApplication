@@ -617,8 +617,17 @@ try {
     console.warn('Inventory decrement error:', err);
 }
 
-        window.POS_APP_LOG?.('create', 'pos', `Order ${receiptNumber} completed`, 'info');
-        window.dispatchEvent(new CustomEvent('pos-order-created'));
+        const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${selectedPaymentMethod === 'gcash' ? 'GCash' : 'Cash'} · ${items.length} item${items.length === 1 ? '' : 's'}`;
+window.POS_APP_LOG?.('transaction', 'pos', txnDesc, 'info', {
+    id: receiptNumber,
+    items: items.length,
+    total,
+    payment: selectedPaymentMethod,
+    cashReceived: cash,
+    change,
+    customer: name || ''
+});
+window.dispatchEvent(new CustomEvent('pos-order-created'));
 
         cart = {};
         updateCartDisplay();
