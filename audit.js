@@ -1,12 +1,9 @@
-/* audit.js - Audit Trail & System Logs */
+/* audit.js - Audit Trail & System Logs (single-user / owner-only) */
 /* Extracted from script.js for modularity, following the same pattern as pos.js. */
 (function() {
     // ===================== CONSTANTS =====================
     const AUDIT_KEY = 'pos_audit_logs';
-    const AUDIT_PAGE_SIZE = 10;
-
-    // ===================== STATE =====================
-    let auditPage = 1;
+    const DISPLAY_LIMIT = 100; // most-recent logs shown without pagination
 
     // ===================== HELPERS =====================
     function escapeHtml(value) {
@@ -69,12 +66,10 @@
     }
 
     function getActorName() {
-        // Prefer the current user exposed by script.js (set in loadDashboard).
         const user = window.POS_CURRENT_USER;
         if (user) {
             return user.user_metadata?.full_name || user.email || 'Local user';
         }
-        // Fallback: local session snapshot (local mode).
         try {
             const stored = JSON.parse(localStorage.getItem('pos_current_user') || 'null');
             if (stored) {
@@ -108,20 +103,6 @@
         window.POS_SUPABASE?.addAuditLog?.(logEntry).catch(() => {});
     }
 
-    function getFilteredAuditLogs() {
-        const search = (document.getElementById('auditSearch')?.value || '').toLowerCase();
-        const action = document.getElementById('auditActionFilter')?.value || '';
-        const module = document.getElementById('auditModuleFilter')?.value || '';
-        const date = document.getElementById('auditDateFilter')?.value || '';
-        return readStoredRecords(AUDIT_KEY).filter(log => {
-            const haystack = `${log.user} ${log.action} ${log.module} ${log.description}`.toLowerCase();
-            return (!search || haystack.includes(search)) &&
-                (!action || log.action === action) &&
-                (!module || log.module === module) &&
-                (!date || (log.timestamp || '').startsWith(date));
-        });
-    }
-
     async function renderAuditLogs() {
         const tbody = document.getElementById('auditLogTableBodyMain');
         if (!tbody) return;
@@ -140,20 +121,12 @@
         }
 
         const search = (document.getElementById('auditSearch')?.value || '').toLowerCase();
-        const action = document.getElementById('auditActionFilter')?.value || '';
-        const module = document.getElementById('auditModuleFilter')?.value || '';
-        const date = document.getElementById('auditDateFilter')?.value || '';
+        const filtered = search
+            ? logs.filter(log => `${log.user} ${log.action} ${log.module} ${log.description}`
+                .toLowerCase().includes(search))
+            : logs;
 
-        const filtered = logs.filter(log => {
-            const haystack = `${log.user} ${log.action} ${log.module} ${log.description}`.toLowerCase();
-            return (!search || haystack.includes(search)) &&
-                (!action || log.action === action) &&
-                (!module || log.module === module) &&
-                (!date || (log.timestamp || '').startsWith(date));
-        });
-
-        const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
-        const pageLogs = filtered.slice(start, start + AUDIT_PAGE_SIZE);
+        const pageLogs = filtered.slice(0, DISPLAY_LIMIT);
 
         tbody.innerHTML = pageLogs.length ?
             pageLogs.map(log => `<tr>
@@ -167,16 +140,6 @@
             </tr>`).join('') :
             '<tr><td colspan="7" class="empty-table-message">No audit records found</td></tr>';
 
-        const pagination = document.getElementById('auditPaginationMain');
-        const pages = Math.ceil(filtered.length / AUDIT_PAGE_SIZE);
-        if (pagination) {
-            pagination.innerHTML = pages > 1 ?
-                Array.from({ length: pages }, (_, index) =>
-                    `<button class="page-btn ${index + 1 === auditPage ? 'active' : ''}" type="button" data-audit-page="${index + 1}">${index + 1}</button>`
-                ).join('') :
-                '';
-        }
-
         const today = new Date().toISOString().split('T')[0];
         const setText = (id, value) => {
             const element = document.getElementById(id);
@@ -189,28 +152,12 @@
     }
 
     function setupAuditFeatures() {
-        const search = document.getElementById('auditSearch');
-        const actionFilter = document.getElementById('auditActionFilter');
-        const moduleFilter = document.getElementById('auditModuleFilter');
-        const dateFilter = document.getElementById('auditDateFilter');
+        // Search box (only live filter)
+        document.getElementById('auditSearch')?.addEventListener('input', renderAuditLogs);
 
-        [search, actionFilter, moduleFilter, dateFilter].forEach(control => {
-            control?.addEventListener('input', () => {
-                auditPage = 1;
-                renderAuditLogs();
-            });
-        });
-
-        document.getElementById('clearAuditFilters')?.addEventListener('click', () => {
-            [search, actionFilter, moduleFilter, dateFilter].forEach(control => {
-                if (control) control.value = '';
-            });
-            auditPage = 1;
-            renderAuditLogs();
-        });
-
+        // Export visible logs to CSV
         document.getElementById('exportAuditLogs')?.addEventListener('click', () => {
-            const logs = getFilteredAuditLogs();
+            const logs = readStoredRecords(AUDIT_KEY);
             downloadCsv(
                 `audit_logs_${new Date().toISOString().split('T')[0]}.csv`,
                 ['Timestamp', 'User', 'Action', 'Module', 'Description', 'IP Address', 'Severity'],
@@ -219,6 +166,7 @@
             addAuditLog('export', 'audit', 'Audit log exported', 'info');
         });
 
+        // Clear all logs
         document.getElementById('clearAllLogs')?.addEventListener('click', async () => {
             if (!window.confirm('Clear all audit logs?')) return;
             const { error } = await window.POS_SUPABASE.clearAuditLogs();
@@ -229,13 +177,6 @@
             writeStoredRecords(AUDIT_KEY, []);
             renderAuditLogs();
             showToast('Audit logs cleared', 'success');
-        });
-
-        document.getElementById('auditPaginationMain')?.addEventListener('click', event => {
-            const button = event.target.closest('[data-audit-page]');
-            if (!button) return;
-            auditPage = Number(button.dataset.auditPage);
-            renderAuditLogs();
         });
 
         renderAuditLogs();
