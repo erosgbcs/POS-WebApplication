@@ -1064,10 +1064,11 @@ body {
     flex-shrink: 0;
 }
 
-.stat-icon.blue { background: rgba(22, 163, 74, 0.15); color: #4ade80; }
 .stat-icon.green { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.stat-icon.blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
 .stat-icon.orange { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
-.stat-icon.purple { background: rgba(74, 222, 128, 0.15); color: #86efac; }
+.stat-icon.purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+
 
 .stat-info h3 {
     font-size: 24px;
@@ -1155,10 +1156,10 @@ body {
     flex-shrink: 0;
 }
 
-.activity-icon.blue { background: rgba(22, 163, 74, 0.12); color: #4ade80; }
 .activity-icon.green { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+.activity-icon.blue { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
 .activity-icon.orange { background: rgba(251, 146, 60, 0.12); color: #fb923c; }
-.activity-icon.purple { background: rgba(74, 222, 128, 0.12); color: #86efac; }
+.activity-icon.purple { background: rgba(168, 85, 247, 0.12); color: #c084fc; }
 
 .activity-content p {
     color: #e2e8f0;
@@ -3127,7 +3128,7 @@ body {
 
 .bg-gradient {
     background:
-        radial-gradient(ellipse at 15% 50%, rgba(13, 148, 136, 0.18) 0%, transparent 60%),
+        radial-gradient(ellipse at 15% 50%, rgba(22, 163, 74, 0.18) 0%, transparent 60%),
         radial-gradient(ellipse at 85% 50%, rgba(245, 158, 11, 0.1) 0%, transparent 60%),
         url('bg.jpg') center/cover no-repeat;
 }
@@ -3137,7 +3138,7 @@ body {
 }
 
 .bg-glow-1 {
-    background: #0d9488;
+    background: #16a34a;
 }
 
 .bg-glow-2 {
@@ -3151,15 +3152,10 @@ body {
 }
 
 .sidebar-link.active {
-    background: rgba(13, 148, 136, 0.18);
-    color: #5eead4;
+    background: rgba(22, 163, 74, 0.15);
+    color: #4ade80;
 }
 
-.stat-icon.blue,
-.stat-icon.purple {
-    background: rgba(13, 148, 136, 0.16);
-    color: #5eead4;
-}
 
 .view-all-btn,
 .primary-btn,
@@ -3227,11 +3223,6 @@ body {
     border-color: #16a34a;
     box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16);
     outline-color: #16a34a;
-}
-
-:where(.stat-icon.blue, .stat-icon.purple, .activity-icon.blue, .activity-icon.purple) {
-    background: rgba(22, 163, 74, 0.15);
-    color: #4ade80;
 }
 
 :where(.sidebar-link.active, .theme-toggle:hover, .theme-toggle:focus-visible) {
