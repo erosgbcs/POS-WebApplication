@@ -177,20 +177,16 @@
     const ordersTableBody = document.getElementById('ordersTableBody');
     const orderStatusFilter = document.getElementById('orderStatusFilter');
     const orderDateFilter = document.getElementById('orderDateFilter');
-    const auditLogTableBody = document.getElementById('auditLogTableBodyMain');
-    const auditSearch = document.getElementById('auditSearch');
-    const auditActionFilter = document.getElementById('auditActionFilter');
-    const auditModuleFilter = document.getElementById('auditModuleFilter');
-    const auditDateFilter = document.getElementById('auditDateFilter');
-    const auditPagination = document.getElementById('auditPaginationMain');
+    
     
     let selectedRole = 'admin';
     let currentUser = null;
-    let auditPage = 1;
+    
 
     const ORDERS_KEY = 'pos_orders';
-    const AUDIT_KEY = 'pos_audit_logs';
-    const AUDIT_PAGE_SIZE = 10;
+const AUDIT_KEY = 'pos_audit_logs';
+const CUSTOMERS_KEY = 'pos_customers';
+  
 
     const ROLE_ACCESS = {
         admin: new Set(['overview', 'pos', 'inventory', 'orders', 'customers', 'reports', 'audit', 'settings']),
@@ -262,10 +258,10 @@
         showToast('Unable to save settings to cloud', 'error');
         return;
     }
-    addAuditLog('update', 'settings', 'System settings updated', 'info');
+        window.POS_APP_LOG?.('update', 'settings', 'System settings updated', 'info');
     showToast('Settings saved successfully', 'success');
-};
-
+    }
+    
     function readStoredRecords(key) {
         try {
             const records = JSON.parse(localStorage.getItem(key) || '[]');
@@ -283,28 +279,9 @@
         return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
     }
 
-    function getActorName() {
-        return currentUser?.user_metadata?.full_name || currentUser?.email || 'Local user';
-    }
+    
 
-    function addAuditLog(action, module, description, severity = 'info') {
-    const logEntry = {
-        timestamp: new Date().toISOString(),
-        user: getActorName(),
-        action,
-        module,
-        description,
-        ip: 'Client',
-        severity
-    };
-    // Local cache — instant UI + offline
-    const logs = readStoredRecords(AUDIT_KEY);
-    logs.unshift({ id: Date.now() + Math.random(), ...logEntry });
-    writeStoredRecords(AUDIT_KEY, logs.slice(0, 100));
-    renderAuditLogs();
-    // Firestore sync — cross-device
-    window.POS_SUPABASE?.addAuditLog?.(logEntry).catch(() => {});
-}
+    
 
     async function renderOrders() {
     if (!ordersTableBody) return;
@@ -361,8 +338,8 @@
     if (error) { showToast(error.message, 'error'); return; }
     const orders = readStoredRecords(ORDERS_KEY).filter(order => order.id !== orderId);
     writeStoredRecords(ORDERS_KEY, orders);
-    addAuditLog('delete', 'orders', `Order ${orderId} deleted`, 'warning');
-    renderOrders();
+window.POS_APP_LOG?.('delete', 'orders', `Order ${orderId} deleted`, 'warning');
+renderOrders();
     showToast('Order deleted', 'success');
 }
 
@@ -403,121 +380,17 @@
             rows = orders.map(order => [order.id, order.customerName, order.subtotal, order.tax, order.total, order.paymentMethod, order.createdAt]);
         }
         downloadCsv(`${type}_report_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
-        addAuditLog('export', 'reports', `${type} report exported`, 'info');
-        showToast(`${type[0].toUpperCase()}${type.slice(1)} report exported`, 'success');
+    window.POS_APP_LOG?.('export', 'reports', `${type} report exported`, 'info');
+    showToast(`${type[0].toUpperCase()}${type.slice(1)} report exported`, 'success');
     }
-
+    
     function setupReportFeatures() {
         document.querySelectorAll('.report-generate-btn').forEach(button => {
             button.addEventListener('click', () => generateReport(button.dataset.report));
         });
     }
 
-    function getFilteredAuditLogs() {
-        const search = (auditSearch?.value || '').toLowerCase();
-        const action = auditActionFilter?.value || '';
-        const module = auditModuleFilter?.value || '';
-        const date = auditDateFilter?.value || '';
-        return readStoredRecords(AUDIT_KEY).filter(log => {
-            const haystack = `${log.user} ${log.action} ${log.module} ${log.description}`.toLowerCase();
-            return (!search || haystack.includes(search)) && (!action || log.action === action) && (!module || log.module === module) && (!date || log.timestamp.startsWith(date));
-        });
-    }
-
-    async function renderAuditLogs() {
-    if (!auditLogTableBody) return;
     
-    let logs = [];
-    try {
-        const { data, error } = await window.POS_SUPABASE.getAuditLogs(500);
-        if (!error && Array.isArray(data)) {
-            logs = data;
-            writeStoredRecords(AUDIT_KEY, logs.slice(0, 100));
-        } else {
-            logs = readStoredRecords(AUDIT_KEY);
-        }
-    } catch {
-        logs = readStoredRecords(AUDIT_KEY);
-    }
-    
-    const search = (auditSearch?.value || '').toLowerCase();
-    const action = auditActionFilter?.value || '';
-    const module = auditModuleFilter?.value || '';
-    const date = auditDateFilter?.value || '';
-    
-    const filtered = logs.filter(log => {
-        const haystack = `${log.user} ${log.action} ${log.module} ${log.description}`.toLowerCase();
-        return (!search || haystack.includes(search)) &&
-            (!action || log.action === action) &&
-            (!module || log.module === module) &&
-            (!date || (log.timestamp || '').startsWith(date));
-    });
-    
-    const start = (auditPage - 1) * AUDIT_PAGE_SIZE;
-    const pageLogs = filtered.slice(start, start + AUDIT_PAGE_SIZE);
-    
-    auditLogTableBody.innerHTML = pageLogs.length ?
-        pageLogs.map(log => `<tr>
-            <td>${new Date(log.timestamp).toLocaleString()}</td>
-            <td>${escapeCustomerText(log.user)}</td>
-            <td>${escapeCustomerText(log.action)}</td>
-            <td>${escapeCustomerText(log.module)}</td>
-            <td>${escapeCustomerText(log.description)}</td>
-            <td>${escapeCustomerText(log.ip)}</td>
-            <td>${escapeCustomerText(log.severity)}</td>
-        </tr>`).join('') :
-        '<tr><td colspan="7" class="empty-table-message">No audit records found</td></tr>';
-    
-    const pages = Math.ceil(filtered.length / AUDIT_PAGE_SIZE);
-    if (auditPagination) {
-        auditPagination.innerHTML = pages > 1 ?
-            Array.from({ length: pages }, (_, index) =>
-                `<button class="page-btn ${index + 1 === auditPage ? 'active' : ''}" type="button" data-audit-page="${index + 1}">${index + 1}</button>`
-            ).join('') :
-            '';
-    }
-    
-    const today = new Date().toISOString().split('T')[0];
-    const setText = (id, value) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
-    };
-    setText('totalLogs', filtered.length);
-    setText('todayLogs', filtered.filter(log => (log.timestamp || '').startsWith(today)).length);
-    setText('criticalLogs', filtered.filter(log => log.severity === 'critical' || log.severity === 'error').length);
-    setText('dataChanges', filtered.filter(log => ['create', 'update', 'delete'].includes(log.action)).length);
-}
-
-    function setupAuditFeatures() {
-        [auditSearch, auditActionFilter, auditModuleFilter, auditDateFilter].forEach(control => control?.addEventListener('input', () => { auditPage = 1; renderAuditLogs(); }));
-        document.getElementById('clearAuditFilters')?.addEventListener('click', () => {
-            [auditSearch, auditActionFilter, auditModuleFilter, auditDateFilter].forEach(control => { if (control) control.value = ''; });
-            auditPage = 1;
-            renderAuditLogs();
-        });
-        document.getElementById('exportAuditLogs')?.addEventListener('click', () => {
-            const logs = getFilteredAuditLogs();
-            downloadCsv(`audit_logs_${new Date().toISOString().split('T')[0]}.csv`, ['Timestamp', 'User', 'Action', 'Module', 'Description', 'IP Address', 'Severity'], logs.map(log => [log.timestamp, log.user, log.action, log.module, log.description, log.ip, log.severity]));
-            addAuditLog('export', 'audit', 'Audit log exported', 'info');
-        });
-        document.getElementById('clearAllLogs')?.addEventListener('click', async () => {
-    if (!window.confirm('Clear all audit logs?')) return;
-    const { error } = await window.POS_SUPABASE.clearAuditLogs();
-    if (error) { showToast(error.message, 'error'); return; }
-    writeStoredRecords(AUDIT_KEY, []);
-    renderAuditLogs();
-    showToast('Audit logs cleared', 'success');
-});
-        auditPagination?.addEventListener('click', event => {
-            const button = event.target.closest('[data-audit-page]');
-            if (!button) return;
-            auditPage = Number(button.dataset.auditPage);
-            renderAuditLogs();
-        });
-        renderAuditLogs();
-    }
-
-    const CUSTOMERS_KEY = 'pos_customers';
 
     function getCustomers() {
         try {
@@ -588,12 +461,12 @@
     const { error } = await window.POS_SUPABASE.addCustomer({
         name, email, phone, orders: 0, totalSpent: 0
     });
-    if (error) { showToast(error.message, 'error'); return; }
-
-    addAuditLog('create', 'customers', `Customer ${name} added`, 'info');
+        if (error) { showToast(error.message, 'error'); return; }
+    
+    window.POS_APP_LOG?.('create', 'customers', `Customer ${name} added`, 'info');
     showToast('Customer added successfully', 'success');
     renderCustomers(customerSearch?.value || '');
-}
+    }
 
     if (customerSearch) customerSearch.addEventListener('input', event => renderCustomers(event.target.value));
     if (addCustomerBtn) addCustomerBtn.addEventListener('click', addCustomer);
@@ -608,13 +481,13 @@
         if (error) { showToast(error.message, 'error'); return; }
         
         const customers = getCustomers().filter(customer => String(customer.id) !== String(customerId));
-        localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
-        
-        addAuditLog('delete', 'customers', `Customer ${customerId} deleted`, 'warning');
-        showToast('Customer deleted successfully', 'success');
-        renderCustomers(customerSearch?.value || '');
+localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+
+window.POS_APP_LOG?.('delete', 'customers', `Customer ${customerId} deleted`, 'warning');
+showToast('Customer deleted successfully', 'success');
+renderCustomers(customerSearch?.value || '');
     });
-}
+    }
 
     function applyTheme(theme) {
     const isLight = theme === 'light';
@@ -1643,7 +1516,8 @@ function loadDashboard(user) {
         user?.email?.split('@')[0] ||
         'User';
     currentUser = user;
-    applyRoleAccess(user);
+window.POS_CURRENT_USER = user;
+applyRoleAccess(user);
     
     if (userDisplayName) userDisplayName.textContent = name;
     if (dashboardUserName) dashboardUserName.textContent = name;
@@ -1674,12 +1548,12 @@ function loadDashboard(user) {
             if (!orders.error) writeStoredRecords(ORDERS_KEY, orders.data.slice(0, 500));
             if (!customers.error) localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers.data));
             if (!logs.error) writeStoredRecords(AUDIT_KEY, logs.data.slice(0, 100));
-            renderOrders();
-            renderCustomers();
-            renderAuditLogs();
-            refreshOverview();
-        } catch (err) {
-            console.warn('Cloud bootstrap failed:', err);
+                renderOrders();
+    renderCustomers();
+    window.renderAuditLogs?.();
+    refreshOverview();
+} catch (err) {
+    console.warn('Cloud bootstrap failed:', err);
         }
     })();
     
@@ -1701,19 +1575,20 @@ function loadDashboard(user) {
             window.reloadPosCatalog?.();
         }),
         window.POS_SUPABASE.subscribeAuditLogs(() => {
-            renderAuditLogs();
-            renderRecentActivity();
-        })
+    window.renderAuditLogs?.();
+    renderRecentActivity();
+})
     ];
 }
 
     function showLoginView() {
-        loginContainer.style.display = 'flex';
-        dashboardContainer.style.display = 'none';
-        currentUser = null;
-        showView(signinView);
-        updateSystemStatus();
-    }
+    loginContainer.style.display = 'flex';
+    dashboardContainer.style.display = 'none';
+    currentUser = null;
+    window.POS_CURRENT_USER = null;
+    showView(signinView);
+    updateSystemStatus();
+}
 
     // ---------- UPDATE SYSTEM STATUS ----------
     function updateSystemStatus() {
@@ -2841,8 +2716,8 @@ async function checkAuth() {
     renderCustomers();
     setupOrderFeatures();
     setupReportFeatures();
-    setupAuditFeatures();
-    setupSalesPeriodControls(); // ← ADD THIS LINE
+window.setupAuditFeatures?.();
+setupSalesPeriodControls();
     
     // Check authentication status
     checkAuth();
