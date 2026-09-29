@@ -878,130 +878,138 @@
 <!-- Audit Trail Page -->
 <div class="page-content" id="page-audit">
     <div class="page-header">
-        <h1>Audit Trail & System Logs</h1>
-        <p>Monitor who is doing what on the system</p>
+        <h1>Activity Log</h1>
+        <p>Everything that happened in your shop — sales, stock changes, and account activity</p>
     </div>
     
-    <!-- Active Users panel (populated by audit.js) -->
+    <!-- Active Users panel -->
     <div class="recent-activity" style="margin-bottom: 1.5rem;">
         <div class="activity-header">
-            <h2>Active Users</h2>
+            <h2>Who's on duty</h2>
             <span style="font-size: 12px; color: var(--text-secondary);" id="activeUsersCount">—</span>
         </div>
         <div id="activeUsersList" class="activity-list">
             <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
-                <span>Loading active users...</span>
+                <span>Loading…</span>
             </div>
         </div>
     </div>
     
-    <!-- Audit Stats -->
+    <!-- Owner stat cards -->
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-icon blue">
-                <i class="fas fa-history"></i>
-            </div>
+            <div class="stat-icon green"><i class="fas fa-cash-register"></i></div>
             <div class="stat-info">
-                <h3 id="totalLogs">0</h3>
-                <p>Total Logs</p>
+                <h3 id="auditSalesToday">₱0.00</h3>
+                <p>Sales Today</p>
+                <span class="stat-change" id="auditSalesTodayCount">—</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon green">
-                <i class="fas fa-user-check"></i>
-            </div>
+            <div class="stat-icon blue"><i class="fas fa-users"></i></div>
             <div class="stat-info">
-                <h3 id="todayLogs">0</h3>
-                <p>Today's Activities</p>
+                <h3 id="auditStaffToday">0</h3>
+                <p>Staff Active Today</p>
+                <span class="stat-change" id="auditStaffSub">—</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon orange">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
+            <div class="stat-icon orange"><i class="fas fa-trash"></i></div>
             <div class="stat-info">
-                <h3 id="criticalLogs">0</h3>
-                <p>Critical Events</p>
+                <h3 id="auditDeletions">0</h3>
+                <p>Deletions This Week</p>
+                <span class="stat-change" id="auditDeletionsSub">All clear</span>
             </div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon purple">
-                <i class="fas fa-database"></i>
-            </div>
+            <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
             <div class="stat-info">
-                <h3 id="dataChanges">0</h3>
-                <p>Data Changes</p>
+                <h3 id="auditLastActivity">—</h3>
+                <p>Last Activity</p>
+                <span class="stat-change" id="auditLastActivitySub">—</span>
             </div>
         </div>
     </div>
-
-    <!-- Per-user activity summary (populated by audit.js) -->
-<div class="recent-activity" style="margin-bottom: 1.5rem;">
-    <div class="activity-header">
-        <h2>Activity by User (Today)</h2>
-        <span style="font-size: 12px; color: var(--text-secondary);" id="userSummarySubtitle">—</span>
-    </div>
-    <div id="userSummaryList" class="activity-list">
-        <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
-            <span>Loading user activity...</span>
+    
+    <!-- Staff summary -->
+    <div class="recent-activity" style="margin-bottom: 1.5rem;">
+        <div class="activity-header">
+            <h2>What staff did today</h2>
+            <span style="font-size: 12px; color: var(--text-secondary);" id="userSummarySubtitle">—</span>
+        </div>
+        <div id="userSummaryList" class="activity-list">
+            <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
+                <span>Loading…</span>
+            </div>
         </div>
     </div>
-</div>
-
-<!-- Audit Tools -->
-<div class="inventory-tools">
-    <div class="nav-search" style="max-width: 300px; flex: 1;">
-        <i class="fas fa-search"></i>
-        <input type="text" id="auditSearch" placeholder="Search logs, receipts, users...">
-    </div>
-    <select class="filter-select" id="auditUserFilter" aria-label="Filter by user" style="min-width: 180px;">
-        <option value="">All users</option>
-    </select>
-    <select class="filter-select" id="auditActionFilter" aria-label="Filter by action" style="min-width: 150px;">
-        <option value="">All actions</option>
-        <option value="login">Login</option>
-        <option value="logout">Logout</option>
-        <option value="transaction">Transaction</option>
-        <option value="create">Create</option>
-        <option value="update">Update</option>
-        <option value="delete">Delete</option>
-        <option value="export">Export</option>
-    </select>
+    
+    <!-- Filters -->
+    <div class="inventory-tools audit-filters-row">
+        <div class="nav-search" style="max-width: 280px; flex: 1;">
+            <i class="fas fa-search"></i>
+            <input type="text" id="auditSearch" placeholder="Search by name, receipt, or customer…">
+        </div>
+        <select class="filter-select" id="auditTimeRange" aria-label="Time range">
+            <option value="">All time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="week">Last 7 days</option>
+            <option value="month">Last 30 days</option>
+        </select>
+        <select class="filter-select" id="auditCategoryFilter" aria-label="Category">
+            <option value="">All categories</option>
+            <option value="sales">Sales</option>
+            <option value="inventory">Inventory</option>
+            <option value="customers">Customers</option>
+            <option value="accounts">Accounts</option>
+            <option value="system">System</option>
+        </select>
+        <select class="filter-select" id="auditWhatFilter" aria-label="What happened">
+            <option value="">All activity</option>
+            <option value="added">Added</option>
+            <option value="changed">Changed</option>
+            <option value="removed">Removed</option>
+            <option value="signed-in">Signed in</option>
+            <option value="signed-out">Signed out</option>
+            <option value="exported">Exported</option>
+        </select>
+        <select class="filter-select" id="auditUserFilter" aria-label="Staff member" style="min-width: 160px;">
+            <option value="">All staff</option>
+        </select>
         <div class="inventory-actions">
-            <button class="secondary-btn" id="exportAuditLogs">
-                <i class="fas fa-download"></i> Export Logs
+            <button class="secondary-btn" id="clearAuditFilters" type="button">
+                <i class="fas fa-times"></i> Clear
             </button>
-            <button class="secondary-btn" id="clearAllLogs">
-                <i class="fas fa-trash"></i> Clear All Logs
+            <button class="secondary-btn" id="exportAuditLogs" type="button">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <button class="secondary-btn" id="clearAllLogs" type="button">
+                <i class="fas fa-trash"></i> Clear All
             </button>
         </div>
     </div>
-
-
-    <!-- Audit Table -->
+    
+    <!-- Table -->
     <div class="inventory-table-container">
         <div style="overflow-x: auto;">
-            <table class="inventory-table">
+            <table class="inventory-table audit-owner-table">
                 <thead>
                     <tr>
-                        <th>Timestamp</th>
-                        <th>User</th>
-                        <th>Action</th>
-                        <th>Module</th>
-                        <th>Description</th>
-                        <th>IP Address</th>
-                        <th>Severity</th>
+                        <th style="width: 120px;">When</th>
+                        <th style="width: 160px;">Who</th>
+                        <th style="width: 180px;">Activity</th>
+                        <th>What happened</th>
+                        <th style="width: 120px; text-align: right;">Amount</th>
                     </tr>
                 </thead>
                 <tbody id="auditLogTableBodyMain">
-                    <!-- Logs will be loaded here -->
+                    <!-- Logs loaded here -->
                 </tbody>
             </table>
         </div>
     </div>
-
 </div>
-                <!-- Settings Page -->
                 <div class="page-content" id="page-settings">
                     <div class="page-header">
                         <h1>Settings</h1>
@@ -1056,23 +1064,7 @@
         </div>
     </div>
 
-<!-- Order Details Modal -->
-<div class="modal" id="orderDetailsModal">
-    <div class="modal-content" style="max-width: 480px;">
-        <div class="modal-header">
-            <h2>Order Details</h2>
-            <button class="modal-close-btn" id="closeOrderDetailsModal" type="button">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <div class="order-details-meta" id="orderDetailsMeta"></div>
-        
-        <div class="order-details-items" id="orderDetailsItems"></div>
-        
-        <div class="order-details-totals" id="orderDetailsTotals"></div>
-    </div>
-</div>
+
 
 
     <!-- Add/Edit Product Modal -->
