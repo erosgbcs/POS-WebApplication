@@ -320,17 +320,23 @@ const CUSTOMERS_KEY = 'pos_customers';
     }
     
     ordersTableBody.innerHTML = filtered.map(order => {
-            const items = (order.items || []).map(item => `${escapeCustomerText(item.name)} x${item.quantity}`).join(', ');
-            return `<tr>
+    const items = (order.items || []).map(item => `${escapeCustomerText(item.name)} x${item.quantity}`).join(', ');
+    const itemCount = (order.items || []).length;
+    return `<tr>
         <td>${escapeCustomerText(order.id)}</td>
         <td>${escapeCustomerText(order.customerName || 'Walk-in customer')}</td>
-        <td class="order-items-cell" title="${items || 'No items'}">${items || 'No items'}</td>
-            <td>${formatAppCurrency(order.total)}</td>
-            <td><span class="stock-badge in-stock">${escapeCustomerText(order.status)}</span></td>
-            <td>${new Date(order.createdAt).toLocaleString()}</td>
-            <td><button class="btn-icon delete order-delete-btn" type="button" data-order-id="${escapeCustomerText(order.id)}" title="Delete order"><i class="fas fa-trash"></i></button></td>
-        </tr>`;
-    }).join('');
+        <td class="order-items-cell" title="Click to view all items">
+            <button type="button" class="order-items-btn" data-order-id="${escapeCustomerText(order.id)}">
+                <span class="order-items-text">${items || 'No items'}</span>
+                ${itemCount > 2 ? `<span class="order-items-badge">View ${itemCount} items</span>` : ''}
+            </button>
+        </td>
+        <td>${formatAppCurrency(order.total)}</td>
+        <td><span class="stock-badge in-stock">${escapeCustomerText(order.status)}</span></td>
+        <td>${new Date(order.createdAt).toLocaleString()}</td>
+        <td><button class="btn-icon delete order-delete-btn" type="button" data-order-id="${escapeCustomerText(order.id)}" title="Delete order"><i class="fas fa-trash"></i></button></td>
+    </tr>`;
+}).join('');
 }
 
     async function deleteOrder(orderId) {
@@ -343,16 +349,114 @@ renderOrders();
     showToast('Order deleted', 'success');
 }
 
-    function setupOrderFeatures() {
-        orderStatusFilter?.addEventListener('change', renderOrders);
-        orderDateFilter?.addEventListener('change', renderOrders);
-        ordersTableBody?.addEventListener('click', event => {
-            const button = event.target.closest('.order-delete-btn');
-            if (!button || !window.confirm('Delete this order record?')) return;
-            deleteOrder(button.dataset.orderId);
-        });
-        renderOrders();
+   function setupOrderFeatures() {
+    orderStatusFilter?.addEventListener('change', renderOrders);
+    orderDateFilter?.addEventListener('change', renderOrders);
+    
+    ordersTableBody?.addEventListener('click', event => {
+        // Delete button
+        const deleteBtn = event.target.closest('.order-delete-btn');
+        if (deleteBtn) {
+            if (!window.confirm('Delete this order record?')) return;
+            deleteOrder(deleteBtn.dataset.orderId);
+            return;
+        }
+        
+        // View items button
+        const viewBtn = event.target.closest('.order-items-btn');
+        if (viewBtn) {
+            openOrderDetails(viewBtn.dataset.orderId);
+        }
+    });
+    
+    renderOrders();
+}
+
+function openOrderDetails(orderId) {
+    const orders = readStoredRecords(ORDERS_KEY);
+    const order = orders.find(o => String(o.id) === String(orderId));
+    if (!order) return;
+    
+    const items = order.items || [];
+    
+    // Meta block — customer, receipt, payment
+    document.getElementById('orderDetailsMeta').innerHTML = `
+        <div class="order-details-row">
+            <span>Receipt No</span>
+            <strong>${escapeCustomerText(order.id)}</strong>
+        </div>
+        <div class="order-details-row">
+            <span>Customer</span>
+            <strong>${escapeCustomerText(order.customerName || 'Walk-in customer')}</strong>
+        </div>
+        ${order.customerPhone ? `
+        <div class="order-details-row">
+            <span>Phone</span>
+            <strong>${escapeCustomerText(order.customerPhone)}</strong>
+        </div>` : ''}
+        <div class="order-details-row">
+            <span>Date</span>
+            <strong>${new Date(order.createdAt).toLocaleString()}</strong>
+        </div>
+        <div class="order-details-row">
+            <span>Payment</span>
+            <strong>${escapeCustomerText((order.paymentMethod || 'cash').toUpperCase())}</strong>
+        </div>
+    `;
+    
+    // Items block
+    if (items.length === 0) {
+        document.getElementById('orderDetailsItems').innerHTML = `
+            <p style="text-align:center;color:var(--text-secondary);padding:1rem 0;">No items recorded</p>`;
+    } else {
+        document.getElementById('orderDetailsItems').innerHTML = items.map(item => {
+            const qty = Number(item.quantity) || 0;
+            const price = Number(item.price) || 0;
+            const lineTotal = qty * price;
+            const sizeLabel = item.size ? ` <span class="order-detail-size">(${escapeCustomerText(item.size)})</span>` : '';
+            return `
+                <div class="order-details-item">
+                    <div class="order-details-item-name">
+                        <span>${escapeCustomerText(item.name)}${sizeLabel}</span>
+                        <span class="order-details-item-qty">${qty} × ${formatAppCurrency(price)}</span>
+                    </div>
+                    <strong>${formatAppCurrency(lineTotal)}</strong>
+                </div>`;
+        }).join('');
     }
+    
+    // Totals block
+    const subtotal = Number(order.subtotal) || 0;
+    const tax = Number(order.tax) || 0;
+    const total = Number(order.total) || 0;
+    document.getElementById('orderDetailsTotals').innerHTML = `
+        <div class="order-details-row">
+            <span>Subtotal</span>
+            <strong>${formatAppCurrency(subtotal)}</strong>
+        </div>
+        <div class="order-details-row">
+            <span>Tax</span>
+            <strong>${formatAppCurrency(tax)}</strong>
+        </div>
+        <div class="order-details-row order-details-grand">
+            <span>Total</span>
+            <strong>${formatAppCurrency(total)}</strong>
+        </div>
+    `;
+    
+    document.getElementById('orderDetailsModal')?.classList.add('active');
+}
+
+// Order Details modal close handlers
+document.getElementById('closeOrderDetailsModal')?.addEventListener('click', () => {
+    document.getElementById('orderDetailsModal')?.classList.remove('active');
+});
+
+document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'orderDetailsModal') {
+        e.target.classList.remove('active');
+    }
+});
 
     function downloadCsv(filename, headers, rows) {
         const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
