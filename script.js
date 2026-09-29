@@ -674,6 +674,7 @@ function refreshOverviewStats() {
         cls: newThisWeek > 0 ? 'positive' : ''
     });
 }
+
 // ---------- OVERVIEW: SALES BY CATEGORY CHART ----------
 let ovCategoryChartInstance = null;
 
@@ -794,45 +795,101 @@ function renderSalesByCategoryChart() {
     });
 }
 
-// ---------- OVERVIEW: TOP PRODUCTS CHART ----------
+// ---------- OVERVIEW: TOP PRODUCTS CHART (CONFIGURABLE PERIOD) ----------
 let ovTopProductsChartInstance = null;
+const TOP_PRODUCTS_PERIOD_KEY = 'pos_top_products_period';
+
+function getTopProductsPeriod() {
+    const select = document.getElementById('ovTopProductsPeriod');
+    if (select?.value) return select.value;
+    try {
+        const saved = localStorage.getItem(TOP_PRODUCTS_PERIOD_KEY);
+        if (saved) return saved;
+    } catch (e) {}
+    return '30d';
+}
+
+function getTopProductsPeriodLabel(period) {
+    const labels = {
+        '7d': 'Last 7 days',
+        '30d': 'Last 30 days',
+        '90d': 'Last 90 days',
+        'this-month': 'This Month',
+        'last-month': 'Last Month',
+        'this-year': 'This Year',
+        'last-year': 'Last Year'
+    };
+    return labels[period] || 'Last 30 days';
+}
+
+function aggregateUnitsByProduct(orders) {
+    const counts = {};
+    orders.forEach(order => {
+        (order.items || []).forEach(item => {
+            const name = item.name || 'Unknown';
+            const qty = Number(item.quantity) || 0;
+            if (qty <= 0) return;
+            counts[name] = (counts[name] || 0) + qty;
+        });
+    });
+    return counts;
+}
+
+function filterOrdersInRange(orders, start, end) {
+    const startMs = start.getTime();
+    const endMs = end.getTime();
+    return orders.filter(o => {
+        const ts = new Date(o.createdAt).getTime();
+        return !isNaN(ts) && ts >= startMs && ts <= endMs;
+    });
+}
 
 function renderTopProductsChart() {
     const canvas = document.getElementById('ovTopProductsChart');
     if (!canvas || typeof Chart === 'undefined') return;
     
+    const period = getTopProductsPeriod();
+    const compareEnabled = !!document.getElementById('ovTopProductsCompare')?.checked;
+    
     const orders = readOrdersFromStorage();
-    const monthAgoTime = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const range = getSalesPeriodRange(period);
+    const currentOrders = filterOrdersInRange(orders, range.start, range.end);
+    const currentCounts = aggregateUnitsByProduct(currentOrders);
     
-    // Only count sales from the last 30 days
-    const recentOrders = orders.filter(o => {
-        const ts = new Date(o.createdAt).getTime();
-        return !isNaN(ts) && ts >= monthAgoTime;
-    });
-    
-    // Aggregate total units sold per product
-    const counts = {};
-    recentOrders.forEach(order => {
-        (order.items || []).forEach(item => {
-            const name = item.name || 'Unknown';
-            const qty = Number(item.quantity) || 0;
-            counts[name] = (counts[name] || 0) + qty;
-        });
-    });
-    
-    // Take top 5 by units sold
-    const sorted = Object.entries(counts)
+    // Top 5 selected from CURRENT period only
+    const sortedCurrent = Object.entries(currentCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
     
-    const labels = sorted.map(([name]) => name);
-    const data = sorted.map(([, qty]) => qty);
+    const labels = sortedCurrent.map(([name]) => name);
+    const currentData = sortedCurrent.map(([, qty]) => qty);
+    const currentTotal = currentData.reduce((s, v) => s + v, 0);
     
+    // Compare: same 5 products, previous period units
+    let previousData = null;
+    let previousTotal = 0;
+    if (compareEnabled) {
+        const prev = getPreviousPeriodRange(period);
+        const prevOrders = filterOrdersInRange(orders, prev.start, prev.end);
+        const prevCounts = aggregateUnitsByProduct(prevOrders);
+        previousData = labels.map(name => prevCounts[name] || 0);
+        previousTotal = previousData.reduce((s, v) => s + v, 0);
+    }
+    
+    // Subtitle
     const subtitleEl = document.getElementById('ovTopProductsSubtitle');
     if (subtitleEl) {
-        subtitleEl.textContent = labels.length > 0 ?
-            `${recentOrders.length} order${recentOrders.length === 1 ? '' : 's'} · ${data.reduce((s, v) => s + v, 0)} units` :
-            'No sales in the last 30 days';
+        if (labels.length === 0) {
+            subtitleEl.textContent = `No sales in the ${getTopProductsPeriodLabel(period).toLowerCase()}`;
+        } else {
+            let text = `${currentOrders.length} order${currentOrders.length === 1 ? '' : 's'} · ${currentTotal} unit${currentTotal === 1 ? '' : 's'}`;
+            if (compareEnabled && previousTotal > 0) {
+                const delta = ((currentTotal - previousTotal) / previousTotal) * 100;
+                const sign = delta >= 0 ? '+' : '';
+                text += ` · ${sign}${delta.toFixed(1)}% vs prev`;
+            }
+            subtitleEl.textContent = text;
+        }
     }
     
     if (ovTopProductsChartInstance) ovTopProductsChartInstance.destroy();
@@ -841,25 +898,44 @@ function renderTopProductsChart() {
     const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
     const tickColor = isLight ? '#475569' : '#94a3b8';
     
+    const datasets = [{
+        label: getTopProductsPeriodLabel(period),
+        data: currentData,
+        backgroundColor: 'rgba(22, 163, 74, 0.65)',
+        borderColor: '#16a34a',
+        borderWidth: 1,
+        borderRadius: 6
+    }];
+    
+    if (compareEnabled && previousData) {
+        datasets.push({
+            label: 'Previous period',
+            data: previousData,
+            backgroundColor: isLight ? 'rgba(148, 163, 184, 0.45)' : 'rgba(100, 116, 139, 0.55)',
+            borderColor: isLight ? '#94a3b8' : '#64748b',
+            borderWidth: 1,
+            borderRadius: 6
+        });
+    }
+    
     ovTopProductsChartInstance = new Chart(canvas, {
         type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Units Sold',
-                data,
-                backgroundColor: 'rgba(22, 163, 74, 0.65)',
-                borderColor: '#16a34a',
-                borderWidth: 1,
-                borderRadius: 6
-            }]
-        },
+        data: { labels, datasets },
         options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: compareEnabled,
+                    labels: {
+                        color: tickColor,
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        padding: 12,
+                        font: { size: 12 }
+                    }
+                },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     titleColor: '#f1f5f9',
@@ -867,9 +943,11 @@ function renderTopProductsChart() {
                     borderColor: 'rgba(22, 163, 74, 0.4)',
                     borderWidth: 1,
                     padding: 10,
-                    displayColors: false,
                     callbacks: {
-                        label: ctx => `${ctx.parsed.x} unit${ctx.parsed.x === 1 ? '' : 's'} sold`
+                        label: ctx => {
+                            const v = ctx.parsed.x || 0;
+                            return `${ctx.dataset.label}: ${v} unit${v === 1 ? '' : 's'} sold`;
+                        }
                     }
                 }
             },
@@ -877,10 +955,7 @@ function renderTopProductsChart() {
                 x: {
                     beginAtZero: true,
                     grid: { color: gridColor },
-                    ticks: {
-                        color: tickColor,
-                        precision: 0
-                    }
+                    ticks: { color: tickColor, precision: 0 }
                 },
                 y: {
                     grid: { display: false },
@@ -889,6 +964,29 @@ function renderTopProductsChart() {
             }
         }
     });
+}
+
+function setupTopProductsPeriodControls() {
+    const periodSelect = document.getElementById('ovTopProductsPeriod');
+    const compareToggle = document.getElementById('ovTopProductsCompare');
+    
+    if (periodSelect) {
+        try {
+            const saved = localStorage.getItem(TOP_PRODUCTS_PERIOD_KEY);
+            if (saved && periodSelect.querySelector(`option[value="${saved}"]`)) {
+                periodSelect.value = saved;
+            }
+        } catch (e) {}
+        
+        periodSelect.addEventListener('change', () => {
+            try { localStorage.setItem(TOP_PRODUCTS_PERIOD_KEY, periodSelect.value); } catch (e) {}
+            renderTopProductsChart();
+        });
+    }
+    
+    if (compareToggle) {
+        compareToggle.addEventListener('change', renderTopProductsChart);
+    }
 }
 
 
@@ -2724,6 +2822,7 @@ async function checkAuth() {
     setupReportFeatures();
 window.setupAuditFeatures?.();
 setupSalesPeriodControls();
+setupTopProductsPeriodControls();
     
     // Check authentication status
     checkAuth();

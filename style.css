@@ -4135,36 +4135,50 @@ body {
     color: #1f2937;
 }
 
-/* ===== SIZE MODE RADIO ===== */
+/* ===== SIZE MODE RADIO (MODAL) ===== */
 .size-mode-radio {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-top: 4px;
+    gap: 10px;
+    margin-top: 6px;
 }
 
 .radio-wrapper {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     cursor: pointer;
     color: #cbd5e1;
     font-size: 13px;
+    line-height: 1.4;
     user-select: none;
+    padding: 6px 0;
 }
 
-.radio-wrapper input {
-    display: none;
+.radio-wrapper input[type="radio"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    margin: 0;
 }
 
 .radio-mark {
+    display: inline-block;
     width: 16px;
     height: 16px;
+    min-width: 16px;
+    max-width: 16px;
+    min-height: 16px;
+    max-height: 16px;
+    flex: 0 0 16px;
+    box-sizing: border-box;
     border: 2px solid #475569;
     border-radius: 50%;
     position: relative;
-    flex-shrink: 0;
-    transition: all 0.2s;
+    background: transparent;
+    transition: border-color 0.2s, background 0.2s;
 }
 
 .radio-wrapper input:checked+.radio-mark {
@@ -4180,7 +4194,7 @@ body {
     transform: translate(-50%, -50%);
     width: 6px;
     height: 6px;
-    background: white;
+    background: #ffffff;
     border-radius: 50%;
 }
 
@@ -4188,6 +4202,14 @@ body {
     border-color: #16a34a;
 }
 
+/* Light theme */
+[data-theme="light"] .radio-wrapper {
+    color: #334155;
+}
+
+[data-theme="light"] .radio-mark {
+    border-color: #94a3b8;
+}
 /* ===== SIZE PREVIEW ===== */
 .size-preview {
     margin-top: 8px;
@@ -4363,4 +4385,291 @@ html, body {
 [data-theme="light"] #dashboardContainer {
     background-color: #eef2f7;   /* light mode: solid off-white */
     background-image: none;
+}
+
+/* ===== SIZE MODE RADIO (MODAL) ===== */
+.size-mode-radio {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.radio-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    color: #cbd5e1;
+    font-size: 13px;
+    line-height: 1.4;
+    user-select: none;
+    padding: 6px 0;
+}
+
+.radio-wrapper input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.radio-mark {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border: 2px solid #475569;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    background: transparent;
+}
+
+.radio-wrapper input:checked+.radio-mark {
+    border-color: #16a34a;
+    background: #16a34a;
+}
+
+.radio-wrapper input:checked+.radio-mark::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background: #ffffff;
+    border-radius: 50%;
+}
+
+.radio-wrapper:hover .radio-mark {
+    border-color: #16a34a;
+}
+
+/* Make the Size Type + Specification groups span full width */
+.form-grid .form-group:has(.size-mode-radio),
+.form-grid .form-group:has(#productSize) {
+    grid-column: 1 / -1;
+}
+
+/* Fallback for browsers without :has() */
+.form-grid>.form-group:nth-child(8),
+.form-grid>.form-group:nth-child(9) {
+    grid-column: 1 / -1;
+}
+
+/* Light theme */
+[data-theme="light"] .radio-wrapper {
+    color: #334155;
+}
+
+[data-theme="light"] .radio-mark {
+    border-color: #94a3b8;
+}
+
+/* ============================================
+   MODAL — LIGHT THEME OVERRIDES
+   Applies to Add/Edit Product + Delete modals.
+   ============================================ */
+
+/* Backdrop — softer in light mode */
+[data-theme="light"] .modal {
+    background: rgba(15, 23, 42, 0.45);
+}
+
+/* Modal card surface */
+[data-theme="light"] .modal-content {
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    box-shadow: 0 24px 60px rgba(51, 65, 85, 0.18);
+}
+
+/* Header */
+[data-theme="light"] .modal-header h2 {
+    color: #1f2937;
+}
+
+[data-theme="light"] .modal-close-btn {
+    color: #64748b;
+}
+
+[data-theme="light"] .modal-close-btn:hover {
+    color: #1f2937;
+    background: rgba(148, 163, 184, 0.12);
+    border-radius: 8px;
+}
+
+/* Labels */
+[data-theme="light"] .form-group label {
+    color: #334155;
+}
+
+/* Inputs, selects, textareas */
+[data-theme="light"] .form-group input,
+[data-theme="light"] .form-group select,
+[data-theme="light"] .form-group textarea {
+    background: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #1f2937;
+}
+
+[data-theme="light"] .form-group input::placeholder,
+[data-theme="light"] .form-group textarea::placeholder {
+    color: #94a3b8;
+}
+
+[data-theme="light"] .form-group input:focus,
+[data-theme="light"] .form-group select:focus,
+[data-theme="light"] .form-group textarea:focus {
+    background: #ffffff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+/* Select dropdown options */
+[data-theme="light"] .form-group select option {
+    background: #ffffff;
+    color: #1f2937;
+}
+
+/* "+ Add new category" link */
+[data-theme="light"] .link-btn {
+    color: #15803d;
+}
+
+[data-theme="light"] .link-btn:hover {
+    color: #166534;
+}
+
+/* Modal actions footer (Cancel / Save) */
+[data-theme="light"] .modal-actions {
+    border-top-color: rgba(148, 163, 184, 0.25);
+}
+
+[data-theme="light"] .modal-actions .secondary-btn {
+    background: #f1f5f9;
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #334155;
+}
+
+[data-theme="light"] .modal-actions .secondary-btn:hover {
+    background: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.6);
+    color: #1f2937;
+}
+
+/* Delete modal body text */
+[data-theme="light"] #deleteModal p {
+    color: #475569 !important;
+}
+
+[data-theme="light"] #deleteProductName {
+    color: #1f2937 !important;
+}
+
+/* Size-mode radios + preview (light) */
+[data-theme="light"] .radio-wrapper {
+    color: #334155;
+}
+
+[data-theme="light"] .radio-mark {
+    border-color: #94a3b8;
+}
+
+[data-theme="light"] .radio-wrapper:hover .radio-mark {
+    border-color: #15803d;
+}
+
+[data-theme="light"] .radio-wrapper input:checked+.radio-mark {
+    border-color: #15803d;
+    background: #15803d;
+}
+
+[data-theme="light"] .size-preview {
+    background: #f1f5f9;
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #475569;
+}
+
+[data-theme="light"] .size-preview .size-chip {
+    color: #166534;
+    background: rgba(22, 163, 74, 0.12);
+    border-color: rgba(22, 163, 74, 0.3);
+}
+
+/* Scrollbar styling for modal-content */
+.modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+}
+
+[data-theme="light"] .modal-content::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+}
+
+[data-theme="light"] .modal-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.55);
+}
+
+/* ============================================
+   INVENTORY TABLE — LIGHT THEME TEXT FIXES
+   ============================================ */
+
+/* Product name inside each row */
+[data-theme="light"] .inventory-table .product-name {
+    color: #1f2937;
+}
+
+/* Product code under the name */
+[data-theme="light"] .inventory-table .product-sku {
+    color: #64748b;
+}
+
+/* Inline quantity input */
+[data-theme="light"] .quantity-input {
+    background: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #1f2937;
+}
+
+[data-theme="light"] .quantity-input:focus {
+    background: #ffffff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+}
+
+/* Row hover — soft slate instead of the dark-mode overlay */
+[data-theme="light"] .inventory-table tbody tr:hover {
+    background: rgba(148, 163, 184, 0.08);
+}
+
+/* Action icons */
+[data-theme="light"] .btn-icon {
+    color: #64748b;
+}
+
+[data-theme="light"] .btn-icon:hover {
+    background: rgba(148, 163, 184, 0.15);
+}
+
+[data-theme="light"] .btn-icon.edit:hover {
+    color: #2563eb;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="light"] .btn-icon.delete:hover {
+    color: #dc2626;
+    background: rgba(239, 68, 68, 0.1);
 }
