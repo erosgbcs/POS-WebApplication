@@ -2966,10 +2966,13 @@ body {
 }
 
 [data-theme="light"] .bg-gradient {
-    background: radial-gradient(ellipse at 20% 50%, #dcfce7 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 50%, #bbf7d0 0%, transparent 60%),
-                #eef2f7;
+    background:
+        radial-gradient(ellipse at 15% 50%, rgba(22, 163, 74, 0.10) 0%, transparent 60%),
+        radial-gradient(ellipse at 85% 50%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
+        url('bg.jpg') center/cover no-repeat;
 }
+
+
 
 [data-theme="light"] .bg-glow-1 {
     background: #86efac;
@@ -3177,14 +3180,15 @@ body {
 
 [data-theme="light"] body,
 [data-theme="light"] #dashboardContainer {
-    background-color: #e5e7eb;
+    background-color: #eef2f7;
 }
 
+/* Light mode background matches dark mode: same photo, same gradient structure,
+   brighter overlay. (Do not add a solid color here — it would hide the image.) */
 [data-theme="light"] .bg-gradient {
     background:
-        radial-gradient(ellipse at 20% 50%, rgba(209, 213, 219, 0.7) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 50%, rgba(156, 163, 175, 0.28) 0%, transparent 60%),
-        #e5e7eb;
+        radial-gradient(ellipse at 85% 50%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
+        url('bg.jpg') center/cover no-repeat;
 }
 
 [data-theme="light"] .bg-glow-1 {
@@ -3465,10 +3469,12 @@ body {
 }
 
 [data-theme="light"] .bg-overlay {
-    background: rgba(255, 255, 255, 0.24);
+    background: rgba(248, 250, 252, 0.72);   /* brighter, more opaque */
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
 }
+
+
 
 [data-theme="light"] .bg-glow-1,
 [data-theme="light"] .bg-glow-2 {
@@ -4341,4 +4347,19 @@ html, body {
     margin-top: 16px;
     padding-top: 12px;
     line-height: 1.4;
+}
+
+/* ============================================
+   DASHBOARD BACKGROUND — OPAQUE, NO PHOTO
+   Login page keeps the photo backdrop;
+   the dashboard container fully hides it.
+   ============================================ */
+#dashboardContainer {
+    background-color: #111827;   /* dark mode: solid slate */
+    background-image: none;
+}
+
+[data-theme="light"] #dashboardContainer {
+    background-color: #eef2f7;   /* light mode: solid off-white */
+    background-image: none;
 }
