@@ -4673,3 +4673,72 @@ html, body {
     color: #dc2626;
     background: rgba(239, 68, 68, 0.1);
 }
+
+/* ============================================
+   OFFLINE INDICATOR
+   ============================================ */
+.offline-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    z-index: 99;
+    animation: offlineSlideIn 0.3s ease;
+}
+
+.offline-banner.offline {
+    background: linear-gradient(90deg, #ef4444, #f97316);
+    color: #ffffff;
+}
+
+.offline-banner i {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.offline-banner .offline-pending-count {
+    margin-left: auto;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.15);
+    font-weight: 600;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+@keyframes offlineSlideIn {
+    from { transform: translateY(-100%); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+}
+
+[data-theme="light"] .offline-banner {
+    background: linear-gradient(90deg, #fbbf24, #fcd34d);
+    color: #78350f;
+    border-bottom-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .offline-banner.offline {
+    background: linear-gradient(90deg, #dc2626, #ea580c);
+    color: #ffffff;
+}
+
+[data-theme="light"] .offline-banner .offline-pending-count {
+    background: rgba(0, 0, 0, 0.18);
+}
+
+@media (max-width: 640px) {
+    .offline-banner {
+        padding: 8px 14px;
+        font-size: 12px;
+        gap: 8px;
+    }
+    .offline-banner .offline-pending-count {
+        padding: 2px 8px;
+        font-size: 11px;
+    }
+}

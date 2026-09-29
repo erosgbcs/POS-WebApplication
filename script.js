@@ -2869,6 +2869,79 @@ setupTopProductsPeriodControls();
             localStorage.removeItem('pos_current_user');
         } catch (e) {}
     };
+
+
+        // ---------- OFFLINE INDICATOR ----------
+    (function setupOfflineIndicator() {
+        const banner = document.getElementById('offlineBanner');
+        const bannerText = document.getElementById('offlineBannerText');
+        const pendingCount = document.getElementById('offlinePendingCount');
+
+        if (!banner) return;
+
+        const QUEUE_KEY = 'pos_order_queue';
+
+        function getPendingCount() {
+            try {
+                const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+                return Array.isArray(q) ? q.length : 0;
+            } catch (e) {
+                return 0;
+            }
+        }
+
+        function render() {
+            const online = navigator.onLine;
+            const pending = getPendingCount();
+
+            // Nothing to show
+            if (online && pending === 0) {
+                banner.style.display = 'none';
+                return;
+            }
+
+            banner.style.display = 'flex';
+
+            if (!online) {
+                banner.classList.add('offline');
+                bannerText.textContent = pending > 0
+                    ? `You're offline — ${pending} sale${pending === 1 ? '' : 's'} queued, will sync when online`
+                    : "You're offline — sales are queued and will sync automatically";
+            } else {
+                banner.classList.remove('offline');
+                bannerText.textContent = pending > 0
+                    ? `Back online — syncing ${pending} queued sale${pending === 1 ? '' : 's'}…`
+                    : '';
+            }
+
+            if (pending > 0) {
+                pendingCount.hidden = false;
+                pendingCount.textContent = `${pending} pending`;
+            } else {
+                pendingCount.hidden = true;
+            }
+        }
+
+        // Browser online/offline events
+        window.addEventListener('online', () => {
+            render();
+            window.dispatchEvent(new CustomEvent('pos-queue-flush-request'));
+        });
+        window.addEventListener('offline', render);
+
+        // Refresh when queue changes (fired by pos.js once outbox is added)
+        window.addEventListener('pos-queue-changed', render);
+        window.addEventListener('pos-order-created', render);
+
+        // Periodic safety net — every 15s
+        setInterval(render, 15000);
+
+        // Expose so pos.js can trigger an immediate re-render
+        window.updateOfflineIndicator = render;
+
+        render();
+    })();
+
     
     // Refresh overview when data changes
     window.addEventListener('pos-order-created', refreshOverview);
