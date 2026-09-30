@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QA Checklist — Kirby's Hardware POS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f4f6fb;
+            color: #1e293b;
+            line-height: 1.5;
+            padding: 24px;
+            font-size: 14px;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: white;
+            padding: 28px 32px;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .page-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .meta-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            padding: 20px 32px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .meta-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .meta-field label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+        }
+
+        .meta-field input,
+        .meta-field select {
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            background: white;
+        }
+
+        .section {
+            padding: 24px 32px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .section-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: #16a34a;
+            color: white;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .section h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .section-hint {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 16px;
+            margin-left: 44px;
+        }
+
+        table.checklist {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        table.checklist th,
+        table.checklist td {
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 13px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+
+        table.checklist thead th {
+            background: #f1f5f9;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #475569;
+            white-space: nowrap;
+        }
+
+        table.checklist tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        table.checklist tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .col-check {
+            width: 56px;
+            text-align: center !important;
+        }
+
+        .col-notes {
+            width: 30%;
+        }
+
+        .col-item {
+            width: auto;
+        }
+
+        .check-box {
+            width: 22px;
+            height: 22px;
+            border: 2px solid #cbd5e1;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            user-select: none;
+            transition: all 0.15s;
+            background: white;
+            color: transparent;
+        }
+
+        .check-box:hover {
+            border-color: #16a34a;
+        }
+
+        .check-box.state-pass {
+            background: #16a34a;
+            border-color: #16a34a;
+            color: white;
+        }
+
+        .check-box.state-fail {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: white;
+        }
+
+        .check-box.state-na {
+            background: #94a3b8;
+            border-color: #94a3b8;
+            color: white;
+        }
+
+        .notes-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+            background: #fafbfc;
+            resize: vertical;
+            min-height: 30px;
+        }
+
+        .notes-input:focus {
+            outline: none;
+            border-color: #16a34a;
+            background: white;
+        }
+
+        .priority-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-right: 6px;
+        }
+
+        .p-high { background: #fee2e2; color: #b91c1c; }
+        .p-med  { background: #fef3c7; color: #92400e; }
+        .p-low  { background: #dbeafe; color: #1e40af; }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            padding: 12px 32px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend .check-box {
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            cursor: default;
+        }
+
+        .bug-log {
+            padding: 24px 32px;
+            background: #fffbeb;
+            border-top: 2px solid #fbbf24;
+        }
+
+        .bug-log h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .bug-log p {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 16px;
+        }
+
+        table.bug-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        table.bug-table th,
+        table.bug-table td {
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+
+        table.bug-table thead th {
+            background: #fef3c7;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #78350f;
+        }
+
+        table.bug-table input,
+        table.bug-table select,
+        table.bug-table textarea {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+        }
+
+        .footer-actions {
+            padding: 20px 32px;
+            background: #f1f5f9;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: #16a34a;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #15803d;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-secondary:hover {
+            background: #f1f5f9;
+        }
+
+        .progress-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #475569;
+        }
+
+        .progress-track {
+            width: 200px;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #16a34a;
+            transition: width 0.25s;
+            width: 0%;
+        }
+
+        @media print {
+            body { background: white; padding: 0; font-size: 11px; }
+            .page { box-shadow: none; border-radius: 0; }
+            .footer-actions { display: none; }
+            .section { page-break-inside: avoid; padding: 16px 20px; }
+            .check-box { border-color: #94a3b8; }
+            .notes-input { min-height: 22px; background: white; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page" id="qaPage">
+
+    <!-- ============ HEADER ============ -->
+    <div class="page-header">
+        <h1>QA Checklist — Kirby's Hardware POS & Inventory</h1>
+        <p>Functional, visual, and behavioral testing sheet · v1.0</p>
+    </div>
+
+    <!-- ============ META ============ -->
+    <div class="meta-bar">
+        <div class="meta-field">
+            <label for="testerName">Tester Name</label>
+            <input type="text" id="testerName" placeholder="Your name" data-persist="testerName">
+        </div>
+        <div class="meta-field">
+            <label for="testDate">Test Date</label>
+            <input type="date" id="testDate" data-persist="testDate">
+        </div>
+        <div class="meta-field">
+            <label for="buildVersion">Build / Commit</label>
+            <input type="text" id="buildVersion" placeholder="e.g., main@a3f9c21" data-persist="buildVersion">
+        </div>
+        <div class="meta-field">
+            <label for="platform">Platform</label>
+            <select id="platform" data-persist="platform">
+                <option>Chrome — Desktop</option>
+                <option>Chrome — Android</option>
+                <option>Safari — iOS</option>
+                <option>Safari — macOS</option>
+                <option>Firefox — Desktop</option>
+                <option>Edge — Desktop</option>
+                <option>PWA (installed)</option>
+                <option>Other</option>
+            </select>
+        </div>
+        <div class="meta-field">
+            <label for="userRole">Test Role</label>
+            <select id="userRole" data-persist="userRole">
+                <option>Admin</option>
+                <option>Cashier</option>
+                <option>Both</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- ============ LEGEND ============ -->
+    <div class="legend">
+        <div class="legend-item">
+            <span class="check-box state-pass">✓</span>
+            <span><strong>P</strong> — Pass</span>
+        </div>
+        <div class="legend-item">
+            <span class="check-box state-fail">✕</span>
+            <span><strong>F</strong> — Fail</span>
+        </div>
+        <div class="legend-item">
+            <span class="check-box state-na">–</span>
+            <span><strong>N/A</strong> — Not Applicable / Not Tested</span>
+        </div>
+        <div class="legend-item">
+            <span style="font-size: 11px;">Click a checkbox to cycle: blank → P → F → N/A → blank</span>
+        </div>
+    </div>
+
+    <!-- ============ SECTION 1: AUTHENTICATION ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">1</span>
+            <h2>Authentication &amp; Account</h2>
+        </div>
+        <p class="section-hint">Sign-in, registration, password reset, session persistence.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a1"></span></td>
+                    <td><strong>Login page loads</strong> — logo, tagline, email &amp; password fields, Sign In button all visible</td>
+                    <td><textarea class="notes-input" data-key="a1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a2"></span></td>
+                    <td><strong>Valid credentials sign in</strong> — dashboard appears, user name shows in header and welcome message</td>
+                    <td><textarea class="notes-input" data-key="a2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a3"></span></td>
+                    <td><strong>Wrong password</strong> — error toast shown, stays on login</td>
+                    <td><textarea class="notes-input" data-key="a3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a4"></span></td>
+                    <td><strong>Unknown email</strong> — "No account found" toast</td>
+                    <td><textarea class="notes-input" data-key="a4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a5"></span></td>
+                    <td><strong>Empty fields validation</strong> — "Email is required" and "Password is required" errors show inline</td>
+                    <td><textarea class="notes-input" data-key="a5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a6"></span></td>
+                    <td><strong>Invalid email format</strong> — "Invalid email format" error</td>
+                    <td><textarea class="notes-input" data-key="a6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a7"></span></td>
+                    <td><strong>Show/hide password eye icon</strong> toggles password visibility</td>
+                    <td><textarea class="notes-input" data-key="a7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a8"></span></td>
+                    <td><strong>Create Account form opens</strong> — full name, email, role, password, confirm, terms checkbox</td>
+                    <td><textarea class="notes-input" data-key="a8n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a9"></span></td>
+                    <td><strong>Admin role disabled after 2 admins</strong> — dropdown shows "Admin (limit reached)" and forces Cashier</td>
+                    <td><textarea class="notes-input" data-key="a9n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a10"></span></td>
+                    <td><strong>Create account success</strong> — welcome toast, redirects to dashboard (or back to sign-in with prefilled email)</td>
+                    <td><textarea class="notes-input" data-key="a10n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a11"></span></td>
+                    <td><strong>Password mismatch</strong> — "Passwords do not match" error shows</td>
+                    <td><textarea class="notes-input" data-key="a11n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a12"></span></td>
+                    <td><strong>Terms unchecked</strong> — "You must agree to terms" error</td>
+                    <td><textarea class="notes-input" data-key="a12n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a13"></span></td>
+                    <td><strong>Forgot Password</strong> — form opens, submit sends reset email toast, "Back to Sign In" returns</td>
+                    <td><textarea class="notes-input" data-key="a13n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a14"></span></td>
+                    <td><strong>Logout</strong> — from user menu OR sidebar; returns to login, session cleared</td>
+                    <td><textarea class="notes-input" data-key="a14n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a15"></span></td>
+                    <td><strong>Session persistence on refresh</strong> — stays signed in after reload (Firebase + localStorage)</td>
+                    <td><textarea class="notes-input" data-key="a15n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a16"></span></td>
+                    <td><strong>Offline reload</strong> — with internet off, still loads dashboard from cached session</td>
+                    <td><textarea class="notes-input" data-key="a16n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a17"></span></td>
+                    <td><strong>Cashier role access</strong> — sidebar hides Inventory, Audit Trail, Settings; block attempt redirects to Overview</td>
+                    <td><textarea class="notes-input" data-key="a17n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="a18"></span></td>
+                    <td><strong>Admin role access</strong> — all 8 sidebar links visible and clickable</td>
+                    <td><textarea class="notes-input" data-key="a18n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 2: DASHBOARD OVERVIEW ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">2</span>
+            <h2>Dashboard Overview</h2>
+        </div>
+        <p class="section-hint">KPI cards, charts, widgets, quick actions.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b1"></span></td>
+                    <td><strong>4 KPI cards render</strong> — Today's Sales, Orders Today, Products in Stock, Active Customers</td>
+                    <td><textarea class="notes-input" data-key="b1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b2"></span></td>
+                    <td><strong>KPI numbers count up</strong> on page load (not jump instantly)</td>
+                    <td><textarea class="notes-input" data-key="b2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b3"></span></td>
+                    <td><strong>Delta labels</strong> show ↗ green or ↘ red with percentages vs yesterday</td>
+                    <td><textarea class="notes-input" data-key="b3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b4"></span></td>
+                    <td><strong>KPI cards are clickable</strong> — Sales → Reports, Orders → Orders today, Products → Inventory, Customers → Customers</td>
+                    <td><textarea class="notes-input" data-key="b4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b5"></span></td>
+                    <td><strong>Sales Overview chart</strong> renders line/area with green color, y-axis shows ₱ amounts</td>
+                    <td><textarea class="notes-input" data-key="b5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b6"></span></td>
+                    <td><strong>Sales period dropdown works</strong> — switching 7d/30d/90d/month/year redraws chart + updates summary line</td>
+                    <td><textarea class="notes-input" data-key="b6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b7"></span></td>
+                    <td><strong>Compare toggle</strong> — overlays grey dashed "Previous period" line + legend appears</td>
+                    <td><textarea class="notes-input" data-key="b7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b8"></span></td>
+                    <td><strong>Top 5 Products chart</strong> — horizontal bar chart, top sellers listed</td>
+                    <td><textarea class="notes-input" data-key="b8n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b9"></span></td>
+                    <td><strong>Top Products period + Compare</strong> — both work independently of Sales Overview controls</td>
+                    <td><textarea class="notes-input" data-key="b9n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b10"></span></td>
+                    <td><strong>Sales by Category doughnut</strong> — legend on right, colors distinct, tooltip shows ₱ + %</td>
+                    <td><textarea class="notes-input" data-key="b10n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b11"></span></td>
+                    <td><strong>Hourly Sales Heatmap</strong> — day × hour grid, green intensity scale, legend visible</td>
+                    <td><textarea class="notes-input" data-key="b11n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b12"></span></td>
+                    <td><strong>Low Stock Alerts widget</strong> — lists low/out-of-stock products, clickable → Inventory</td>
+                    <td><textarea class="notes-input" data-key="b12n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b13"></span></td>
+                    <td><strong>Recent Activity widget</strong> — latest 6 audit events with icons + relative time</td>
+                    <td><textarea class="notes-input" data-key="b13n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b14"></span></td>
+                    <td><strong>Quick Actions buttons</strong> — New Order → POS, Add Product → Inventory, Generate Report → Reports, Manage Users → Settings</td>
+                    <td><textarea class="notes-input" data-key="b14n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="b15"></span></td>
+                    <td><strong>Empty state</strong> — with no data, widgets show friendly "No sales yet" / "All stock levels are healthy"</td>
+                    <td><textarea class="notes-input" data-key="b15n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 3: POINT OF SALE ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">3</span>
+            <h2>Point of Sale (POS)</h2>
+        </div>
+        <p class="section-hint">Catalog, cart, checkout, payment, receipt, inventory decrement.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c1"></span></td>
+                    <td><strong>Product catalog loads</strong> — cards render with name, category, SKU, price, stock badge</td>
+                    <td><textarea class="notes-input" data-key="c1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c2"></span></td>
+                    <td><strong>Out-of-stock products</strong> — greyed out, unclickable, "Out of stock" badge</td>
+                    <td><textarea class="notes-input" data-key="c2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c3"></span></td>
+                    <td><strong>Low stock badge</strong> — products with qty ≤ 5 show "X left"</td>
+                    <td><textarea class="notes-input" data-key="c3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c4"></span></td>
+                    <td><strong>Search catalog</strong> — filters by name OR category; typing "hardware" shows only hardware products</td>
+                    <td><textarea class="notes-input" data-key="c4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c5"></span></td>
+                    <td><strong>Click product → adds to cart</strong> — cart shows item, qty counter starts at 1, totals update</td>
+                    <td><textarea class="notes-input" data-key="c5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c6"></span></td>
+                    <td><strong>Click same product again</strong> — qty increments, not new row</td>
+                    <td><textarea class="notes-input" data-key="c6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c7"></span></td>
+                    <td><strong>Products with variants</strong> — size selector dropdown appears (Choose size), picking adds specific variant</td>
+                    <td><textarea class="notes-input" data-key="c7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c8"></span></td>
+                    <td><strong>Cart quantity buttons</strong> — plus/minus adjust; minus to 0 removes item</td>
+                    <td><textarea class="notes-input" data-key="c8n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c9"></span></td>
+                    <td><strong>Clear Cart button</strong> — empties cart, resets totals to ₱0.00</td>
+                    <td><textarea class="notes-input" data-key="c9n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c10"></span></td>
+                    <td><strong>Subtotal / Tax / Total</strong> — subtotal × 1.08 = total; tax is 8% shown</td>
+                    <td><textarea class="notes-input" data-key="c10n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c11"></span></td>
+                    <td><strong>Empty cart checkout</strong> — clicking Process Payment shows "Cart is empty" error</td>
+                    <td><textarea class="notes-input" data-key="c11n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c12"></span></td>
+                    <td><strong>Payment modal opens</strong> — total displayed, customer fields visible, Cash/GCash selector, cash input</td>
+                    <td><textarea class="notes-input" data-key="c12n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c13"></span></td>
+                    <td><strong>Cash change calculator</strong> — entering ₱500 on ₱450 total shows "Change: ₱50.00"</td>
+                    <td><textarea class="notes-input" data-key="c13n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c14"></span></td>
+                    <td><strong>Insufficient cash</strong> — entering ₱100 on ₱450 total shows "Insufficient amount"</td>
+                    <td><textarea class="notes-input" data-key="c14n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c15"></span></td>
+                    <td><strong>GCash selection</strong> — hides cash input, GCash flows through without change</td>
+                    <td><textarea class="notes-input" data-key="c15n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c16"></span></td>
+                    <td><strong>Complete Payment</strong> — success toast, receipt modal opens with full item list</td>
+                    <td><textarea class="notes-input" data-key="c16n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c17"></span></td>
+                    <td><strong>Receipt content</strong> — receipt #, store name/address, items with x qty and prices, tax, total, change</td>
+                    <td><textarea class="notes-input" data-key="c17n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c18"></span></td>
+                    <td><strong>Print Receipt</strong> — opens print window, formatted for thermal printer</td>
+                    <td><textarea class="notes-input" data-key="c18n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c19"></span></td>
+                    <td><strong>Inventory decrement</strong> — after sale, product quantity reduced by sold qty in Inventory page</td>
+                    <td><textarea class="notes-input" data-key="c19n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c20"></span></td>
+                    <td><strong>Oversell handling</strong> — attempting to sell more than stock shows warning, clamps at 0</td>
+                    <td><textarea class="notes-input" data-key="c20n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c21"></span></td>
+                    <td><strong>Customer name from payment modal</strong> — saved to order, appears in Orders and Customers</td>
+                    <td><textarea class="notes-input" data-key="c21n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c22"></span></td>
+                    <td><strong>Order appears in Orders page</strong> immediately with correct total and status "Completed"</td>
+                    <td><textarea class="notes-input" data-key="c22n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="c23"></span></td>
+                    <td><strong>Audit log entry</strong> — sale logged as "Sale" with ₱ amount on Activity Log page</td>
+                    <td><textarea class="notes-input" data-key="c23n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 4: INVENTORY ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">4</span>
+            <h2>Inventory Management</h2>
+        </div>
+        <p class="section-hint">CRUD products, filters, pagination, export.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d1"></span></td>
+                    <td><strong>Inventory stats render</strong> — Total, In Stock, Low Stock, Out of Stock counts</td>
+                    <td><textarea class="notes-input" data-key="d1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d2"></span></td>
+                    <td><strong>Product table loads</strong> — all columns filled (name, SKU, category, price, qty, status, date)</td>
+                    <td><textarea class="notes-input" data-key="d2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d3"></span></td>
+                    <td><strong>Search works</strong> — matches name, SKU, or supplier</td>
+                    <td><textarea class="notes-input" data-key="d3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d4"></span></td>
+                    <td><strong>Category filter</strong> — dropdown lists real categories from data</td>
+                    <td><textarea class="notes-input" data-key="d4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d5"></span></td>
+                    <td><strong>Stock filter</strong> — In Stock / Low Stock / Out of Stock / Over Stocked all filter correctly</td>
+                    <td><textarea class="notes-input" data-key="d5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d6"></span></td>
+                    <td><strong>Add Product modal</strong> — opens with empty form, all fields present including Size Type radios</td>
+                    <td><textarea class="notes-input" data-key="d6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d7"></span></td>
+                    <td><strong>Add product success</strong> — appears at top of table, stats update, toast shown</td>
+                    <td><textarea class="notes-input" data-key="d7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d8"></span></td>
+                    <td><strong>Duplicate SKU blocked</strong> — "Product code already exists" error</td>
+                    <td><textarea class="notes-input" data-key="d8n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d9"></span></td>
+                    <td><strong>Size mode radio</strong> — Single spec vs Multiple variants switch changes label + preview updates live</td>
+                    <td><textarea class="notes-input" data-key="d9n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d10"></span></td>
+                    <td><strong>Add new category</strong> — prompt appears, new category added to both category dropdowns</td>
+                    <td><textarea class="notes-input" data-key="d10n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d11"></span></td>
+                    <td><strong>Edit product</strong> — modal prefills with existing values, saving updates the row</td>
+                    <td><textarea class="notes-input" data-key="d11n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d12"></span></td>
+                    <td><strong>Inline quantity change</strong> — editing qty input updates stock badge live</td>
+                    <td><textarea class="notes-input" data-key="d12n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d13"></span></td>
+                    <td><strong>Delete product</strong> — confirmation modal, product removed, stats update</td>
+                    <td><textarea class="notes-input" data-key="d13n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d14"></span></td>
+                    <td><strong>Export CSV</strong> — downloads file with headers and all products</td>
+                    <td><textarea class="notes-input" data-key="d14n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d15"></span></td>
+                    <td><strong>Pagination</strong> — if >10 products, page buttons work, active page highlighted</td>
+                    <td><textarea class="notes-input" data-key="d15n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="d16"></span></td>
+                    <td><strong>Empty state</strong> — search with no matches shows "No Products Found" with Add button</td>
+                    <td><textarea class="notes-input" data-key="d16n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 5: ORDERS ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">5</span>
+            <h2>Orders</h2>
+        </div>
+        <p class="section-hint">View, filter, delete, view order details.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e1"></span></td>
+                    <td><strong>Orders table loads</strong> — columns: Order ID, Customer, Items, Total, Status, Date, Actions</td>
+                    <td><textarea class="notes-input" data-key="e1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e2"></span></td>
+                    <td><strong>Long item lists clamp to 2-3 lines</strong> — "View N items" badge appears for multi-item orders</td>
+                    <td><textarea class="notes-input" data-key="e2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e3"></span></td>
+                    <td><strong>Click items cell → order details modal</strong> — full item list, quantities, prices, totals</td>
+                    <td><textarea class="notes-input" data-key="e3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e4"></span></td>
+                    <td><strong>Order details modal shows</strong> — receipt #, customer, date, payment method, subtotal, tax, total</td>
+                    <td><textarea class="notes-input" data-key="e4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e5"></span></td>
+                    <td><strong>Status filter</strong> — All / Pending / Completed / Cancelled filters correctly</td>
+                    <td><textarea class="notes-input" data-key="e5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e6"></span></td>
+                    <td><strong>Date filter</strong> — Today / This Week / This Month correctly filter by order age</td>
+                    <td><textarea class="notes-input" data-key="e6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e7"></span></td>
+                    <td><strong>Delete order</strong> — confirmation dialog, order removed, audit log records deletion</td>
+                    <td><textarea class="notes-input" data-key="e7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="e8"></span></td>
+                    <td><strong>Empty state</strong> — with no orders, "No orders yet" friendly message</td>
+                    <td><textarea class="notes-input" data-key="e8n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 6: CUSTOMERS ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">6</span>
+            <h2>Customers</h2>
+        </div>
+        <p class="section-hint">Customer CRUD, search, order history.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="f1"></span></td>
+                    <td><strong>Customer table loads</strong> — name, email, phone, orders, total spent</td>
+                    <td><textarea class="notes-input" data-key="f1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="f2"></span></td>
+                    <td><strong>Add customer</strong> — 3 prompts (name, email, phone), appended to table</td>
+                    <td><textarea class="notes-input" data-key="f2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="f3"></span></td>
+                    <td><strong>Search customers</strong> — filters by name, email, or phone</td>
+                    <td><textarea class="notes-input" data-key="f3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="f4"></span></td>
+                    <td><strong>Delete customer</strong> — confirm dialog, removed from table</td>
+                    <td><textarea class="notes-input" data-key="f4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="f5"></span></td>
+                    <td><strong>Customer auto-updated from POS sale</strong> — new name in checkout creates customer; existing gets +1 order, +total spent</td>
+                    <td><textarea class="notes-input" data-key="f5n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 7: REPORTS ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">7</span>
+            <h2>Reports</h2>
+        </div>
+        <p class="section-hint">Generate CSV exports.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="g1"></span></td>
+                    <td><strong>4 report cards visible</strong> — Sales, Inventory, Customer, Financial</td>
+                    <td><textarea class="notes-input" data-key="g1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="g2"></span></td>
+                    <td><strong>Sales report CSV</strong> — downloads with order-level rows</td>
+                    <td><textarea class="notes-input" data-key="g2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="g3"></span></td>
+                    <td><strong>Inventory report CSV</strong> — downloads with all product rows</td>
+                    <td><textarea class="notes-input" data-key="g3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="g4"></span></td>
+                    <td><strong>Customer report CSV</strong> — downloads with all customers</td>
+                    <td><textarea class="notes-input" data-key="g4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="g5"></span></td>
+                    <td><strong>Financial report CSV</strong> — downloads with revenue data</td>
+                    <td><textarea class="notes-input" data-key="g5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="g6"></span></td>
+                    <td><strong>Toast feedback</strong> after each report — "Sales report exported"</td>
+                    <td><textarea class="notes-input" data-key="g6n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 8: ACTIVITY LOG (AUDIT) ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">8</span>
+            <h2>Activity Log (Audit Trail)</h2>
+        </div>
+        <p class="section-hint">Owner-facing view: who did what, when, how much.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h1"></span></td>
+                    <td><strong>Page title reads "Activity Log"</strong> (not "Audit Trail") with owner-friendly subtitle</td>
+                    <td><textarea class="notes-input" data-key="h1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h2"></span></td>
+                    <td><strong>"Who's on duty" panel</strong> — lists currently signed-in users with since-time and action count</td>
+                    <td><textarea class="notes-input" data-key="h2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h3"></span></td>
+                    <td><strong>4 owner stat cards</strong> — Sales Today, Staff Active Today, Deletions This Week, Last Activity</td>
+                    <td><textarea class="notes-input" data-key="h3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h4"></span></td>
+                    <td><strong>"What staff did today"</strong> — per-user summary with sales count + ₱ total + deletions warning</td>
+                    <td><textarea class="notes-input" data-key="h4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h5"></span></td>
+                    <td><strong>5-column table</strong> — When / Who / Activity / What happened / Amount</td>
+                    <td><textarea class="notes-input" data-key="h5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h6"></span></td>
+                    <td><strong>Plain-English activity labels</strong> — "Sale", "Added product", "Signed in" etc. (no raw codes)</td>
+                    <td><textarea class="notes-input" data-key="h6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h7"></span></td>
+                    <td><strong>Colored badges per activity type</strong> — green (sale), blue (change), red (delete), grey (auth)</td>
+                    <td><textarea class="notes-input" data-key="h7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h8"></span></td>
+                    <td><strong>Amount column</strong> — shows ₱ for sales, dash for non-sale events</td>
+                    <td><textarea class="notes-input" data-key="h8n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h9"></span></td>
+                    <td><strong>Relative time</strong> — "5 min ago" with full date on hover</td>
+                    <td><textarea class="notes-input" data-key="h9n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h10"></span></td>
+                    <td><strong>Search filter</strong> — matches user, description, receipt ID, customer</td>
+                    <td><textarea class="notes-input" data-key="h10n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h11"></span></td>
+                    <td><strong>Time Range filter</strong> — Today / Yesterday / 7d / 30d filter correctly</td>
+                    <td><textarea class="notes-input" data-key="h11n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h12"></span></td>
+                    <td><strong>Category filter</strong> — Sales / Inventory / Customers / Accounts / System</td>
+                    <td><textarea class="notes-input" data-key="h12n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h13"></span></td>
+                    <td><strong>What Happened filter</strong> — Added / Changed / Removed / Signed in-out / Exported</td>
+                    <td><textarea class="notes-input" data-key="h13n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h14"></span></td>
+                    <td><strong>Staff dropdown</strong> — lists all users that appear in logs</td>
+                    <td><textarea class="notes-input" data-key="h14n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h15"></span></td>
+                    <td><strong>Clear Filters</strong> — resets all filters + clears list</td>
+                    <td><textarea class="notes-input" data-key="h15n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h16"></span></td>
+                    <td><strong>Export button</strong> — CSV download with When/Who/Activity/Description/Amount columns</td>
+                    <td><textarea class="notes-input" data-key="h16n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h17"></span></td>
+                    <td><strong>Clear All</strong> — double confirm, clears Firestore + local cache, list empties</td>
+                    <td><textarea class="notes-input" data-key="h17n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="h18"></span></td>
+                    <td><strong>Real-time updates</strong> — new action appears without refresh (subscription)</td>
+                    <td><textarea class="notes-input" data-key="h18n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 9: NOTIFICATIONS BELL ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">9</span>
+            <h2>Notifications Bell</h2>
+        </div>
+        <p class="section-hint">Live low-stock alerts.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="i1"></span></td>
+                    <td><strong>Bell icon visible</strong> in header with badge only when alerts exist</td>
+                    <td><textarea class="notes-input" data-key="i1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="i2"></span></td>
+                    <td><strong>Badge count matches</strong> number of low + out-of-stock products</td>
+                    <td><textarea class="notes-input" data-key="i2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="i3"></span></td>
+                    <td><strong>Click bell</strong> — panel opens with alerts list, sorted by urgency</td>
+                    <td><textarea class="notes-input" data-key="i3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="i4"></span></td>
+                    <td><strong>Click any alert row</strong> — jumps to Inventory page</td>
+                    <td><textarea class="notes-input" data-key="i4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="i5"></span></td>
+                    <td><strong>Click outside OR press Esc</strong> — panel closes</td>
+                    <td><textarea class="notes-input" data-key="i5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="i6"></span></td>
+                    <td><strong>Empty state</strong> — no alerts shows green check + "All stock levels are healthy"</td>
+                    <td><textarea class="notes-input" data-key="i6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="i7"></span></td>
+                    <td><strong>Auto-refresh</strong> — badge updates within seconds of a sale that empties a product</td>
+                    <td><textarea class="notes-input" data-key="i7n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 10: SETTINGS ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">10</span>
+            <h2>Settings</h2>
+        </div>
+        <p class="section-hint">General + notification preferences.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="j1"></span></td>
+                    <td><strong>Store name input</strong> prefills with current name</td>
+                    <td><textarea class="notes-input" data-key="j1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="j2"></span></td>
+                    <td><strong>Currency dropdown</strong> — PHP / EUR / GBP options</td>
+                    <td><textarea class="notes-input" data-key="j2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="j3"></span></td>
+                    <td><strong>Time zone dropdown</strong> — 3 options</td>
+                    <td><textarea class="notes-input" data-key="j3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="j4"></span></td>
+                    <td><strong>3 notification checkboxes</strong> — low stock, daily report, weekly summary</td>
+                    <td><textarea class="notes-input" data-key="j4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="j5"></span></td>
+                    <td><strong>Save Settings</strong> — success toast, values persist on reload</td>
+                    <td><textarea class="notes-input" data-key="j5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="j6"></span></td>
+                    <td><strong>Audit log entry</strong> — "Updated settings" logged</td>
+                    <td><textarea class="notes-input" data-key="j6n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 11: PWA / OFFLINE ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">11</span>
+            <h2>PWA &amp; Offline Behaviour</h2>
+        </div>
+        <p class="section-hint">Install, offline queue, service worker.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k1"></span></td>
+                    <td><strong>Manifest loads</strong> — /manifest.json returns JSON, not 404</td>
+                    <td><textarea class="notes-input" data-key="k1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k2"></span></td>
+                    <td><strong>Service worker registered</strong> — console shows "✅ Service worker registered"</td>
+                    <td><textarea class="notes-input" data-key="k2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k3"></span></td>
+                    <td><strong>Install prompt</strong> — Chrome ⋮ menu → "Install app" enabled (not greyed out)</td>
+                    <td><textarea class="notes-input" data-key="k3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k4"></span></td>
+                    <td><strong>Installed app opens</strong> fullscreen with custom icon (not browser chrome)</td>
+                    <td><textarea class="notes-input" data-key="k4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k5"></span></td>
+                    <td><strong>Offline banner appears</strong> when device goes offline — amber with pending count</td>
+                    <td><textarea class="notes-input" data-key="k5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k6"></span></td>
+                    <td><strong>Sale queued offline</strong> — complete a sale with no internet, order shows in list, banner shows "1 pending"</td>
+                    <td><textarea class="notes-input" data-key="k6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k7"></span></td>
+                    <td><strong>Reconnect syncs</strong> — banner changes to "Back online — syncing 1 queued sale…", then hides</td>
+                    <td><textarea class="notes-input" data-key="k7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="k8"></span></td>
+                    <td><strong>Offline reload works</strong> — refresh with internet off, app shell loads from cache</td>
+                    <td><textarea class="notes-input" data-key="k8n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 12: THEME & RESPONSIVE ============ -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-number">12</span>
+            <h2>Theme, Visual &amp; Responsive</h2>
+        </div>
+        <p class="section-hint">Dark/light toggle, mobile layout, visual polish.</p>
+
+        <table class="checklist">
+            <thead>
+                <tr>
+                    <th class="col-check">Result</th>
+                    <th class="col-item">Test Item</th>
+                    <th class="col-notes">Notes / Screenshot / Steps</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l1"></span></td>
+                    <td><strong>Theme toggle button</strong> switches dark ⇄ light instantly</td>
+                    <td><textarea class="notes-input" data-key="l1n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l2"></span></td>
+                    <td><strong>Theme persists</strong> across page reloads (localStorage)</td>
+                    <td><textarea class="notes-input" data-key="l2n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l3"></span></td>
+                    <td><strong>Charts re-render</strong> with theme-appropriate colors after toggle</td>
+                    <td><textarea class="notes-input" data-key="l3n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l4"></span></td>
+                    <td><strong>Light theme readable</strong> — all text has sufficient contrast (no white-on-white, no grey-on-grey)</td>
+                    <td><textarea class="notes-input" data-key="l4n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l5"></span></td>
+                    <td><strong>Login page — mobile layout</strong> — left panel collapses, form fits viewport, no horizontal scroll</td>
+                    <td><textarea class="notes-input" data-key="l5n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l6"></span></td>
+                    <td><strong>Login page — background</strong> — photo visible behind glass card in both themes</td>
+                    <td><textarea class="notes-input" data-key="l6n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l7"></span></td>
+                    <td><strong>Login icon badge</strong> — lock icon in green circular badge above "Welcome Back"</td>
+                    <td><textarea class="notes-input" data-key="l7n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l8"></span></td>
+                    <td><strong>Input icons aligned</strong> — envelope/lock icons don't overlap placeholder text</td>
+                    <td><textarea class="notes-input" data-key="l8n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l9"></span></td>
+                    <td><strong>Password eye toggle</strong> — visible on right of password field, inside input box</td>
+                    <td><textarea class="notes-input" data-key="l9n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l10"></span></td>
+                    <td><strong>Account status text readable</strong> — "Firebase connected ✓" legible on dark background</td>
+                    <td><textarea class="notes-input" data-key="l10n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l11"></span></td>
+                    <td><strong>Mobile sidebar toggle</strong> — hamburger opens overlay sidebar, outside click closes</td>
+                    <td><textarea class="notes-input" data-key="l11n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l12"></span></td>
+                    <td><strong>Dashboard cards stack</strong> on narrow screens — no overflow, KPIs single-column at 480px</td>
+                    <td><textarea class="notes-input" data-key="l12n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l13"></span></td>
+                    <td><strong>POS layout stacks</strong> on mobile — catalog above cart, both scrollable</td>
+                    <td><textarea class="notes-input" data-key="l13n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l14"></span></td>
+                    <td><strong>Tables scroll horizontally</strong> on mobile instead of squishing</td>
+                    <td><textarea class="notes-input" data-key="l14n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l15"></span></td>
+                    <td><strong>Modals fit mobile viewport</strong> — no cut-off buttons or fields on small screens</td>
+                    <td><textarea class="notes-input" data-key="l15n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l16"></span></td>
+                    <td><strong>Payment modal scrolls</strong> if content taller than viewport</td>
+                    <td><textarea class="notes-input" data-key="l16n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l17"></span></td>
+                    <td><strong>Receipt modal legible</strong> on mobile — text not truncated, buttons stacked</td>
+                    <td><textarea class="notes-input" data-key="l17n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l18"></span></td>
+                    <td><strong>Toasts visible</strong> — appear bottom-right, readable, close button works, auto-dismiss ~4s</td>
+                    <td><textarea class="notes-input" data-key="l18n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l19"></span></td>
+                    <td><strong>No console errors</strong> on any page — open DevTools → Console tab, no red warnings</td>
+                    <td><textarea class="notes-input" data-key="l19n" placeholder="Notes…"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="col-check"><span class="check-box" data-key="l20"></span></td>
+                    <td><strong>No broken images</strong> — logo, icons, avatars all load (no alt-text-only placeholders)</td>
+                    <td><textarea class="notes-input" data-key="l20n" placeholder="Notes…"></textarea></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ============ SECTION 13: BUG LOG ============ -->
+    <div class="bug-log">
+        <h2>🐛 Bug Log</h2>
+        <p>Log every bug you find. Add rows as needed. Include steps to reproduce.</p>
+
+        <table class="bug-table">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">#</th>
+                    <th style="width: 100px;">Type</th>
+                    <th style="width: 80px;">Priority</th>
+                    <th>Description &amp; Steps to Reproduce</th>
+                    <th style="width: 140px;">Location (Page/Section)</th>
+                </tr>
+            </thead>
+            <tbody id="bugLogBody">
+                <!-- rows generated by JS -->
+            </tbody>
+        </table>
+
+        <button class="btn btn-secondary" id="addBugRow" style="margin-top: 12px;">
+            + Add Bug Row
+        </button>
+    </div>
+
+    <!-- ============ FOOTER ============ -->
+    <div class="footer-actions">
+        <div class="progress-bar">
+            <span id="progressText">0 / 0 items</span>
+            <div class="progress-track">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" id="resetBtn">Reset All</button>
+            <button class="btn btn-secondary" id="exportBtn">Export Answers (JSON)</button>
+            <button class="btn btn-primary" id="printBtn">Print / Save as PDF</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(function() {
+    const STORAGE_KEY = 'qa_checklist_kirby_pos_v1';
+
+    // ---------- Persistence ----------
+    function loadState() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        } catch { return {}; }
+    }
+
+    function saveState(state) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch {}
+    }
+
+    const state = loadState();
+
+    // ---------- Checkbox cycling ----------
+    const CYCLE = ['', 'pass', 'fail', 'na'];
+    const SYMBOL = { 'pass': '✓', 'fail': '✕', 'na': '–', '': '' };
+
+    document.querySelectorAll('.check-box[data-key]').forEach(box => {
+        const key = box.dataset.key;
+        const saved = state[key] || '';
+        applyState(box, saved);
+
+        box.addEventListener('click', () => {
+            const current = state[key] || '';
+            const idx = CYCLE.indexOf(current);
+            const next = CYCLE[(idx + 1) % CYCLE.length];
+            state[key] = next;
+            applyState(box, next);
+            saveState(state);
+            updateProgress();
+        });
+    });
+
+    function applyState(box, value) {
+        box.classList.remove('state-pass', 'state-fail', 'state-na');
+        if (value === 'pass') box.classList.add('state-pass');
+        else if (value === 'fail') box.classList.add('state-fail');
+        else if (value === 'na') box.classList.add('state-na');
+        box.textContent = SYMBOL[value] || '';
+    }
+
+    // ---------- Notes persistence ----------
+    document.querySelectorAll('textarea[data-key]').forEach(ta => {
+        const key = ta.dataset.key;
+        if (state[key]) ta.value = state[key];
+        ta.addEventListener('input', () => {
+            state[key] = ta.value;
+            saveState(state);
+        });
+    });
+
+    // ---------- Meta fields persistence ----------
+    document.querySelectorAll('[data-persist]').forEach(input => {
+        const key = input.dataset.persist;
+        if (state[key]) input.value = state[key];
+        input.addEventListener('input', () => {
+            state[key] = input.value;
+            saveState(state);
+        });
+    });
+
+    // ---------- Progress ----------
+    function updateProgress() {
+        const all = document.querySelectorAll('.check-box[data-key]');
+        let marked = 0;
+        let pass = 0, fail = 0, na = 0;
+        all.forEach(box => {
+            const v = state[box.dataset.key] || '';
+            if (v) marked++;
+            if (v === 'pass') pass++;
+            if (v === 'fail') fail++;
+            if (v === 'na') na++;
+        });
+        const total = all.length;
+        const pct = total > 0 ? (marked / total) * 100 : 0;
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressText').textContent =
+            `${marked} / ${total} · ✓ ${pass} · ✕ ${fail} · – ${na}`;
+    }
+
+    // ---------- Bug log rows ----------
+    const bugBody = document.getElementById('bugLogBody');
+    let bugCount = 0;
+
+    function makeBugRow(prefill = {}) {
+        bugCount++;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align:center;font-weight:700;">${bugCount}</td>
+            <td>
+                <select data-bug="type">
+                    <option value="">Select…</option>
+                    <option value="Functional">Functional</option>
+                    <option value="Visual">Visual</option>
+                    <option value="Data">Data</option>
+                    <option value="Performance">Performance</option>
+                    <option value="Console Error">Console Error</option>
+                    <option value="Other">Other</option>
+                </select>
+            </td>
+            <td>
+                <select data-bug="priority">
+                    <option value="">—</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </td>
+            <td><textarea data-bug="desc" rows="2" placeholder="What happened? What did you expect? Steps to reproduce…">${prefill.desc || ''}</textarea></td>
+            <td><input type="text" data-bug="location" placeholder="Page / section" value="${prefill.location || ''}"></td>
+        `;
+        bugBody.appendChild(tr);
+
+        // Persist bug row on input
+        tr.querySelectorAll('[data-bug]').forEach(el => {
+            if (prefill[el.dataset.bug]) {
+                el.value = prefill[el.dataset.bug];
+            }
+            el.addEventListener('input', saveBugLog);
+            el.addEventListener('change', saveBugLog);
+        });
+    }
+
+    function saveBugLog() {
+        const rows = [];
+        bugBody.querySelectorAll('tr').forEach(tr => {
+            const row = {};
+            tr.querySelectorAll('[data-bug]').forEach(el => {
+                row[el.dataset.bug] = el.value;
+            });
+            rows.push(row);
+        });
+        state.__bugs = rows;
+        saveState(state);
+    }
+
+    // Restore saved bug rows
+    if (Array.isArray(state.__bugs) && state.__bugs.length > 0) {
+        state.__bugs.forEach(makeBugRow);
+    } else {
+        // seed 5 empty rows
+        for (let i = 0; i < 5; i++) makeBugRow();
+    }
+
+    document.getElementById('addBugRow').addEventListener('click', () => makeBugRow());
+
+    // ---------- Buttons ----------
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        if (!window.confirm('Reset all answers and notes? This cannot be undone.')) return;
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `qa-results-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    });
+
+    document.getElementById('printBtn').addEventListener('click', () => {
+        window.print();
+    });
+
+    // ---------- Init ----------
+    updateProgress();
+    // Refresh progress every 10s to catch restores
+    setInterval(updateProgress, 10000);
+})();
+</script>
+
+</body>
+</html>
