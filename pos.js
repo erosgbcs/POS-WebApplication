@@ -35,12 +35,16 @@
     const gcashConfirmCheck = document.getElementById('gcashConfirmCheck');
     const gcashAmountToPay = document.getElementById('gcashAmountToPay');
     
-        function showGcashQr() {
+            function showGcashQr() {
         if (!gcashQrImage) return;
         gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GCASH_QR_CONTENT)}`;
-        if (gcashAmountToPay && paymentTotal) {
-            gcashAmountToPay.textContent = paymentTotal.textContent;
+        
+        // Read the total fresh from the modal — never rely on a stale value
+        if (gcashAmountToPay) {
+            const freshTotalEl = document.getElementById('paymentTotal');
+            gcashAmountToPay.textContent = freshTotalEl?.textContent?.trim() || '₱0.00';
         }
+        
         if (gcashQrGroup) gcashQrGroup.style.display = 'block';
         if (gcashConfirmCheck) gcashConfirmCheck.checked = false;
         if (confirmPaymentBtn) confirmPaymentBtn.disabled = true;
