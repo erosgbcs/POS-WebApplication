@@ -5406,3 +5406,171 @@ html, body {
         width: 260px;
     }
 }
+
+/* ===== GCASH QR BLOCK ===== */
+.gcash-qr-group {
+    margin: 16px 0;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    text-align: center;
+}
+
+.gcash-qr-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.gcash-qr-frame {
+    display: inline-block;
+    padding: 10px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    margin-bottom: 14px;
+}
+
+.gcash-qr-frame img {
+    display: block;
+    border-radius: 4px;
+}
+
+.gcash-qr-details {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 8px;
+}
+
+.gcash-qr-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+    padding: 4px 0;
+    color: #94a3b8;
+}
+
+.gcash-qr-row strong {
+    color: #f1f5f9;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.gcash-confirm {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 10px;
+    background: rgba(34, 197, 94, 0.06);
+    cursor: pointer;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #4ade80;
+    user-select: none;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.gcash-confirm:hover {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.5);
+}
+
+.gcash-confirm input {
+    display: none;
+}
+
+.gcash-confirm .checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #475569;
+    border-radius: 5px;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.gcash-confirm input:checked + .checkmark {
+    background: #16a34a;
+    border-color: #16a34a;
+}
+
+.gcash-confirm input:checked + .checkmark::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+/* Disabled Complete Payment button while GCash unconfirmed */
+#confirmPaymentBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Light theme */
+[data-theme="light"] .gcash-qr-group {
+    background: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+[data-theme="light"] .gcash-qr-label {
+    color: #334155;
+}
+
+[data-theme="light"] .gcash-qr-details {
+    background: #ffffff;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+[data-theme="light"] .gcash-qr-row {
+    color: #475569;
+}
+
+[data-theme="light"] .gcash-qr-row strong {
+    color: #1f2937;
+}
+
+[data-theme="light"] .gcash-confirm {
+    background: rgba(34, 197, 94, 0.1);
+    color: #166534;
+    border-color: rgba(34, 197, 94, 0.4);
+}
+
+[data-theme="light"] .gcash-confirm:hover {
+    background: rgba(34, 197, 94, 0.16);
+}
+
+[data-theme="light"] .gcash-confirm .checkmark {
+    border-color: #94a3b8;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .gcash-qr-group {
+        padding: 12px;
+    }
+    .gcash-qr-frame img {
+        width: 160px;
+        height: 160px;
+    }
+    .gcash-qr-row {
+        font-size: 12px;
+    }
+    .gcash-confirm {
+        font-size: 12.5px;
+        padding: 10px;
+    }
+}

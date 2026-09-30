@@ -26,7 +26,27 @@
     const cashReceived = document.getElementById('cashReceived');
     const changeAmount = document.getElementById('changeAmount');
     const confirmPaymentBtn = document.getElementById('confirmPaymentBtn');
-
+        // --- GCash QR ---
+    const GCASH_NUMBER = '09935917971';
+    const GCASH_NAME = 'Gabriel A';
+    const GCASH_QR_CONTENT = `GCash: ${GCASH_NUMBER} | ${GCASH_NAME}`;
+    const gcashQrGroup = document.getElementById('gcashQrGroup');
+    const gcashQrImage = document.getElementById('gcashQrImage');
+    const gcashConfirmCheck = document.getElementById('gcashConfirmCheck');
+    
+    function showGcashQr() {
+        if (!gcashQrImage) return;
+        gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GCASH_QR_CONTENT)}`;
+        if (gcashQrGroup) gcashQrGroup.style.display = 'block';
+        if (gcashConfirmCheck) gcashConfirmCheck.checked = false;
+        if (confirmPaymentBtn) confirmPaymentBtn.disabled = true;
+    }
+    
+    function hideGcashQr() {
+        if (gcashQrGroup) gcashQrGroup.style.display = 'none';
+        if (gcashConfirmCheck) gcashConfirmCheck.checked = false;
+        if (confirmPaymentBtn) confirmPaymentBtn.disabled = false;
+    }
     // --- State ---
     let cart = {};          // { productName: quantity }
     let selectedPaymentMethod = 'cash';
@@ -341,6 +361,7 @@ window.reloadPosCatalog = loadProductCatalog;
             if (cashInputGroup) cashInputGroup.style.display = 'block';
             if (cashReceived) cashReceived.value = '';
             if (changeAmount) changeAmount.textContent = formatCurrency(0);
+            hideGcashQr();
 
             // Clear customer info fields
             if (customerName) customerName.value = '';
@@ -442,15 +463,22 @@ window.reloadPosCatalog = loadProductCatalog;
     if (printReceiptBtn) printReceiptBtn.addEventListener('click', printReceipt);
 
     // --- Payment method selection ---
-    paymentMethods.forEach(method => {
+        paymentMethods.forEach(method => {
         method.addEventListener('click', () => {
             paymentMethods.forEach(m => m.classList.remove('selected'));
             method.classList.add('selected');
             selectedPaymentMethod = method.dataset.method;
-
+            
             // Show/hide cash input
             if (cashInputGroup) {
                 cashInputGroup.style.display = selectedPaymentMethod === 'cash' ? 'block' : 'none';
+            }
+            
+            // Show/hide GCash QR + confirmation gate
+            if (selectedPaymentMethod === 'gcash') {
+                showGcashQr();
+            } else {
+                hideGcashQr();
             }
         });
     });
@@ -469,7 +497,11 @@ window.reloadPosCatalog = loadProductCatalog;
         });
     }
 
-    // --- Confirm payment ---
+        if (gcashConfirmCheck) {
+        gcashConfirmCheck.addEventListener('change', () => {
+            if (confirmPaymentBtn) confirmPaymentBtn.disabled = !gcashConfirmCheck.checked;
+        });
+    }
     // --- Confirm payment ---
 if (confirmPaymentBtn) {
     confirmPaymentBtn.addEventListener('click', async () => {
@@ -629,13 +661,16 @@ window.POS_APP_LOG?.('transaction', 'pos', txnDesc, 'info', {
 });
 window.dispatchEvent(new CustomEvent('pos-order-created'));
 
-        cart = {};
-        updateCartDisplay();
-        paymentModal.classList.remove('show');
-        showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
-    });
-}
+// Reset GCash gate after successful payment
+hideGcashQr();
 
+cart = {};
+updateCartDisplay();
+paymentModal.classList.remove('show');
+showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
+    });
+    }
+    
     // Initialize cart display
     updateCartDisplay();
-})();
+    })();
