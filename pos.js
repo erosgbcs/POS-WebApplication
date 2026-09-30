@@ -33,10 +33,14 @@
     const gcashQrGroup = document.getElementById('gcashQrGroup');
     const gcashQrImage = document.getElementById('gcashQrImage');
     const gcashConfirmCheck = document.getElementById('gcashConfirmCheck');
+    const gcashAmountToPay = document.getElementById('gcashAmountToPay');
     
-    function showGcashQr() {
+        function showGcashQr() {
         if (!gcashQrImage) return;
         gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GCASH_QR_CONTENT)}`;
+        if (gcashAmountToPay && paymentTotal) {
+            gcashAmountToPay.textContent = paymentTotal.textContent;
+        }
         if (gcashQrGroup) gcashQrGroup.style.display = 'block';
         if (gcashConfirmCheck) gcashConfirmCheck.checked = false;
         if (confirmPaymentBtn) confirmPaymentBtn.disabled = true;

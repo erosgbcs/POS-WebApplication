@@ -5574,3 +5574,35 @@ html, body {
         padding: 10px;
     }
 }
+
+/* Amount row — first detail, slightly emphasized */
+.gcash-qr-row.gcash-qr-amount {
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gcash-qr-row.gcash-qr-amount span {
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.gcash-qr-row.gcash-qr-amount strong {
+    color: #4ade80;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+/* Light theme */
+[data-theme="light"] .gcash-qr-row.gcash-qr-amount {
+    border-bottom-color: rgba(148, 163, 184, 0.28);
+}
+
+[data-theme="light"] .gcash-qr-row.gcash-qr-amount span {
+    color: #475569;
+}
+
+[data-theme="light"] .gcash-qr-row.gcash-qr-amount strong {
+    color: #15803d;
+}
