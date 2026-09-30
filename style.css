@@ -1081,14 +1081,23 @@ body {
     color: #94a3b8;
     margin: 2px 0 4px;
 }
-
 .stat-change {
     font-size: 13px;
     font-weight: 600;
+    color: #94a3b8;   
 }
 
 .stat-change.positive { color: #4ade80; }
 .stat-change.negative { color: #f87171; }
+
+
+[data-theme="light"] .stat-change {
+    color: #64748b;
+}
+
+[data-theme="light"] .stat-change.positive { color: #15803d; }
+[data-theme="light"] .stat-change.negative { color: #b91c1c; }
+
 
 /* ===== RECENT ACTIVITY ===== */
 .recent-activity {
