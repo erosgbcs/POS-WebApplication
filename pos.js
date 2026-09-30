@@ -180,22 +180,42 @@ function renderProductCatalog(products) {
         };
     }
 
-    function addToCart(name, price, size = '') {
+        function addToCart(name, price, size = '') {
         const cartKey = getCartKey(name, size);
-        cart[cartKey] = (cart[cartKey] || 0) + 1;
+        const product = productCache[name];
+        const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+        const currentQty = cart[cartKey] || 0;
+        
+        if (currentQty >= maxStock) {
+            showToast(`Only ${maxStock} left in stock`, 'error');
+            return;
+        }
+        
+        cart[cartKey] = currentQty + 1;
         updateCartDisplay();
         const label = size ? `${name} (${size})` : name;
         showToast(`Added ${label} to cart (Qty: ${cart[cartKey]})`, 'success');
     }
 
-    function updateQuantity(cartKey, delta) {
-        if (cart[cartKey]) {
-            cart[cartKey] += delta;
-            if (cart[cartKey] <= 0) {
-                delete cart[cartKey];
+        function updateQuantity(cartKey, delta) {
+        if (!cart[cartKey]) return;
+        
+        // Guard the increase case — cap at available stock
+        if (delta > 0) {
+            const { name } = parseCartKey(cartKey);
+            const product = productCache[name];
+            const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+            if (cart[cartKey] + delta > maxStock) {
+                showToast(`Only ${maxStock} left in stock`, 'error');
+                return;
             }
-            updateCartDisplay();
         }
+        
+        cart[cartKey] += delta;
+        if (cart[cartKey] <= 0) {
+            delete cart[cartKey];
+        }
+        updateCartDisplay();
     }
 
     function clearCart() {
