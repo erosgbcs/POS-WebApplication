@@ -404,7 +404,7 @@ window.reloadPosCatalog = loadProductCatalog;
             }
         });
     }
-    // Live update while typing — keeps focus, updates row + grand totals
+    // Live update while typing — clamps to stock, keeps focus
 cartItems.addEventListener('input', (e) => {
     const input = e.target.closest('.cart-item-qty-input');
     if (!input) return;
@@ -414,15 +414,37 @@ cartItems.addEventListener('input', (e) => {
     const rawValue = parseInt(input.value, 10);
     if (Number.isNaN(rawValue) || rawValue < 1) return;
     
-    cart[cartKey] = rawValue;
+    const { name } = parseCartKey(cartKey);
+    const product = productCache[name];
+    const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+    const price = getProductPriceByName(name);
     
-    // Update this row's line total
+    // Guard rail: product went out of stock mid-cart
+    if (maxStock <= 0) {
+        delete cart[cartKey];
+        updateCartDisplay();
+        showToast('Item is out of stock and was removed from the cart', 'error');
+        return;
+    }
+    
+    // Clamp what actually goes into the cart — never exceed stock
+    const clampedValue = Math.min(rawValue, maxStock);
+    cart[cartKey] = clampedValue;
+    
+    // Visual warning if the typed value is over the limit
+    if (rawValue > maxStock) {
+        input.classList.add('over-stock');
+        input.title = `Max ${maxStock} in stock`;
+    } else {
+        input.classList.remove('over-stock');
+        input.removeAttribute('title');
+    }
+    
+    // Update row total + grand totals using the CLAMPED value
     const row = input.closest('.cart-item');
     const lineTotalEl = row?.querySelector('strong');
     if (lineTotalEl) {
-        const { name } = parseCartKey(cartKey);
-        const price = getProductPriceByName(name);
-        lineTotalEl.textContent = formatCurrency(price * rawValue);
+        lineTotalEl.textContent = formatCurrency(price * clampedValue);
     }
     
     updateCartTotals();
