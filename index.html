@@ -655,64 +655,54 @@
                     </div>
 
                     <!-- Inventory Stats -->
-                    <div class="stats-grid inventory-stats">
-                        <div class="stat-card">
-                            <div class="stat-icon blue">
-                                <i class="fas fa-boxes"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3 id="totalProducts">0</h3>
-                                <p>Total Products</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon green">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3 id="inStockProducts">0</h3>
-                                <p>In Stock</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon orange">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3 id="lowStockProducts">0</h3>
-                                <p>Low Stock</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon red">
-                                <i class="fas fa-times-circle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h3 id="outOfStockProducts">0</h3>
-                                <p>Out of Stock</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Inventory Tools -->
-                    <div class="inventory-tools">
-                        <div class="nav-search" style="max-width: 300px; flex: 1;">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="inventorySearch" placeholder="Search products...">
-                        </div>
-                        <div class="inventory-filters">
-                            <select class="filter-select" id="categoryFilter">
-    <option value="">All Categories</option>
-</select>
-                            <select class="filter-select" id="stockFilter">
-                                <option value="">All Stock Levels</option>
-                                <option value="in_stock">In Stock</option>
-                                <option value="low_stock">Low Stock</option>
-                                <option value="out_of_stock">Out of Stock</option>
-                                <option value="over_stock">Over Stocked</option>
-                            </select>
-                        </div>
-                    </div>
+<div class="stats-grid inventory-stats">
+    <div class="stat-card inv-filter-card active" data-stock-filter="" role="button" tabindex="0" aria-label="Show all products">
+        <div class="stat-icon blue"><i class="fas fa-boxes"></i></div>
+        <div class="stat-info">
+            <h3 id="totalProducts">0</h3>
+            <p>Total Products</p>
+        </div>
+    </div>
+    <div class="stat-card inv-filter-card" data-stock-filter="over_stock" role="button" tabindex="0" aria-label="Show overstocked products">
+        <div class="stat-icon purple"><i class="fas fa-arrow-up"></i></div>
+        <div class="stat-info">
+            <h3 id="overStockProducts">0</h3>
+            <p>Over Stock</p>
+        </div>
+    </div>
+    <div class="stat-card inv-filter-card" data-stock-filter="low_stock" role="button" tabindex="0" aria-label="Show low stock products">
+        <div class="stat-icon orange"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="stat-info">
+            <h3 id="lowStockProducts">0</h3>
+            <p>Low Stock</p>
+        </div>
+    </div>
+    <div class="stat-card inv-filter-card" data-stock-filter="out_of_stock" role="button" tabindex="0" aria-label="Show out of stock products">
+        <div class="stat-icon red"><i class="fas fa-times-circle"></i></div>
+        <div class="stat-info">
+            <h3 id="outOfStockProducts">0</h3>
+            <p>Out of Stock</p>
+        </div>
+    </div>
+</div>                  <!-- Inventory Tools -->
+<div class="inventory-tools">
+    <div class="nav-search" style="max-width: 300px; flex: 1;">
+        <i class="fas fa-search"></i>
+        <input type="text" id="inventorySearch" placeholder="Search products...">
+    </div>
+    <div class="inventory-filters">
+        <select class="filter-select" id="categoryFilter">
+            <option value="">All Categories</option>
+        </select>
+        <select class="filter-select" id="stockFilter">
+            <option value="">All Stock Levels</option>
+            <option value="in_stock">In Stock</option>
+            <option value="low_stock">Low Stock</option>
+            <option value="out_of_stock">Out of Stock</option>
+            <option value="over_stock">Over Stocked</option>
+        </select>
+    </div>
+</div>
 
                     <!-- Inventory Table -->
                     <div class="inventory-table-container">

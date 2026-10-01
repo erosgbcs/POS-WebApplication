@@ -389,81 +389,83 @@ window.reloadPosCatalog = loadProductCatalog;
         });
     }
 
-    // --- Cart item quantity buttons (event delegation) ---
-    if (cartItems) {
-        cartItems.addEventListener('click', (e) => {
-            const btn = e.target.closest('.qty-btn');
-            if (!btn) return;
-            const cartKey = btn.dataset.cartKey;
-            const action = btn.dataset.action;
-            if (!cartKey) return;
-            if (action === 'increase') {
-                updateQuantity(cartKey, 1);
-            } else if (action === 'decrease') {
-                updateQuantity(cartKey, -1);
-            }
-        });
-    }
+// --- Cart item quantity buttons + qty input (event delegation) ---
+if (cartItems) {
+    // +/− button clicks
+    cartItems.addEventListener('click', (e) => {
+        const btn = e.target.closest('.qty-btn');
+        if (!btn) return;
+        const cartKey = btn.dataset.cartKey;
+        const action = btn.dataset.action;
+        if (!cartKey) return;
+        if (action === 'increase') {
+            updateQuantity(cartKey, 1);
+        } else if (action === 'decrease') {
+            updateQuantity(cartKey, -1);
+        }
+    });
+    
     // Live update while typing — clamps to stock, keeps focus
-cartItems.addEventListener('input', (e) => {
-    const input = e.target.closest('.cart-item-qty-input');
-    if (!input) return;
-    const cartKey = input.dataset.cartKey;
-    if (!cart[cartKey]) return;
+    cartItems.addEventListener('input', (e) => {
+        const input = e.target.closest('.cart-item-qty-input');
+        if (!input) return;
+        const cartKey = input.dataset.cartKey;
+        if (!cart[cartKey]) return;
+        
+        const rawValue = parseInt(input.value, 10);
+        if (Number.isNaN(rawValue) || rawValue < 1) return;
+        
+        const { name } = parseCartKey(cartKey);
+        const product = productCache[name];
+        const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+        const price = getProductPriceByName(name);
+        
+        // Guard rail: product went out of stock mid-cart
+        if (maxStock <= 0) {
+            delete cart[cartKey];
+            updateCartDisplay();
+            showToast('Item is out of stock and was removed from the cart', 'error');
+            return;
+        }
+        
+        // Clamp what actually goes into the cart — never exceed stock
+        const clampedValue = Math.min(rawValue, maxStock);
+        cart[cartKey] = clampedValue;
+        
+        // Visual warning if the typed value is over the limit
+        if (rawValue > maxStock) {
+            input.classList.add('over-stock');
+            input.title = `Max ${maxStock} in stock`;
+        } else {
+            input.classList.remove('over-stock');
+            input.removeAttribute('title');
+        }
+        
+        // Update row total + grand totals using the CLAMPED value
+        const row = input.closest('.cart-item');
+        const lineTotalEl = row?.querySelector('strong');
+        if (lineTotalEl) {
+            lineTotalEl.textContent = formatCurrency(price * clampedValue);
+        }
+        
+        updateCartTotals();
+    });
     
-    const rawValue = parseInt(input.value, 10);
-    if (Number.isNaN(rawValue) || rawValue < 1) return;
+    // Commit on blur — clamps to stock and re-renders
+    cartItems.addEventListener('change', (e) => {
+        const input = e.target.closest('.cart-item-qty-input');
+        if (!input) return;
+        commitCartQuantity(input.dataset.cartKey, input.value);
+    });
     
-    const { name } = parseCartKey(cartKey);
-    const product = productCache[name];
-    const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
-    const price = getProductPriceByName(name);
-    
-    // Guard rail: product went out of stock mid-cart
-    if (maxStock <= 0) {
-        delete cart[cartKey];
-        updateCartDisplay();
-        showToast('Item is out of stock and was removed from the cart', 'error');
-        return;
-    }
-    
-    // Clamp what actually goes into the cart — never exceed stock
-    const clampedValue = Math.min(rawValue, maxStock);
-    cart[cartKey] = clampedValue;
-    
-    // Visual warning if the typed value is over the limit
-    if (rawValue > maxStock) {
-        input.classList.add('over-stock');
-        input.title = `Max ${maxStock} in stock`;
-    } else {
-        input.classList.remove('over-stock');
-        input.removeAttribute('title');
-    }
-    
-    // Update row total + grand totals using the CLAMPED value
-    const row = input.closest('.cart-item');
-    const lineTotalEl = row?.querySelector('strong');
-    if (lineTotalEl) {
-        lineTotalEl.textContent = formatCurrency(price * clampedValue);
-    }
-    
-    updateCartTotals();
-});
-
-// Commit on blur — clamps to stock and re-renders
-cartItems.addEventListener('change', (e) => {
-    const input = e.target.closest('.cart-item-qty-input');
-    if (!input) return;
-    commitCartQuantity(input.dataset.cartKey, input.value);
-});
-
-// Enter should blur (which triggers 'change' above)
-cartItems.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.classList.contains('cart-item-qty-input')) {
-        e.preventDefault();
-        e.target.blur();
-    }
-});
+    // Enter should blur (which triggers 'change' above)
+    cartItems.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.classList.contains('cart-item-qty-input')) {
+            e.preventDefault();
+            e.target.blur();
+        }
+    });
+}
     // --- Clear cart button ---
     if (clearCartBtn) {
         clearCartBtn.addEventListener('click', clearCart);

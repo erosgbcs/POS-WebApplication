@@ -5607,69 +5607,40 @@ html, body {
     color: #15803d;
 }
 
-/* ===== CART ITEM QUANTITY INPUT ===== */
-.cart-item-qty-input {
-    width: 54px;
-    padding: 6px 4px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: #e2e8f0;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
-    font-family: inherit;
-    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-    -moz-appearance: textfield;
-    appearance: textfield;
+/* ===== INVENTORY STAT CARDS — CLICKABLE FILTER ===== */
+.inv-filter-card {
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
-.cart-item-qty-input::-webkit-outer-spin-button,
-.cart-item-qty-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+.inv-filter-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(22, 163, 74, 0.5);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
-.cart-item-qty-input:focus {
-    outline: none;
+.inv-filter-card:active {
+    transform: translateY(-1px) scale(0.995);
+}
+
+.inv-filter-card:focus-visible {
+    outline: 2px solid #4ade80;
+    outline-offset: 3px;
+}
+
+.inv-filter-card.active {
     border-color: #16a34a;
-    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.18);
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(22, 163, 74, 0.12);
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
 }
 
 /* Light theme */
-[data-theme="light"] .cart-item-qty-input {
-    background: #f8fafc;
-    border-color: rgba(148, 163, 184, 0.4);
-    color: #1f2937;
+[data-theme="light"] .inv-filter-card:hover {
+    border-color: rgba(22, 163, 74, 0.55);
 }
 
-[data-theme="light"] .cart-item-qty-input:focus {
-    background: #ffffff;
-    border-color: #16a34a;
-    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.18);
-}
-
-/* Mobile — keep qty input compact */
-@media (max-width: 480px) {
-    .cart-item-qty-input {
-        width: 44px;
-        padding: 5px 2px;
-        font-size: 12px;
-    }
-}
-
-/* Cart qty input — over-stock warning state */
-.cart-item-qty-input.over-stock {
-    border-color: #ef4444;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.22);
-    color: #f87171;
-    background: rgba(239, 68, 68, 0.06);
-}
-
-[data-theme="light"] .cart-item-qty-input.over-stock {
-    border-color: #dc2626;
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
-    color: #b91c1c;
-    background: rgba(239, 68, 68, 0.08);
+[data-theme="light"] .inv-filter-card.active {
+    border-color: #15803d;
+    background: rgba(22, 163, 74, 0.1);
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
 }
