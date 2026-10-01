@@ -236,30 +236,40 @@ function renderProductCatalog(products) {
             `;
         } else {
             cartItems.innerHTML = '';
-            for (const [cartKey, qty] of Object.entries(cart)) {
-                const { name, size } = parseCartKey(cartKey);
-                const price = getProductPriceByName(name);
-                const displayName = size ? `${name} (${size})` : name;
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'cart-item';
-                itemDiv.innerHTML = `
-                    <div class="cart-item-info">
-                        <span class="cart-item-name">${displayName}</span>
-                        <span class="cart-item-qty">${formatCurrency(price)} each</span>
-                    </div>
-                    <div class="cart-item-actions">
-                        <button class="qty-btn" data-action="decrease" data-cart-key="${cartKey}">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <span style="min-width: 30px; text-align: center; font-weight: 600;">${qty}</span>
-                        <button class="qty-btn" data-action="increase" data-cart-key="${cartKey}">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <strong style="min-width: 80px; text-align: right;">${formatCurrency(price * qty)}</strong>
-                `;
-                cartItems.appendChild(itemDiv);
-            }
+for (const [cartKey, qty] of Object.entries(cart)) {
+    const { name, size } = parseCartKey(cartKey);
+    const price = getProductPriceByName(name);
+    const displayName = size ? `${name} (${size})` : name;
+    const product = productCache[name];
+    const maxStock = product ? (Number(product.quantity) || 0) : 999;
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'cart-item';
+    itemDiv.innerHTML = `
+        <div class="cart-item-info">
+            <span class="cart-item-name">${displayName}</span>
+            <span class="cart-item-qty">${formatCurrency(price)} each</span>
+        </div>
+        <div class="cart-item-actions">
+            <button class="qty-btn" data-action="decrease" data-cart-key="${cartKey}">
+                <i class="fas fa-minus"></i>
+            </button>
+            <input type="number"
+                   class="cart-item-qty-input"
+                   value="${qty}"
+                   min="1"
+                   max="${maxStock}"
+                   step="1"
+                   data-cart-key="${cartKey}"
+                   inputmode="numeric"
+                   aria-label="Quantity for ${escapeHtml(displayName)}">
+            <button class="qty-btn" data-action="increase" data-cart-key="${cartKey}">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+        <strong style="min-width: 80px; text-align: right;">${formatCurrency(price * qty)}</strong>
+    `;
+    cartItems.appendChild(itemDiv);
+}
         }
 
         // Calculate totals
@@ -276,12 +286,50 @@ function renderProductCatalog(products) {
         taxEl.textContent = formatCurrency(tax);
         totalEl.textContent = formatCurrency(total);
     }
-
-    function getProductPriceByName(name) {
-        // Find the product card with that name and get its data-price
-        const card = document.querySelector(`.product-card[data-name="${name}"]`);
-        return card ? parseFloat(card.dataset.price) : 0;
+function updateCartTotals() {
+    let subtotal = 0;
+    for (const [cartKey, qty] of Object.entries(cart)) {
+        const { name } = parseCartKey(cartKey);
+        const price = getProductPriceByName(name);
+        subtotal += price * qty;
     }
+    const tax = subtotal * 0.08;
+    const total = subtotal + tax;
+    subtotalEl.textContent = formatCurrency(subtotal);
+    taxEl.textContent = formatCurrency(tax);
+    totalEl.textContent = formatCurrency(total);
+}
+
+function commitCartQuantity(cartKey, rawValue) {
+    if (!cart[cartKey]) return;
+    const { name } = parseCartKey(cartKey);
+    const product = productCache[name];
+    const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+    
+    // Product went out of stock while in the cart — remove it instead of setting qty to 0
+    if (maxStock <= 0) {
+        delete cart[cartKey];
+        updateCartDisplay();
+        showToast('Item is out of stock and was removed from the cart', 'error');
+        return;
+    }
+    
+    let newQty = parseInt(rawValue, 10);
+    if (Number.isNaN(newQty) || newQty < 1) newQty = 1;
+    if (newQty > maxStock) {
+        newQty = maxStock;
+        showToast(`Only ${maxStock} left in stock`, 'error');
+    }
+    
+    cart[cartKey] = newQty;
+    updateCartDisplay();
+}
+
+function getProductPriceByName(name) {
+    // Find the product card with that name and get its data-price
+    const card = document.querySelector(`.product-card[data-name="${name}"]`);
+    return card ? parseFloat(card.dataset.price) : 0;
+}
 
     // --- Event delegation for product cards (click to add) ---
     if (productGrid) {
@@ -356,7 +404,44 @@ window.reloadPosCatalog = loadProductCatalog;
             }
         });
     }
+    // Live update while typing — keeps focus, updates row + grand totals
+cartItems.addEventListener('input', (e) => {
+    const input = e.target.closest('.cart-item-qty-input');
+    if (!input) return;
+    const cartKey = input.dataset.cartKey;
+    if (!cart[cartKey]) return;
+    
+    const rawValue = parseInt(input.value, 10);
+    if (Number.isNaN(rawValue) || rawValue < 1) return;
+    
+    cart[cartKey] = rawValue;
+    
+    // Update this row's line total
+    const row = input.closest('.cart-item');
+    const lineTotalEl = row?.querySelector('strong');
+    if (lineTotalEl) {
+        const { name } = parseCartKey(cartKey);
+        const price = getProductPriceByName(name);
+        lineTotalEl.textContent = formatCurrency(price * rawValue);
+    }
+    
+    updateCartTotals();
+});
 
+// Commit on blur — clamps to stock and re-renders
+cartItems.addEventListener('change', (e) => {
+    const input = e.target.closest('.cart-item-qty-input');
+    if (!input) return;
+    commitCartQuantity(input.dataset.cartKey, input.value);
+});
+
+// Enter should blur (which triggers 'change' above)
+cartItems.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.classList.contains('cart-item-qty-input')) {
+        e.preventDefault();
+        e.target.blur();
+    }
+});
     // --- Clear cart button ---
     if (clearCartBtn) {
         clearCartBtn.addEventListener('click', clearCart);

@@ -5606,3 +5606,55 @@ html, body {
 [data-theme="light"] .gcash-qr-row.gcash-qr-amount strong {
     color: #15803d;
 }
+
+/* ===== CART ITEM QUANTITY INPUT ===== */
+.cart-item-qty-input {
+    width: 54px;
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.cart-item-qty-input::-webkit-outer-spin-button,
+.cart-item-qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.cart-item-qty-input:focus {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Light theme */
+[data-theme="light"] .cart-item-qty-input {
+    background: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #1f2937;
+}
+
+[data-theme="light"] .cart-item-qty-input:focus {
+    background: #ffffff;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.18);
+}
+
+/* Mobile — keep qty input compact */
+@media (max-width: 480px) {
+    .cart-item-qty-input {
+        width: 44px;
+        padding: 5px 2px;
+        font-size: 12px;
+    }
+}
