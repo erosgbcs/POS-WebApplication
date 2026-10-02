@@ -217,13 +217,54 @@ function renderProductCatalog(products) {
         }
         updateCartDisplay();
     }
-
+    // --- Phone number formatter (11 digits, auto-spaces: 0917 123 4567) ---
+    function formatPhoneInput(rawValue) {
+        // Strip everything except digits
+        const digits = String(rawValue || '').replace(/\D/g, '').slice(0, 11);
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 7) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+        return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
+    }
+    
+    function isValidPhone(value) {
+        const digits = String(value || '').replace(/\D/g, '');
+        // Allow empty (optional field). If given, must be exactly 11 digits.
+        return digits.length === 0 || digits.length === 11;
+    }
     function clearCart() {
         cart = {};
         updateCartDisplay();
         showToast('Cart cleared', 'success');
     }
-
+    // --- Customer phone: live format + validation ---
+    const customerPhoneError = document.getElementById('customerPhoneError');
+    if (customerPhone) {
+        customerPhone.addEventListener('input', () => {
+            const caretPos = customerPhone.selectionStart;
+            const before = customerPhone.value.length;
+            customerPhone.value = formatPhoneInput(customerPhone.value);
+            const after = customerPhone.value.length;
+            // Keep caret roughly in place when spaces are added
+            const delta = after - before;
+            try {
+                customerPhone.setSelectionRange(caretPos + delta, caretPos + delta);
+            } catch (e) {}
+            
+            // Live validation feedback
+            if (customerPhoneError) {
+                const digits = customerPhone.value.replace(/\D/g, '');
+                const showError = digits.length > 0 && digits.length < 11;
+                customerPhoneError.style.display = showError ? 'block' : 'none';
+            }
+        });
+        
+        customerPhone.addEventListener('blur', () => {
+            const digits = customerPhone.value.replace(/\D/g, '');
+            if (digits.length > 0 && digits.length < 11 && customerPhoneError) {
+                customerPhoneError.style.display = 'block';
+            }
+        });
+    }
     function updateCartDisplay() {
         // Render cart items
         if (Object.keys(cart).length === 0) {
@@ -644,8 +685,21 @@ if (confirmPaymentBtn) {
     confirmPaymentBtn.addEventListener('click', async () => {
         const totalText = paymentTotal.textContent.replace(/[^\d.-]/g, '');
         const total = parseFloat(totalText) || 0;
-        const name = customerName ? customerName.value.trim() : '';
-        const phone = customerPhone ? customerPhone.value.trim() : '';
+                const name = customerName ? customerName.value.trim() : '';
+        const rawPhone = customerPhone ? customerPhone.value.trim() : '';
+        
+        // Guard rail: phone must be exactly 11 digits if provided
+        if (rawPhone && !isValidPhone(rawPhone)) {
+            showToast('Phone must be exactly 11 digits (e.g., 0917 123 4567)', 'error');
+            if (customerPhoneError) customerPhoneError.style.display = 'block';
+            if (customerPhone) customerPhone.focus();
+            return;
+        }
+        // Normalize: strip spaces before saving to the order
+        const phone = rawPhone.replace(/\D/g, '');
+        
+        
+        
         const items = Object.entries(cart).map(([cartKey, quantity]) => {
             const { name: itemName, size } = parseCartKey(cartKey);
             return {
