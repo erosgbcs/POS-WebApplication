@@ -518,6 +518,85 @@ async function addOrder(orderData) {
     }
 }
 
+async function commitSale(orderData) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+
+    const orderId = orderData.id;
+    const items = Array.isArray(orderData.items) ? orderData.items : [];
+    const products = new Map();
+    for (const item of items) {
+        if (!item.productId) return { data: null, error: new Error(`Missing product id for ${item.name || 'sale item'}`) };
+        const productId = String(item.productId);
+        if (!products.has(productId)) products.set(productId, []);
+        products.get(productId).push(item);
+    }
+    if (!orderId || products.size === 0) return { data: null, error: new Error('Sale id and items are required.') };
+
+    try {
+        const { doc, runTransaction, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const orderRef = doc(fb.db, 'orders', String(orderId));
+        await runTransaction(fb.db, async transaction => {
+            const orderSnapshot = await transaction.get(orderRef);
+            if (orderSnapshot.exists()) return;
+
+            const inventoryRefs = [...products.keys()].map(productId => doc(fb.db, 'inventory', productId));
+            const inventorySnapshots = await Promise.all(inventoryRefs.map(reference => transaction.get(reference)));
+            const updates = [];
+
+            for (let index = 0; index < inventorySnapshots.length; index++) {
+                const inventorySnapshot = inventorySnapshots[index];
+                const productId = [...products.keys()][index];
+                const productItems = products.get(productId);
+                if (!inventorySnapshot.exists()) throw new Error(`Product ${productId} no longer exists.`);
+
+                const product = inventorySnapshot.data();
+                const hasSizeStocks = product.sizeStocks && typeof product.sizeStocks === 'object' && !Array.isArray(product.sizeStocks);
+                if (hasSizeStocks) {
+                    const sizeStocks = { ...product.sizeStocks };
+                    for (const item of productItems) {
+                        const size = String(item.size || '');
+                        const currentQuantity = Number(sizeStocks[size]) || 0;
+                        if (!size || !Object.hasOwn(sizeStocks, size) || currentQuantity < item.quantity) {
+                            const error = new Error(`Insufficient stock for ${product.name || item.name} (${size || 'size not specified'}).`);
+                            error.code = 'failed-precondition';
+                            throw error;
+                        }
+                        sizeStocks[size] = currentQuantity - item.quantity;
+                    }
+                    updates.push({
+                        reference: inventoryRefs[index],
+                        data: {
+                            sizeStocks,
+                            quantity: Object.values(sizeStocks).reduce((total, quantity) => total + (Number(quantity) || 0), 0),
+                            updated_at: new Date().toISOString()
+                        }
+                    });
+                } else {
+                    const currentQuantity = Number(product.quantity) || 0;
+                    const soldQuantity = productItems.reduce((total, item) => total + item.quantity, 0);
+                    if (currentQuantity < soldQuantity) {
+                        const error = new Error(`Insufficient stock for ${product.name || productItems[0].name}.`);
+                        error.code = 'failed-precondition';
+                        throw error;
+                    }
+                    updates.push({
+                        reference: inventoryRefs[index],
+                        data: { quantity: currentQuantity - soldQuantity, updated_at: new Date().toISOString() }
+                    });
+                }
+            }
+
+            for (const update of updates) transaction.update(update.reference, update.data);
+            transaction.set(orderRef, { ...orderData, id: String(orderId), syncedAt: serverTimestamp() });
+        });
+
+        return { data: [{ ...orderData, id: String(orderId) }], error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
 async function getOrders() {
     const fb = await getFirebase();
     if (!fb) return { data: [], error: new Error('Firebase is not configured.') };
@@ -553,10 +632,12 @@ async function deleteOrder(orderId) {
 
 function subscribeOrders(callback) {
     let unsubscribe = () => {};
+    let canceled = false;
     (async () => {
         const fb = await getFirebase();
-        if (!fb) return;
+        if (!fb || canceled) return;
         const { collection, onSnapshot, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        if (canceled) return;
         const q = query(collection(fb.db, 'orders'), limit(500));
         unsubscribe = onSnapshot(q, snap => {
             const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -568,7 +649,10 @@ function subscribeOrders(callback) {
             callback(orders);
         }, err => console.warn('Orders subscription error:', err.message));
     })();
-    return () => unsubscribe();
+    return () => {
+        canceled = true;
+        unsubscribe();
+    };
 }
 
 // ---------- CUSTOMERS ----------
@@ -635,10 +719,12 @@ async function deleteCustomer(customerId) {
 
 function subscribeCustomers(callback) {
     let unsubscribe = () => {};
+    let canceled = false;
     (async () => {
         const fb = await getFirebase();
-        if (!fb) return;
+        if (!fb || canceled) return;
         const { collection, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        if (canceled) return;
         unsubscribe = onSnapshot(collection(fb.db, 'customers'), snap => {
             const customers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             customers.sort((a, b) => {
@@ -649,7 +735,10 @@ function subscribeCustomers(callback) {
             callback(customers);
         }, err => console.warn('Customers subscription error:', err.message));
     })();
-    return () => unsubscribe();
+    return () => {
+        canceled = true;
+        unsubscribe();
+    };
 }
 
 // ---------- AUDIT LOGS ----------
@@ -722,10 +811,12 @@ async function clearAuditLogs() {
 
 function subscribeAuditLogs(callback) {
     let unsubscribe = () => {};
+    let canceled = false;
     (async () => {
         const fb = await getFirebase();
-        if (!fb) return;
+        if (!fb || canceled) return;
         const { collection, onSnapshot, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        if (canceled) return;
         const q = query(collection(fb.db, 'audit_logs'), limit(500));
         unsubscribe = onSnapshot(q, snap => {
             const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -737,7 +828,10 @@ function subscribeAuditLogs(callback) {
             callback(logs);
         }, err => console.warn('Audit subscription error:', err.message));
     })();
-    return () => unsubscribe();
+    return () => {
+        canceled = true;
+        unsubscribe();
+    };
 }
 
 // ---------- CONFIG (Settings & Categories) ----------
@@ -792,10 +886,12 @@ async function saveCategories(list) {
 // ---------- REALTIME INVENTORY ----------
 function subscribeInventory(callback) {
     let unsubscribe = () => {};
+    let canceled = false;
     (async () => {
         const fb = await getFirebase();
-        if (!fb) return;
+        if (!fb || canceled) return;
         const { collection, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        if (canceled) return;
         unsubscribe = onSnapshot(collection(fb.db, 'inventory'), snap => {
             const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             products.sort((a, b) => {
@@ -806,7 +902,10 @@ function subscribeInventory(callback) {
             callback(products);
         }, err => console.warn('Inventory subscription error:', err.message));
     })();
-    return () => unsubscribe();
+    return () => {
+        canceled = true;
+        unsubscribe();
+    };
 }
     // ---------- EXPORT ----------
     window.POS_FIREBASE = {
@@ -841,6 +940,7 @@ function subscribeInventory(callback) {
         subscribeInventory,
         // Orders (NEW)
         addOrder,
+        commitSale,
         getOrders,
         deleteOrder,
         subscribeOrders,

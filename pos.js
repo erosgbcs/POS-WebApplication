@@ -76,6 +76,8 @@
 
 
 let productCache = {};
+let productCatalogLoaded = false;
+let productCatalogLoadPromise = null;
 
 function hasSizeStocks(product) {
     return Boolean(product?.sizeStocks && typeof product.sizeStocks === 'object' && !Array.isArray(product.sizeStocks));
@@ -93,6 +95,133 @@ function getTotalStock(product) {
     }
     return Math.max(0, Number(product?.quantity) || 0);
 }
+
+const PENDING_SALES_KEY = 'pos_order_queue';
+let pendingSalesFlushPromise = null;
+
+function getPendingSales() {
+    try {
+        const pendingSales = JSON.parse(localStorage.getItem(PENDING_SALES_KEY) || '[]');
+        return Array.isArray(pendingSales) ? pendingSales : [];
+    } catch (error) {
+        console.warn('Unable to read pending sales:', error);
+        return [];
+    }
+}
+
+function savePendingSales(pendingSales) {
+    try {
+        localStorage.setItem(PENDING_SALES_KEY, JSON.stringify(pendingSales));
+        window.dispatchEvent(new CustomEvent('pos-queue-changed'));
+    } catch (error) {
+        console.error('Unable to persist pending sale:', error);
+        showToast('Sale could not be queued locally. Keep this receipt for reconciliation.', 'error');
+    }
+}
+
+function setPendingSalesError(error) {
+    try {
+        if (error) localStorage.setItem('pos_order_queue_error', String(error.message || error));
+        else localStorage.removeItem('pos_order_queue_error');
+    } catch (storageError) {
+        console.warn('Unable to save pending sale status:', storageError);
+    }
+    window.updateOfflineIndicator?.();
+}
+
+function enqueuePendingSale(order) {
+    const pendingSales = getPendingSales();
+    if (!pendingSales.some(pending => pending.id === order.id)) {
+        pendingSales.push(order);
+        savePendingSales(pendingSales);
+    }
+}
+
+async function syncSaleCustomer(order) {
+    if (!order.customerName) return;
+
+    try {
+        const customersCacheReady = localStorage.getItem('pos_customers_cache_ready') === 'true';
+        let customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
+        if (!customersCacheReady) {
+            const result = await window.POS_SUPABASE.getCustomers();
+            if (!result.error && Array.isArray(result.data)) {
+                customers = result.data;
+                localStorage.setItem('pos_customers', JSON.stringify(customers));
+                localStorage.setItem('pos_customers_cache_ready', 'true');
+            }
+        }
+
+        const existing = customers.find(customer =>
+            customer.name?.toLowerCase() === order.customerName.toLowerCase()
+        );
+        if (existing) {
+            await window.POS_SUPABASE.updateCustomer(existing.id, {
+                orders: (Number(existing.orders) || 0) + 1,
+                totalSpent: (Number(existing.totalSpent) || 0) + order.total,
+                ...(order.customerPhone ? { phone: order.customerPhone } : {})
+            });
+        } else {
+            await window.POS_SUPABASE.addCustomer({
+                name: order.customerName,
+                email: '',
+                phone: order.customerPhone || '',
+                orders: 1,
+                totalSpent: order.total
+            });
+        }
+
+        const localExisting = customers.find(customer =>
+            customer.name?.toLowerCase() === order.customerName.toLowerCase()
+        );
+        if (localExisting) {
+            localExisting.orders = (Number(localExisting.orders) || 0) + 1;
+            localExisting.totalSpent = (Number(localExisting.totalSpent) || 0) + order.total;
+            if (order.customerPhone) localExisting.phone = order.customerPhone;
+        } else {
+            customers.push({
+                id: Date.now(),
+                name: order.customerName,
+                email: '',
+                phone: order.customerPhone || '',
+                orders: 1,
+                totalSpent: order.total
+            });
+        }
+        localStorage.setItem('pos_customers', JSON.stringify(customers));
+    } catch (error) {
+        console.warn('Customer sync failed:', error);
+    }
+}
+
+async function flushPendingSales() {
+    if (!navigator.onLine || !window.POS_CURRENT_USER || pendingSalesFlushPromise || !window.POS_SUPABASE?.commitSale) return;
+
+    pendingSalesFlushPromise = (async () => {
+        const pendingSales = getPendingSales();
+        while (pendingSales.length && navigator.onLine) {
+            const order = pendingSales[0];
+            const result = await window.POS_SUPABASE.commitSale(order);
+            if (result.error) {
+                console.warn('Pending sale sync failed:', result.error);
+                setPendingSalesError(result.error);
+                break;
+            }
+
+            pendingSales.shift();
+            savePendingSales(pendingSales);
+            setPendingSalesError(null);
+            await syncSaleCustomer(order);
+        }
+    })().finally(() => {
+        pendingSalesFlushPromise = null;
+    });
+
+    return pendingSalesFlushPromise;
+}
+
+window.flushPendingSales = flushPendingSales;
+window.addEventListener('pos-queue-flush-request', flushPendingSales);
 
 function getCartMax(name, size, currentCartKey = '') {
     const product = productCache[name];
@@ -148,6 +277,7 @@ function buildStockUpdates(items) {
 
 function renderProductCatalog(products) {
     if (!productGrid) return;
+    productCatalogLoaded = true;
     
     // Build name -> product lookup for inventory decrement
     productCache = {};
@@ -488,10 +618,17 @@ function getProductPriceByName(name) {
         });
     }
 
-    loadProductCatalog();
-
-// Allow script.js to refresh the catalog after login or on POS navigation
-window.reloadPosCatalog = loadProductCatalog;
+// Allow the inventory snapshot to populate POS without another Firestore read.
+window.renderPosCatalog = renderProductCatalog;
+window.reloadPosCatalog = () => {
+    if (productCatalogLoaded) return Promise.resolve();
+    if (!productCatalogLoadPromise) {
+        productCatalogLoadPromise = loadProductCatalog().finally(() => {
+            productCatalogLoadPromise = null;
+        });
+    }
+    return productCatalogLoadPromise;
+};
 
     // --- Product search filter ---
     if (productSearch) {
@@ -821,6 +958,7 @@ if (confirmPaymentBtn) {
             const { name: itemName, size } = parseCartKey(cartKey);
             return {
                 name: itemName,
+                productId: productCache[itemName]?.id || '',
                 size,
                 quantity,
                 price: getProductPriceByName(itemName)
@@ -892,6 +1030,7 @@ if (confirmPaymentBtn) {
         updateCartDisplay();
                 stockUpdates.forEach(({ product, updates }) => Object.assign(product, updates));
                 renderProductCatalog(Object.values(productCache));
+                window.setInventoryProducts?.(Object.values(productCache));
         paymentModal.classList.remove('show');
         hideGcashQr();
         
@@ -921,65 +1060,29 @@ if (confirmPaymentBtn) {
 
         // ---------- FIRE OFF BACKGROUND SYNC (no awaits block the UI) ----------
         (async () => {
+            let saleCommitted = false;
             try {
-                for (const { product, productId, updates } of stockUpdates) {
-                    const result = await window.POS_SUPABASE.updateInventoryProduct(productId, updates);
-
-                    if (result?.error) {
-                        console.warn('Inventory decrement failed for', product.name, result.error);
-                    } else {
-                        Object.assign(product, updates);
-                    }
+                const result = await window.POS_SUPABASE?.commitSale?.(order);
+                if (result?.error || !result) {
+                    const error = result?.error || new Error('Sale sync is unavailable.');
+                    enqueuePendingSale(order);
+                    if (navigator.onLine) setPendingSalesError(error);
+                    console.warn('Sale queued for sync:', error);
+                    showToast('Sale saved locally and queued to sync.', 'success');
+                } else {
+                    saleCommitted = true;
+                    window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
+                        detail: Object.values(productCache)
+                    }));
                 }
-
-                window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
-                    detail: Object.values(productCache)
-                }));
             } catch (err) {
-                console.warn('Inventory decrement error:', err);
+                enqueuePendingSale(order);
+                if (navigator.onLine) setPendingSalesError(err);
+                console.warn('Sale queued for sync:', err);
+                showToast('Sale saved locally and queued to sync.', 'success');
             }
 
-            try {
-                await window.POS_SUPABASE?.addOrder?.(order);
-            } catch (err) {
-                console.warn('Order sync to cloud failed:', err);
-            }
-
-            if (name) {
-                try {
-                    const { data } = await window.POS_SUPABASE.getCustomers();
-                    const existing = (data || []).find(c =>
-                        c.name?.toLowerCase() === name.toLowerCase()
-                    );
-
-                    if (existing) {
-                        await window.POS_SUPABASE.updateCustomer(existing.id, {
-                            orders: (Number(existing.orders) || 0) + 1,
-                            totalSpent: (Number(existing.totalSpent) || 0) + total,
-                            ...(phone ? { phone } : {})
-                        });
-                    } else {
-                        await window.POS_SUPABASE.addCustomer({
-                            name, email: '', phone, orders: 1, totalSpent: total
-                        });
-                    }
-
-                    const customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
-                    const localExisting = customers.find(c =>
-                        c.name?.toLowerCase() === name.toLowerCase()
-                    );
-                    if (localExisting) {
-                        localExisting.orders = (Number(localExisting.orders) || 0) + 1;
-                        localExisting.totalSpent = (Number(localExisting.totalSpent) || 0) + total;
-                        if (phone) localExisting.phone = phone;
-                    } else {
-                        customers.push({ id: Date.now(), name, email: '', phone, orders: 1, totalSpent: total });
-                    }
-                    localStorage.setItem('pos_customers', JSON.stringify(customers));
-                } catch (err) {
-                    console.warn('Customer sync failed:', err);
-                }
-            }
+            if (saleCommitted) await syncSaleCustomer(order);
 
             const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${selectedPaymentMethod === 'gcash' ? 'GCash' : 'Cash'} · ${items.length} item${items.length === 1 ? '' : 's'}`;
             window.POS_APP_LOG?.('transaction', 'pos', txnDesc, 'info', {

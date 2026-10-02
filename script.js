@@ -186,6 +186,7 @@
     const ORDERS_KEY = 'pos_orders';
 const AUDIT_KEY = 'pos_audit_logs';
 const CUSTOMERS_KEY = 'pos_customers';
+    const CUSTOMERS_CACHE_READY_KEY = 'pos_customers_cache_ready';
   
 
     const ROLE_ACCESS = {
@@ -283,21 +284,11 @@ const CUSTOMERS_KEY = 'pos_customers';
 
     
 
-    async function renderOrders() {
+    function renderOrders(snapshotOrders = null) {
     if (!ordersTableBody) return;
     
-    let orders = [];
-    try {
-        const { data, error } = await window.POS_SUPABASE.getOrders();
-        if (!error && Array.isArray(data)) {
-            orders = data;
-            writeStoredRecords(ORDERS_KEY, orders.slice(0, 500));
-        } else {
-            orders = readStoredRecords(ORDERS_KEY);
-        }
-    } catch {
-        orders = readStoredRecords(ORDERS_KEY);
-    }
+    const orders = Array.isArray(snapshotOrders) ? snapshotOrders : readStoredRecords(ORDERS_KEY);
+    if (Array.isArray(snapshotOrders)) writeStoredRecords(ORDERS_KEY, orders.slice(0, 500));
     
     const status = orderStatusFilter?.value || '';
     const dateRange = orderDateFilter?.value || '';
@@ -511,20 +502,13 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
         }[character]));
     }
 
-    async function renderCustomers(searchTerm = '') {
+    function renderCustomers(searchTerm = '', snapshotCustomers = null) {
     if (!customersTableBody) return;
 
-    let customers = [];
-    try {
-        const { data, error } = await window.POS_SUPABASE.getCustomers();
-        if (!error && Array.isArray(data)) {
-            customers = data;
-            localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
-        } else {
-            customers = getCustomers();
-        }
-    } catch {
-        customers = getCustomers();
+    const customers = Array.isArray(snapshotCustomers) ? snapshotCustomers : getCustomers();
+    if (Array.isArray(snapshotCustomers)) {
+        localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+        localStorage.setItem(CUSTOMERS_CACHE_READY_KEY, 'true');
     }
 
     const search = searchTerm.trim().toLowerCase();
@@ -1741,53 +1725,38 @@ applyRoleAccess(user);
     }
     
     showToast(`Welcome, ${name}!`, 'success');
+    localStorage.setItem(CUSTOMERS_CACHE_READY_KEY, 'false');
     
-    window.reloadPosCatalog?.();
-    window.initInventory?.();
     refreshOverview();
     
-    // ---------- CLOUD BOOTSTRAP ----------
-    (async () => {
-        try {
-            const [orders, customers, logs] = await Promise.all([
-                window.POS_SUPABASE.getOrders(),
-                window.POS_SUPABASE.getCustomers(),
-                window.POS_SUPABASE.getAuditLogs(200)
-            ]);
-            if (!orders.error) writeStoredRecords(ORDERS_KEY, orders.data.slice(0, 500));
-            if (!customers.error) localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers.data));
-            if (!logs.error) writeStoredRecords(AUDIT_KEY, logs.data.slice(0, 100));
-                renderOrders();
+    renderOrders();
     renderCustomers();
     window.renderAuditLogs?.();
-    refreshOverview();
-} catch (err) {
-    console.warn('Cloud bootstrap failed:', err);
-        }
-    })();
     
     // ---------- REAL-TIME SUBSCRIPTIONS ----------
     if (window._posUnsubscribers) {
         window._posUnsubscribers.forEach(fn => { try { fn(); } catch (e) {} });
     }
     window._posUnsubscribers = [
-        window.POS_SUPABASE.subscribeOrders(() => {
-            renderOrders();
+        window.POS_SUPABASE.subscribeOrders(orders => {
+            renderOrders(orders);
             refreshOverview();
         }),
-        window.POS_SUPABASE.subscribeCustomers(() => {
-            renderCustomers(customerSearch?.value || '');
+        window.POS_SUPABASE.subscribeCustomers(customers => {
+            renderCustomers(customerSearch?.value || '', customers);
             refreshOverview();
         }),
-        window.POS_SUPABASE.subscribeInventory(() => {
+        window.POS_SUPABASE.subscribeInventory(products => {
+            window.renderPosCatalog?.(products);
+            window.setInventoryProducts?.(products);
             refreshOverview();
-            window.reloadPosCatalog?.();
         }),
-        window.POS_SUPABASE.subscribeAuditLogs(() => {
-    window.renderAuditLogs?.();
+        window.POS_SUPABASE.subscribeAuditLogs(logs => {
+    window.renderAuditLogs?.(logs);
     renderRecentActivity();
 })
     ];
+    window.flushPendingSales?.();
 }
 
     function showLoginView() {
@@ -3021,8 +2990,11 @@ setupTopProductsPeriodControls();
                     : "You're offline — sales are queued and will sync automatically";
             } else {
                 banner.classList.remove('offline');
+                const queueError = localStorage.getItem('pos_order_queue_error');
                 bannerText.textContent = pending > 0
-                    ? `Back online — syncing ${pending} queued sale${pending === 1 ? '' : 's'}…`
+                    ? queueError
+                        ? `${pending} queued sale${pending === 1 ? '' : 's'} need attention: ${queueError}`
+                        : `Back online — syncing ${pending} queued sale${pending === 1 ? '' : 's'}…`
                     : '';
             }
 

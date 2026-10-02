@@ -216,22 +216,12 @@
     }
 
     // ===================== RENDER TABLE =====================
-    async function renderAuditLogs() {
+    async function renderAuditLogs(snapshotLogs = null) {
         const tbody = document.getElementById('auditLogTableBodyMain');
         if (!tbody) return;
 
-        let logs = [];
-        try {
-            const { data, error } = await window.POS_SUPABASE.getAuditLogs(500);
-            if (!error && Array.isArray(data)) {
-                logs = data;
-                writeStoredRecords(AUDIT_KEY, logs.slice(0, 200));
-            } else {
-                logs = readStoredRecords(AUDIT_KEY);
-            }
-        } catch {
-            logs = readStoredRecords(AUDIT_KEY);
-        }
+        const logs = Array.isArray(snapshotLogs) ? snapshotLogs : readStoredRecords(AUDIT_KEY);
+        if (Array.isArray(snapshotLogs)) writeStoredRecords(AUDIT_KEY, logs.slice(0, 200));
 
         await populateUserFilter(logs);
 

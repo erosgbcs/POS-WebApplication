@@ -10,9 +10,11 @@
     stockFilter: '',
     editingProductId: null,
     deletingProductId: null,
+    productsLoaded: false,
     initialized: false
 };
 let variantStockDraft = {};
+let inventoryProductsLoadPromise = null;
 
 const supabaseApi = window.POS_SUPABASE; // ← ADD THIS LINE
 
@@ -598,10 +600,11 @@ document.querySelectorAll('.inv-filter-card').forEach(card => {
 
     window.initInventory = function() {
     // Always load categories from cloud (realtime-safe)
-    loadCategoriesFromCloud();
+    if (categoriesCache === null) loadCategoriesFromCloud();
     
     if (!supabaseApi?.isConfigured?.()) {
         inventoryState.products = [];
+        inventoryState.productsLoaded = true;
         showToast('Firebase is not configured', 'error');
         renderCategoryOptions();
         updateInventoryStats();
@@ -609,23 +612,37 @@ document.querySelectorAll('.inv-filter-card').forEach(card => {
         setupInventoryEventListeners();
         return;
     }
-    supabaseApi.getInventoryProducts().then(result => {
-        if (result.error) {
-            showToast(result.error.message, 'error');
-            inventoryState.products = [];
-        } else {
-            inventoryState.products = (result.data || []).map(mapProduct);
+    if (!inventoryState.productsLoaded && !inventoryProductsLoadPromise) {
+        inventoryProductsLoadPromise = supabaseApi.getInventoryProducts().then(result => {
+            if (result.error) {
+                showToast(result.error.message, 'error');
+                inventoryState.products = [];
+            } else {
+                inventoryState.products = (result.data || []).map(mapProduct);
+            }
+            inventoryState.productsLoaded = true;
+            renderCategoryOptions();
+            updateInventoryStats();
+            filterProducts();
+            setupInventoryEventListeners();
             window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
-        }
-        renderCategoryOptions();
-        updateInventoryStats();
-        filterProducts();
-        setupInventoryEventListeners();
-    });
+        }).finally(() => {
+            inventoryProductsLoadPromise = null;
+        });
+    }
     updateInventoryStats();
     filterProducts();
     setupInventoryEventListeners();
 };
+
+    window.setInventoryProducts = function(products) {
+        inventoryState.products = (products || []).map(mapProduct);
+        inventoryState.productsLoaded = true;
+        renderCategoryOptions();
+        updateInventoryStats();
+        filterProducts();
+        window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+    };
 
     window.filterInventoryByStock = function(stockFilter) {
         inventoryState.stockFilter = stockFilter || '';
