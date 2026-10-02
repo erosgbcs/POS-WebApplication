@@ -791,7 +791,7 @@ if (cartItems) {
         return `REC-${datePart}-${timePart}-${randomPart}`;
     }
 
-                 function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change) {
+                 function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change, createdAt) {
                      // ---- FIX: cancel any pending clear-timer from a previous close ----
                      if (receiptClearTimer) {
                          clearTimeout(receiptClearTimer);
@@ -811,6 +811,15 @@ if (cartItems) {
     `).join('');
             const customer = [name, phone].filter(Boolean).map(escapeHtml).join(' | ');
             const paymentLabel = paymentMethod === 'gcash' ? 'GCash' : 'Cash';
+            const receiptDate = new Intl.DateTimeFormat('en-PH', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            }).format(new Date(createdAt));
+            const currentUser = window.POS_CURRENT_USER;
+            const cashierName = currentUser?.user_metadata?.full_name ||
+                currentUser?.displayName ||
+                currentUser?.email?.split('@')[0] ||
+                'Unknown';
             
             receiptContent.innerHTML = `
         <div class="receipt-store-name">Kirby's Hardware</div>
@@ -828,6 +837,8 @@ if (cartItems) {
         <div class="receipt-total-line receipt-grand-total"><strong>Total</strong><strong>${formatCurrency(total)}</strong></div>
         <div class="receipt-meta">Payment: ${paymentLabel}</div>
         ${paymentMethod === 'cash' ? `<div class="receipt-total-line"><span>Cash received</span><span>${formatCurrency(cash)}</span></div><div class="receipt-total-line"><span>Change</span><span>${formatCurrency(change)}</span></div>` : ''}
+        <div class="receipt-meta">Date: ${escapeHtml(receiptDate)}</div>
+        <div class="receipt-meta">Cashier: ${escapeHtml(cashierName)}</div>
     `;
             receiptModal.classList.add('show');
         
@@ -1045,7 +1056,7 @@ if (confirmPaymentBtn) {
         // and the second one is never painted until the next click.
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
+                showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change, order.createdAt);
             });
         });
 
