@@ -55,9 +55,13 @@
         if (gcashConfirmCheck) gcashConfirmCheck.checked = false;
         if (confirmPaymentBtn) confirmPaymentBtn.disabled = false;
     }
-    // --- State ---
-    let cart = {};          // { productName: quantity }
+        // --- State ---
+    let cart = {}; // { productName: quantity }
     let selectedPaymentMethod = 'cash';
+    let receiptClearTimer = null; // fix: cancellable timer for receipt cleanup
+    
+    
+    
     const formatCurrency = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
 
     function escapeHtml(value) {
@@ -575,26 +579,33 @@ if (cartItems) {
         return `REC-${datePart}-${timePart}-${randomPart}`;
     }
 
-        function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change) {
-        // Reset any prior modal state so we don't stack receipts
-        if (receiptModal) {
-            receiptModal.classList.remove('show');
-        }
-        if (receiptContent) {
-            receiptContent.innerHTML = '';
-            receiptContent.scrollTop = 0;
-        }
-        
-        const itemRows = items.map(item => `
+                 function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change) {
+                    // ---- FIX: cancel any pending clear-timer from a previous close ----
+                    if (receiptClearTimer) {
+                        clearTimeout(receiptClearTimer);
+                        receiptClearTimer = null;
+                    }
+                    // -------------------------------------------------------------------
+                    
+                    // Reset any prior modal state so we don't stack receipts
+                    if (receiptModal) {
+                        receiptModal.classList.remove('show');
+                    }
+            if (receiptContent) {
+                receiptContent.innerHTML = '';
+                receiptContent.scrollTop = 0;
+            }
+            
+            const itemRows = items.map(item => `
         <div class="receipt-line">
             <span>${escapeHtml(item.name)} x${item.quantity}</span>
             <strong>${formatCurrency(item.price * item.quantity)}</strong>
         </div>
     `).join('');
-    const customer = [name, phone].filter(Boolean).map(escapeHtml).join(' | ');
-    const paymentLabel = paymentMethod === 'gcash' ? 'GCash' : 'Cash';
-    
-    receiptContent.innerHTML = `
+            const customer = [name, phone].filter(Boolean).map(escapeHtml).join(' | ');
+            const paymentLabel = paymentMethod === 'gcash' ? 'GCash' : 'Cash';
+            
+            receiptContent.innerHTML = `
         <div class="receipt-store-name">Kirby's Hardware</div>
         <div class="receipt-heading">POS TRANSACTION</div>
         <div class="receipt-number">Receipt No: ${escapeHtml(receiptNumber)}</div>
@@ -611,8 +622,8 @@ if (cartItems) {
         <div class="receipt-meta">Payment: ${paymentLabel}</div>
         ${paymentMethod === 'cash' ? `<div class="receipt-total-line"><span>Cash received</span><span>${formatCurrency(cash)}</span></div><div class="receipt-total-line"><span>Change</span><span>${formatCurrency(change)}</span></div>` : ''}
     `;
-    receiptModal.classList.add('show');
-}
+            receiptModal.classList.add('show');
+        }
     function printReceipt() {
         const printWindow = window.open('', '_blank', 'width=420,height=700');
         if (!printWindow) {
@@ -636,28 +647,36 @@ if (cartItems) {
         printWindow.print();
     }
 
-        [receiptClose, receiptDoneBtn].forEach(button => {
-        if (button) button.addEventListener('click', () => {
-            receiptModal.classList.remove('show');
-            // Clear the receipt content so stale data doesn't flash on the next open
-            setTimeout(() => {
+                // ---- FIX: tracked clear-timer so showReceipt() can cancel it ----
+        function scheduleReceiptClear() {
+            if (receiptClearTimer) clearTimeout(receiptClearTimer);
+            receiptClearTimer = setTimeout(() => {
                 if (receiptContent) receiptContent.innerHTML = '';
+                receiptClearTimer = null;
             }, 300);
-        });
-    });
-
-        if (receiptModal) {
-        receiptModal.addEventListener('click', event => {
-            if (event.target === receiptModal) {
+        }
+        
+        [receiptClose, receiptDoneBtn].forEach(button => {
+            if (button) button.addEventListener('click', () => {
                 receiptModal.classList.remove('show');
-                setTimeout(() => {
-                    if (receiptContent) receiptContent.innerHTML = '';
-                }, 300);
-            }
+                // Clear the receipt content so stale data doesn't flash on the next open
+                scheduleReceiptClear();
+            });
         });
-    }
+        
+        if (receiptModal) {
+            receiptModal.addEventListener('click', event => {
+                if (event.target === receiptModal) {
+                    receiptModal.classList.remove('show');
+                    scheduleReceiptClear();
+                }
+            });
+        }
 
-    if (printReceiptBtn) printReceiptBtn.addEventListener('click', printReceipt);
+        
+      if (printReceiptBtn) printReceiptBtn.addEventListener('click', printReceipt);
+
+
 
     // --- Payment method selection ---
         paymentMethods.forEach(method => {
@@ -702,16 +721,25 @@ if (cartItems) {
     // --- Confirm payment ---
 if (confirmPaymentBtn) {
     confirmPaymentBtn.addEventListener('click', async () => {
-        const totalText = paymentTotal.textContent.replace(/[^\d.-]/g, '');
+                    // ---- FIX: block double-submit ----
+                    if (confirmPaymentBtn.disabled) return;
+                    confirmPaymentBtn.disabled = true;
+                    const __origBtnHtml = confirmPaymentBtn.innerHTML;
+                    confirmPaymentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                    // -----------------------------------
+                    
+                    const totalText = paymentTotal.textContent.replace(/[^\d.-]/g, '');
         const total = parseFloat(totalText) || 0;
                 const name = customerName ? customerName.value.trim() : '';
         const rawPhone = customerPhone ? customerPhone.value.trim() : '';
         
         // Guard rail: phone must be exactly 11 digits if provided
-        if (rawPhone && !isValidPhone(rawPhone)) {
+            if (rawPhone && !isValidPhone(rawPhone)) {
             showToast('Phone must be exactly 11 digits (e.g., 0917 123 4567)', 'error');
             if (customerPhoneError) customerPhoneError.style.display = 'block';
             if (customerPhone) customerPhone.focus();
+            confirmPaymentBtn.innerHTML = __origBtnHtml;
+            confirmPaymentBtn.disabled = false;
             return;
         }
         // Normalize: strip spaces before saving to the order
@@ -734,10 +762,12 @@ if (confirmPaymentBtn) {
         let cash = 0;
         let change = 0;
 
-        if (selectedPaymentMethod === 'cash') {
+                if (selectedPaymentMethod === 'cash') {
             cash = parseFloat(cashReceived.value) || 0;
             if (cash < total) {
                 showToast('Insufficient cash amount', 'error');
+                confirmPaymentBtn.innerHTML = __origBtnHtml;
+                confirmPaymentBtn.disabled = false;
                 return;
             }
             change = cash - total;
@@ -879,8 +909,13 @@ cart = {};
 updateCartDisplay();
 paymentModal.classList.remove('show');
 showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
-    });
-    }
+
+// ---- FIX: restore button for the next sale ----
+confirmPaymentBtn.innerHTML = __origBtnHtml;
+confirmPaymentBtn.disabled = false;
+// ----------------------------------------------
+});
+}
     
     // Initialize cart display
     updateCartDisplay();
