@@ -618,12 +618,12 @@ renderCustomers(customerSearch?.value || '');
     }
     }
 
-    function initializeTheme() {
-        let savedTheme = 'dark';
+        function initializeTheme() {
+        let savedTheme = 'light';
         try {
-            savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+            savedTheme = localStorage.getItem(THEME_KEY) || 'light';
         } catch (e) {}
-
+        
         applyTheme(savedTheme);
         if (themeToggle) {
             themeToggle.addEventListener('click', () => {
