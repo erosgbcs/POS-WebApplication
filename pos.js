@@ -1,9 +1,13 @@
 /* pos.js - Point of Sale functionality */
 (function() {
+    
+    
+    
     // ===================== POS CART & PAYMENT =====================
 
     // --- DOM elements ---
     const productGrid = document.getElementById('productGrid');
+    
     const cartItems = document.getElementById('cartItems');
     const subtotalEl = document.getElementById('subtotal');
     const taxEl = document.getElementById('tax');
