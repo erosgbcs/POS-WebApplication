@@ -618,22 +618,28 @@ renderCustomers(customerSearch?.value || '');
     }
     }
 
-        function initializeTheme() {
+            function initializeTheme() {
         let savedTheme = 'light';
         try {
             savedTheme = localStorage.getItem(THEME_KEY) || 'light';
         } catch (e) {}
         
         applyTheme(savedTheme);
-        if (themeToggle) {
-            themeToggle.addEventListener('click', () => {
-                const nextTheme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-                applyTheme(nextTheme);
-                try {
-                    localStorage.setItem(THEME_KEY, nextTheme);
-                } catch (e) {}
-            });
-        }
+        
+        // Shared toggle handler — used by both the login-page toggle
+        // and the dashboard-nav toggle so they stay in sync via localStorage.
+        const toggleTheme = () => {
+            const nextTheme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+            applyTheme(nextTheme);
+            try {
+                localStorage.setItem(THEME_KEY, nextTheme);
+            } catch (e) {}
+        };
+        
+        if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+        
+        const themeToggleLogin = document.getElementById('themeToggleLogin');
+        if (themeToggleLogin) themeToggleLogin.addEventListener('click', toggleTheme);
     }
 
     // ---------- TOAST ----------
@@ -1710,9 +1716,10 @@ function refreshOverview() {
 
 
 // ---------- DASHBOARD FUNCTIONS ----------
-function loadDashboard(user) {
-    loginContainer.style.display = 'none';
-    dashboardContainer.style.display = 'flex';
+    function loadDashboard(user) {
+        document.body.classList.add('is-logged-in');
+        loginContainer.style.display = 'none';
+        dashboardContainer.style.display = 'flex';
     
     const name = user?.user_metadata?.full_name ||
         user?.email?.split('@')[0] ||
@@ -1784,8 +1791,9 @@ applyRoleAccess(user);
 }
 
     function showLoginView() {
+    document.body.classList.remove('is-logged-in');
     loginContainer.style.display = 'flex';
-    dashboardContainer.style.display = 'none';
+        dashboardContainer.style.display = 'none';
     currentUser = null;
     window.POS_CURRENT_USER = null;
     showView(signinView);
