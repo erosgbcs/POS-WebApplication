@@ -7,23 +7,44 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; max-width: 600px; margin: 0 auto; }
         h1 { color: #4ade80; font-size: 20px; }
-        p { color: #94a3b8; font-size: 13px; }
-        button { background: #16a34a; color: white; border: none; padding: 14px 20px; border-radius: 10px; font-size: 16px; font-weight: 600; width: 100%; margin: 10px 0; cursor: pointer; }
-        button:disabled { opacity: 0.5; }
+        h2 { color: #e2e8f0; font-size: 15px; margin-top: 24px; margin-bottom: 8px; padding-top: 16px; border-top: 1px solid #334155; }
+        h2:first-of-type { border-top: none; padding-top: 0; margin-top: 16px; }
+        p { color: #94a3b8; font-size: 13px; line-height: 1.5; }
+        button { background: #16a34a; color: white; border: none; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 600; width: 100%; margin: 8px 0; cursor: pointer; font-family: inherit; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
         button.danger { background: #dc2626; }
+        button.danger:hover:not(:disabled) { background: #b91c1c; }
         button.neutral { background: #334155; }
+        button.neutral:hover:not(:disabled) { background: #475569; }
+        button.warning { background: #ea580c; }
+        button.warning:hover:not(:disabled) { background: #c2410c; }
         #log { background: #1e293b; border-radius: 10px; padding: 14px; margin-top: 16px; font-size: 13px; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; font-family: monospace; }
         .ok { color: #4ade80; }
         .err { color: #f87171; }
         .warn { color: #fb923c; }
+        .info { color: #60a5fa; }
+        .count-badge { display: inline-block; background: #334155; color: #e2e8f0; padding: 2px 8px; border-radius: 6px; font-size: 12px; margin-left: 6px; }
+        .confirm-input { width: 100%; padding: 10px 14px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 14px; font-family: inherit; margin: 6px 0; box-sizing: border-box; }
+        .confirm-input:focus { outline: none; border-color: #dc2626; }
     </style>
 </head>
 <body>
     <h1>Seed Data - Kirby's Hardware</h1>
-    <p>One-time use page. Delete this file after seeding. 300 products with size variants.</p>
+    <p>One-time admin tool. Delete this file after use.</p>
 
+    <h2>Seed <span class="count-badge" id="seedCount">300 items</span></h2>
     <button id="seedBtn" disabled>Insert 300 Hardware Items</button>
-    <button id="wipeBtn" class="danger" disabled>Wipe Inventory (Optional)</button>
+
+    <h2>Danger Zone <span class="count-badge" id="invCount">— items in cloud</span></h2>
+    <p>Wipe inventory removes every product document. Type <strong style="color:#f87171">DELETE</strong> to confirm.</p>
+    <input type="text" id="wipeConfirm" class="confirm-input" placeholder="Type DELETE to enable wipe">
+    <button id="wipeInvBtn" class="warning" disabled>Wipe Inventory Only</button>
+
+    <p>Nuclear delete removes <strong>everything</strong>: inventory, orders, customers, audit logs, and settings. Cannot be undone.</p>
+    <input type="text" id="nukeConfirm" class="confirm-input" placeholder="Type DELETE ALL to enable nuclear delete">
+    <button id="nukeBtn" class="danger" disabled>Nuclear Delete — All Collections</button>
+
+    <h2>Navigation</h2>
     <button id="backBtn" class="neutral">Back to App</button>
 
     <div id="log">Ready. Waiting for Firebase...</div>
@@ -45,7 +66,14 @@
     <script>
         const logEl = document.getElementById('log');
         const seedBtn = document.getElementById('seedBtn');
-        const wipeBtn = document.getElementById('wipeBtn');
+        const wipeInvBtn = document.getElementById('wipeInvBtn');
+        const nukeBtn = document.getElementById('nukeBtn');
+        const wipeConfirm = document.getElementById('wipeConfirm');
+        const nukeConfirm = document.getElementById('nukeConfirm');
+        const invCountBadge = document.getElementById('invCount');
+
+        // Collections covered by nuclear delete
+        const ALL_COLLECTIONS = ['inventory', 'orders', 'customers', 'audit_logs', 'config'];
 
         function log(msg, cls = '') {
             const line = document.createElement('div');
@@ -55,10 +83,70 @@
             logEl.scrollTop = logEl.scrollHeight;
         }
 
+        function clearLog() { logEl.innerHTML = ''; }
+
         document.getElementById('backBtn').onclick = () => location.href = 'index.html';
 
+        // Confirm-input gating
+        wipeConfirm.addEventListener('input', () => {
+            wipeInvBtn.disabled = wipeConfirm.value.trim() !== 'DELETE';
+        });
+        nukeConfirm.addEventListener('input', () => {
+            nukeBtn.disabled = nukeConfirm.value.trim() !== 'DELETE ALL';
+        });
+
+        // ---- Firebase + auth bootstrap ----
+        let _fb = null;
+        async function getFb() {
+            if (_fb) return _fb;
+            _fb = await window.POS_SUPABASE.getFirebase();
+            return _fb;
+        }
+
+        async function countCollection(name) {
+            const fb = await getFb();
+            const { collection, getCountFromServer } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+            try {
+                const snap = await getCountFromServer(collection(fb.db, name));
+                return snap.data().count;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function refreshInventoryCount() {
+            invCountBadge.textContent = '… items in cloud';
+            const n = await countCollection('inventory');
+            invCountBadge.textContent = n === null ? '— items in cloud' : `${n} items in cloud`;
+        }
+
+        // Batch delete every doc in a collection
+        async function wipeCollection(name) {
+            const fb = await getFb();
+            const { collection, getDocs, doc, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+            const snap = await getDocs(collection(fb.db, name));
+            if (snap.empty) return 0;
+
+            let batch = writeBatch(fb.db);
+            let ops = 0;
+            let deleted = 0;
+
+            for (const d of snap.docs) {
+                batch.delete(doc(fb.db, name, d.id));
+                ops++;
+                deleted++;
+                if (ops === 400) {
+                    await batch.commit();
+                    batch = writeBatch(fb.db);
+                    ops = 0;
+                }
+            }
+            if (ops > 0) await batch.commit();
+            return deleted;
+        }
+
         (async () => {
-            logEl.innerHTML = '';
+            clearLog();
             log('Waiting for Firebase...', 'warn');
 
             let fb = null;
@@ -71,7 +159,6 @@
                 }
                 await new Promise(r => setTimeout(r, 200));
             }
-
             if (!fb) {
                 log('Firebase failed to load after 6 seconds.', 'err');
                 return;
@@ -87,44 +174,84 @@
                 } catch (e) {}
                 await new Promise(r => setTimeout(r, 200));
             }
-
             if (!user) {
                 log('No signed-in user detected.', 'err');
                 log('Open the app, sign in as admin, then come back to seed.html.', 'err');
                 return;
             }
-
             log('Signed in as: ' + (user.email || user.uid), 'ok');
             seedBtn.disabled = false;
-            wipeBtn.disabled = false;
+
+            log('Counting inventory...', 'info');
+            await refreshInventoryCount();
         })();
 
-        wipeBtn.onclick = async () => {
-            if (!confirm('Delete ALL inventory items? Cannot undo.')) return;
+        // ---- Wipe inventory only ----
+        wipeInvBtn.onclick = async () => {
+            if (wipeConfirm.value.trim() !== 'DELETE') return;
+            wipeInvBtn.disabled = true;
             log('Wiping inventory...', 'warn');
             try {
-                const fb = await window.POS_SUPABASE.getFirebase();
-                const { collection, getDocs, doc, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-                const snap = await getDocs(collection(fb.db, 'inventory'));
-                let batch = writeBatch(fb.db);
-                let count = 0;
-                for (const d of snap.docs) {
-                    batch.delete(doc(fb.db, 'inventory', d.id));
-                    count++;
-                    if (count === 400) { await batch.commit(); batch = writeBatch(fb.db); count = 0; }
-                }
-                if (count > 0) await batch.commit();
-                log('Deleted ' + snap.docs.length + ' items.', 'ok');
+                const n = await wipeCollection('inventory');
+                log('Deleted ' + n + ' inventory items.', 'ok');
+                await refreshInventoryCount();
             } catch (e) {
                 log('Error: ' + e.message, 'err');
+                console.error(e);
+            } finally {
+                wipeInvBtn.disabled = wipeConfirm.value.trim() !== 'DELETE';
             }
         };
 
+        // ---- Nuclear delete every collection ----
+        nukeBtn.onclick = async () => {
+            if (nukeConfirm.value.trim() !== 'DELETE ALL') return;
+            const ok = confirm(
+                'NUCLEAR DELETE\n\n' +
+                'This wipes: inventory, orders, customers, audit_logs, config.\n\n' +
+                'This cannot be undone. Continue?'
+            );
+            if (!ok) return;
+
+            nukeBtn.disabled = true;
+            log('=== NUCLEAR DELETE STARTED ===', 'err');
+
+            let totalDeleted = 0;
+            for (const name of ALL_COLLECTIONS) {
+                try {
+                    log('Wiping ' + name + '...', 'warn');
+                    const n = await wipeCollection(name);
+                    totalDeleted += n;
+                    log('  ' + name + ': ' + n + ' documents deleted.', 'ok');
+                } catch (e) {
+                    log('  ' + name + ' FAILED: ' + e.message, 'err');
+                    console.error(e);
+                }
+            }
+
+            log('=== DONE. Total documents deleted: ' + totalDeleted + ' ===', 'ok');
+            log('Refresh the app to see a clean slate.', 'info');
+
+            // Clear local caches so the app doesn't show stale data
+            try {
+                localStorage.removeItem('pos_orders');
+                localStorage.removeItem('pos_customers');
+                localStorage.removeItem('pos_audit_logs');
+                localStorage.removeItem('pos_settings');
+                localStorage.removeItem('pos_categories');
+                log('Local caches cleared.', 'ok');
+            } catch (e) {}
+
+            await refreshInventoryCount();
+            nukeBtn.disabled = false;
+        };
+
+        // ---- Seed 300 items ----
         seedBtn.onclick = async () => {
             seedBtn.disabled = true;
             log('Starting insert...', 'warn');
             try {
-                const fb = await window.POS_SUPABASE.getFirebase();
+                const fb = await getFb();
                 const { collection, doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
 
                 const V = 'variants';
@@ -476,9 +603,12 @@
                 if (count > 0) await batch.commit();
                 log('Done. Inserted ' + total + ' items.', 'ok');
                 log('Go back to the app and reload.', 'ok');
+
+                await refreshInventoryCount();
             } catch (e) {
                 log('Error: ' + e.message, 'err');
                 console.error(e);
+            } finally {
                 seedBtn.disabled = false;
             }
         };
