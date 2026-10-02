@@ -409,7 +409,6 @@ function getProductPriceByName(name) {
     }
 
     loadProductCatalog();
-window.addEventListener('inventory-products-loaded', event => renderProductCatalog(event.detail || []));
 
 // Allow script.js to refresh the catalog after login or on POS navigation
 window.reloadPosCatalog = loadProductCatalog;
@@ -576,8 +575,17 @@ if (cartItems) {
         return `REC-${datePart}-${timePart}-${randomPart}`;
     }
 
-    function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change) {
-    const itemRows = items.map(item => `
+        function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change) {
+        // Reset any prior modal state so we don't stack receipts
+        if (receiptModal) {
+            receiptModal.classList.remove('show');
+        }
+        if (receiptContent) {
+            receiptContent.innerHTML = '';
+            receiptContent.scrollTop = 0;
+        }
+        
+        const itemRows = items.map(item => `
         <div class="receipt-line">
             <span>${escapeHtml(item.name)} x${item.quantity}</span>
             <strong>${formatCurrency(item.price * item.quantity)}</strong>
@@ -628,13 +636,24 @@ if (cartItems) {
         printWindow.print();
     }
 
-    [receiptClose, receiptDoneBtn].forEach(button => {
-        if (button) button.addEventListener('click', () => receiptModal.classList.remove('show'));
+        [receiptClose, receiptDoneBtn].forEach(button => {
+        if (button) button.addEventListener('click', () => {
+            receiptModal.classList.remove('show');
+            // Clear the receipt content so stale data doesn't flash on the next open
+            setTimeout(() => {
+                if (receiptContent) receiptContent.innerHTML = '';
+            }, 300);
+        });
     });
 
-    if (receiptModal) {
+        if (receiptModal) {
         receiptModal.addEventListener('click', event => {
-            if (event.target === receiptModal) receiptModal.classList.remove('show');
+            if (event.target === receiptModal) {
+                receiptModal.classList.remove('show');
+                setTimeout(() => {
+                    if (receiptContent) receiptContent.innerHTML = '';
+                }, 300);
+            }
         });
     }
 
@@ -829,10 +848,11 @@ try {
         }
     }
 
-    if (typeof window.reloadPosCatalog === 'function') {
-        window.reloadPosCatalog();
-    }
-
+        // Update local cache quantities immediately so the UI reflects the sale.
+    // (product.quantity was already decremented above for each sold product.)
+    // Now dispatch once — the reloadPosCatalog call is skipped here because
+    // the dispatch itself is the single source of truth. This prevents the
+    // "product reappears, then greys out" flash caused by double-rendering.
     window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
         detail: Object.values(productCache)
     }));
