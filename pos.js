@@ -780,7 +780,7 @@ if (confirmPaymentBtn) {
             showToast(message, 'success');
         }
 
-        const order = {
+               const order = {
             id: receiptNumber,
             createdAt: new Date().toISOString(),
             customerName: name,
@@ -793,6 +793,21 @@ if (confirmPaymentBtn) {
             status: 'Completed'
         };
 
+        // ============================================================
+        // FIX: show the receipt IMMEDIATELY — before any network calls.
+        // The receipt only needs local data (items, totals, customer).
+        // Network sync happens in the background afterwards.
+        // ============================================================
+        cart = {};
+        updateCartDisplay();
+        paymentModal.classList.remove('show');
+        hideGcashQr();
+        showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
+
+        // Restore button for the next sale right away
+        confirmPaymentBtn.innerHTML = __origBtnHtml;
+        confirmPaymentBtn.disabled = false;
+
         // ---------- LOCAL CACHE (instant UI) ----------
         try {
             const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
@@ -802,117 +817,99 @@ if (confirmPaymentBtn) {
             console.warn('Local order cache failed:', e);
         }
 
-        // ---------- FIRESTORE SYNC (cross-device) ----------
-        try {
-            await window.POS_SUPABASE?.addOrder?.(order);
-        } catch (err) {
-            console.warn('Order sync to cloud failed:', err);
-            showToast('Order saved locally. Will retry when online.', 'error');
-        }
-
-        // ---------- CUSTOMER UPSERT (Firestore + local cache) ----------
-        if (name) {
+        // ---------- FIRE OFF BACKGROUND SYNC (no awaits block the UI) ----------
+        (async () => {
             try {
-                const { data } = await window.POS_SUPABASE.getCustomers();
-                const existing = (data || []).find(c =>
-                    c.name?.toLowerCase() === name.toLowerCase()
-                );
-
-                if (existing) {
-                    await window.POS_SUPABASE.updateCustomer(existing.id, {
-                        orders: (Number(existing.orders) || 0) + 1,
-                        totalSpent: (Number(existing.totalSpent) || 0) + total,
-                        ...(phone ? { phone } : {})
-                    });
-                } else {
-                    await window.POS_SUPABASE.addCustomer({
-                        name, email: '', phone, orders: 1, totalSpent: total
-                    });
-                }
-
-                // Keep local customer cache in sync
-                const customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
-                const localExisting = customers.find(c =>
-                    c.name?.toLowerCase() === name.toLowerCase()
-                );
-                if (localExisting) {
-                    localExisting.orders = (Number(localExisting.orders) || 0) + 1;
-                    localExisting.totalSpent = (Number(localExisting.totalSpent) || 0) + total;
-                    if (phone) localExisting.phone = phone;
-                } else {
-                    customers.push({ id: Date.now(), name, email: '', phone, orders: 1, totalSpent: total });
-                }
-                localStorage.setItem('pos_customers', JSON.stringify(customers));
+                await window.POS_SUPABASE?.addOrder?.(order);
             } catch (err) {
-                console.warn('Customer sync failed:', err);
+                console.warn('Order sync to cloud failed:', err);
             }
-        }
-// ---------- DECREMENT INVENTORY ----------
-try {
-    const decrements = {};
-    for (const item of items) {
-        const product = productCache[item.name];
-        if (!product?.id) continue;
-        decrements[product.id] = (decrements[product.id] || 0) + item.quantity;
-    }
 
-    for (const [productId, soldQty] of Object.entries(decrements)) {
-        const product = Object.values(productCache).find(p => p.id === productId);
-        if (!product) continue;
+            if (name) {
+                try {
+                    const { data } = await window.POS_SUPABASE.getCustomers();
+                    const existing = (data || []).find(c =>
+                        c.name?.toLowerCase() === name.toLowerCase()
+                    );
 
-        const currentQty = Number(product.quantity) || 0;
-        const newQty = Math.max(0, currentQty - soldQty);
+                    if (existing) {
+                        await window.POS_SUPABASE.updateCustomer(existing.id, {
+                            orders: (Number(existing.orders) || 0) + 1,
+                            totalSpent: (Number(existing.totalSpent) || 0) + total,
+                            ...(phone ? { phone } : {})
+                        });
+                    } else {
+                        await window.POS_SUPABASE.addCustomer({
+                            name, email: '', phone, orders: 1, totalSpent: total
+                        });
+                    }
 
-        if (currentQty < soldQty) {
-            console.warn(`Oversold ${product.name}: sold ${soldQty}, had ${currentQty}`);
-        }
+                    const customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
+                    const localExisting = customers.find(c =>
+                        c.name?.toLowerCase() === name.toLowerCase()
+                    );
+                    if (localExisting) {
+                        localExisting.orders = (Number(localExisting.orders) || 0) + 1;
+                        localExisting.totalSpent = (Number(localExisting.totalSpent) || 0) + total;
+                        if (phone) localExisting.phone = phone;
+                    } else {
+                        customers.push({ id: Date.now(), name, email: '', phone, orders: 1, totalSpent: total });
+                    }
+                    localStorage.setItem('pos_customers', JSON.stringify(customers));
+                } catch (err) {
+                    console.warn('Customer sync failed:', err);
+                }
+            }
 
-        const result = await window.POS_SUPABASE.updateInventoryProduct(productId, {
-            quantity: newQty
-        });
+            try {
+                const decrements = {};
+                for (const item of items) {
+                    const product = productCache[item.name];
+                    if (!product?.id) continue;
+                    decrements[product.id] = (decrements[product.id] || 0) + item.quantity;
+                }
 
-        if (result?.error) {
-            console.warn('Inventory decrement failed for', product.name, result.error);
-        } else {
-            product.quantity = newQty;
-        }
-    }
+                for (const [productId, soldQty] of Object.entries(decrements)) {
+                    const product = Object.values(productCache).find(p => p.id === productId);
+                    if (!product) continue;
 
-        // Update local cache quantities immediately so the UI reflects the sale.
-    // (product.quantity was already decremented above for each sold product.)
-    // Now dispatch once — the reloadPosCatalog call is skipped here because
-    // the dispatch itself is the single source of truth. This prevents the
-    // "product reappears, then greys out" flash caused by double-rendering.
-    window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
-        detail: Object.values(productCache)
-    }));
-} catch (err) {
-    console.warn('Inventory decrement error:', err);
-}
+                    const currentQty = Number(product.quantity) || 0;
+                    const newQty = Math.max(0, currentQty - soldQty);
 
-        const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${selectedPaymentMethod === 'gcash' ? 'GCash' : 'Cash'} · ${items.length} item${items.length === 1 ? '' : 's'}`;
-window.POS_APP_LOG?.('transaction', 'pos', txnDesc, 'info', {
-    id: receiptNumber,
-    items: items.length,
-    total,
-    payment: selectedPaymentMethod,
-    cashReceived: cash,
-    change,
-    customer: name || ''
-});
-window.dispatchEvent(new CustomEvent('pos-order-created'));
+                    if (currentQty < soldQty) {
+                        console.warn(`Oversold ${product.name}: sold ${soldQty}, had ${currentQty}`);
+                    }
 
-// Reset GCash gate after successful payment
-hideGcashQr();
+                    const result = await window.POS_SUPABASE.updateInventoryProduct(productId, {
+                        quantity: newQty
+                    });
 
-cart = {};
-updateCartDisplay();
-paymentModal.classList.remove('show');
-showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
+                    if (result?.error) {
+                        console.warn('Inventory decrement failed for', product.name, result.error);
+                    } else {
+                        product.quantity = newQty;
+                    }
+                }
 
-// ---- FIX: restore button for the next sale ----
-confirmPaymentBtn.innerHTML = __origBtnHtml;
-confirmPaymentBtn.disabled = false;
+                window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
+                    detail: Object.values(productCache)
+                }));
+            } catch (err) {
+                console.warn('Inventory decrement error:', err);
+            }
+
+            const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${selectedPaymentMethod === 'gcash' ? 'GCash' : 'Cash'} · ${items.length} item${items.length === 1 ? '' : 's'}`;
+            window.POS_APP_LOG?.('transaction', 'pos', txnDesc, 'info', {
+                id: receiptNumber,
+                items: items.length,
+                total,
+                payment: selectedPaymentMethod,
+                cashReceived: cash,
+                change,
+                customer: name || ''
+            });
+            window.dispatchEvent(new CustomEvent('pos-order-created'));
+        })();
 // ----------------------------------------------
 });
 }
