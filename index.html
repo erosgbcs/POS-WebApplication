@@ -1117,7 +1117,7 @@
                         <label for="productPrice">Price (₱) *</label>
                         <input type="number" id="productPrice" required min="0" step="0.01" placeholder="0.00">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="sharedQuantityGroup">
                         <label for="productQuantity">Initial Quantity *</label>
                         <input type="number" id="productQuantity" required min="0" placeholder="0">
                     </div>
@@ -1149,6 +1149,15 @@
     <label for="productSize" id="productSizeLabel">Specification (optional)</label>
     <input type="text" id="productSize" placeholder="e.g., 2 in, 40 kg, 20 A, or leave blank">
     <div id="sizePreview" class="size-preview" style="display: none;"></div>
+</div>
+<div class="form-group" id="variantStockGroup" style="display: none;">
+    <label>Stock by size</label>
+    <label class="checkbox-wrapper">
+        <input type="checkbox" id="trackSizeStock" checked>
+        <span class="checkmark"></span>
+        <span>Track stock separately for each size</span>
+    </label>
+    <div id="variantStockInputs" class="size-stock-inputs"></div>
 </div>
                     <div class="form-group">
                         <label for="productDescription">Description</label>
@@ -1264,6 +1273,7 @@
         </button>
     </div>
 </div>
+    </div>
 
 <!-- Receipt Modal -->
 <div class="modal-overlay" id="receiptModal">

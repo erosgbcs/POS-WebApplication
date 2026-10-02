@@ -4251,6 +4251,48 @@ body {
     border-radius: 4px;
 }
 
+.size-stock-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.size-stock-row,
+.size-stock-summary > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.size-stock-row {
+    color: var(--text-primary, #e2e8f0);
+}
+
+.size-stock-row .quantity-input {
+    width: 84px;
+}
+
+.size-stock-count.low-stock {
+    color: #fbbf24;
+}
+
+.size-stock-count.out-of-stock {
+    color: #f87171;
+}
+
+.size-stock-summary {
+    display: grid;
+    min-width: 110px;
+    gap: 4px;
+}
+
+.size-stock-total {
+    padding-top: 4px;
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
 /* Spec icon sizing inside chips */
 .size-chip i {
     font-size: 10px;

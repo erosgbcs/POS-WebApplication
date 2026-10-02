@@ -77,6 +77,75 @@
 
 let productCache = {};
 
+function hasSizeStocks(product) {
+    return Boolean(product?.sizeStocks && typeof product.sizeStocks === 'object' && !Array.isArray(product.sizeStocks));
+}
+
+function getAvailableStock(product, size = '') {
+    if (!product) return Infinity;
+    if (hasSizeStocks(product)) return Math.max(0, Number(product.sizeStocks[size]) || 0);
+    return Math.max(0, Number(product.quantity) || 0);
+}
+
+function getTotalStock(product) {
+    if (hasSizeStocks(product)) {
+        return Object.values(product.sizeStocks).reduce((total, stock) => total + (Number(stock) || 0), 0);
+    }
+    return Math.max(0, Number(product?.quantity) || 0);
+}
+
+function getCartMax(name, size, currentCartKey = '') {
+    const product = productCache[name];
+    const available = getAvailableStock(product, size);
+    const perSize = hasSizeStocks(product);
+    const alreadyAllocated = Object.entries(cart).reduce((total, [cartKey, quantity]) => {
+        if (cartKey === currentCartKey) return total;
+        const item = parseCartKey(cartKey);
+        return item.name === name && (!perSize || item.size === size) ? total + quantity : total;
+    }, 0);
+    return Math.max(0, available - alreadyAllocated);
+}
+
+function buildStockUpdates(items) {
+    const decrements = new Map();
+    for (const item of items) {
+        const product = productCache[item.name];
+        if (!product?.id) continue;
+        if (!decrements.has(product.id)) {
+            decrements.set(product.id, { product, quantity: 0, bySize: {} });
+        }
+        const decrement = decrements.get(product.id);
+        if (hasSizeStocks(product) && item.size) {
+            decrement.bySize[item.size] = (decrement.bySize[item.size] || 0) + item.quantity;
+        } else {
+            decrement.quantity += item.quantity;
+        }
+    }
+
+    return [...decrements.values()].map(({ product, quantity, bySize }) => {
+        if (hasSizeStocks(product)) {
+            const sizeStocks = { ...product.sizeStocks };
+            for (const [size, soldQuantity] of Object.entries(bySize)) {
+                sizeStocks[size] = Math.max(0, (Number(sizeStocks[size]) || 0) - soldQuantity);
+            }
+            return {
+                product,
+                productId: product.id,
+                updates: {
+                    sizeStocks,
+                    quantity: Object.values(sizeStocks).reduce((total, stock) => total + (Number(stock) || 0), 0)
+                }
+            };
+        }
+
+        return {
+            product,
+            productId: product.id,
+            updates: { quantity: Math.max(0, (Number(product.quantity) || 0) - quantity) }
+        };
+    });
+}
+
 function renderProductCatalog(products) {
     if (!productGrid) return;
     
@@ -85,7 +154,7 @@ function renderProductCatalog(products) {
     products.forEach(p => { if (p.name) productCache[p.name] = p; });
     
     productGrid.innerHTML = products.map(product => {
-        const qty = Number(product.quantity) || 0;
+        const qty = getTotalStock(product);
         const sizes = String(product.size || '').split(',').map(s => s.trim()).filter(Boolean);
         
         // Stock badge
@@ -106,7 +175,7 @@ function renderProductCatalog(products) {
         
         // Size chips
         const sizesHtml = sizes.length ?
-            `<div class="product-card-chips">${sizes.map(s => `<span class="size-chip">${escapeHtml(s)}</span>`).join('')}</div>` :
+            `<div class="product-card-chips">${sizes.map(size => `<span class="size-chip">${escapeHtml(size)}${hasSizeStocks(product) ? ` · ${getAvailableStock(product, size)}` : ''}</span>`).join('')}</div>` :
             '';
         
         const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
@@ -192,8 +261,7 @@ function renderProductCatalog(products) {
 
         function addToCart(name, price, size = '') {
         const cartKey = getCartKey(name, size);
-        const product = productCache[name];
-        const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+            const maxStock = getCartMax(name, size, cartKey);
         const currentQty = cart[cartKey] || 0;
         
         if (currentQty >= maxStock) {
@@ -212,9 +280,8 @@ function renderProductCatalog(products) {
         
         // Guard the increase case — cap at available stock
         if (delta > 0) {
-            const { name } = parseCartKey(cartKey);
-            const product = productCache[name];
-            const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+            const { name, size } = parseCartKey(cartKey);
+            const maxStock = getCartMax(name, size, cartKey);
             if (cart[cartKey] + delta > maxStock) {
                 showToast(`Only ${maxStock} left in stock`, 'error');
                 return;
@@ -291,8 +358,7 @@ for (const [cartKey, qty] of Object.entries(cart)) {
     const { name, size } = parseCartKey(cartKey);
     const price = getProductPriceByName(name);
     const displayName = size ? `${name} (${size})` : name;
-    const product = productCache[name];
-    const maxStock = product ? (Number(product.quantity) || 0) : 999;
+            const maxStock = getCartMax(name, size, cartKey);
     const itemDiv = document.createElement('div');
     itemDiv.className = 'cart-item';
     itemDiv.innerHTML = `
@@ -354,8 +420,8 @@ function updateCartTotals() {
 function commitCartQuantity(cartKey, rawValue) {
     if (!cart[cartKey]) return;
     const { name } = parseCartKey(cartKey);
-    const product = productCache[name];
-    const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+    const { size } = parseCartKey(cartKey);
+    const maxStock = getCartMax(name, size, cartKey);
     
     // Product went out of stock while in the cart — remove it instead of setting qty to 0
     if (maxStock <= 0) {
@@ -401,7 +467,11 @@ function getProductPriceByName(name) {
                     selector.className = 'pos-size-selector';
                     selector.setAttribute('aria-label', `Choose a size for ${name}`);
                     selector.innerHTML = '<option value="">Choose size</option>' + sizeOptions
-                        .map(size => `<option value="${escapeHtml(size)}">${escapeHtml(size)}</option>`)
+                        .map(size => {
+                            const available = getAvailableStock(productCache[name], size);
+                            const stockLabel = hasSizeStocks(productCache[name]) ? ` (${available} left)` : '';
+                            return `<option value="${escapeHtml(size)}" ${available <= 0 ? 'disabled' : ''}>${escapeHtml(size)}${stockLabel}</option>`;
+                        })
                         .join('');
                     selector.addEventListener('change', () => {
                         if (!selector.value) return;
@@ -465,9 +535,8 @@ if (cartItems) {
         const rawValue = parseInt(input.value, 10);
         if (Number.isNaN(rawValue) || rawValue < 1) return;
         
-        const { name } = parseCartKey(cartKey);
-        const product = productCache[name];
-        const maxStock = product ? (Number(product.quantity) || 0) : Infinity;
+        const { name, size } = parseCartKey(cartKey);
+        const maxStock = getCartMax(name, size, cartKey);
         const price = getProductPriceByName(name);
         
         // Guard rail: product went out of stock mid-cart
@@ -599,7 +668,7 @@ if (cartItems) {
             
             const itemRows = items.map(item => `
         <div class="receipt-line">
-            <span>${escapeHtml(item.name)} x${item.quantity}</span>
+            <span>${escapeHtml(item.name)}${item.size ? ` (${escapeHtml(item.size)})` : ''} x${item.quantity}</span>
             <strong>${formatCurrency(item.price * item.quantity)}</strong>
         </div>
     `).join('');
@@ -757,6 +826,26 @@ if (confirmPaymentBtn) {
                 price: getProductPriceByName(itemName)
             };
         });
+        const requestedStock = new Map();
+        for (const item of items) {
+            const product = productCache[item.name];
+            if (!product) continue;
+            const stockSize = hasSizeStocks(product) ? item.size : '';
+            const stockKey = JSON.stringify([product.id || item.name, stockSize]);
+            const requested = requestedStock.get(stockKey) || { product, size: stockSize, quantity: 0 };
+            requested.quantity += item.quantity;
+            requestedStock.set(stockKey, requested);
+        }
+        const insufficientStock = [...requestedStock.values()].some(requested =>
+            requested.quantity > getAvailableStock(requested.product, requested.size)
+        );
+        if (insufficientStock) {
+            showToast('Cart quantity exceeds available stock. Adjust the cart before completing payment.', 'error');
+            confirmPaymentBtn.innerHTML = __origBtnHtml;
+            confirmPaymentBtn.disabled = false;
+            return;
+        }
+        const stockUpdates = buildStockUpdates(items);
         const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
         const tax = subtotal * 0.08;
         const receiptNumber = createReceiptNumber();
@@ -801,6 +890,8 @@ if (confirmPaymentBtn) {
         // ============================================================
                 cart = {};
         updateCartDisplay();
+                stockUpdates.forEach(({ product, updates }) => Object.assign(product, updates));
+                renderProductCatalog(Object.values(productCache));
         paymentModal.classList.remove('show');
         hideGcashQr();
         
@@ -830,6 +921,24 @@ if (confirmPaymentBtn) {
 
         // ---------- FIRE OFF BACKGROUND SYNC (no awaits block the UI) ----------
         (async () => {
+            try {
+                for (const { product, productId, updates } of stockUpdates) {
+                    const result = await window.POS_SUPABASE.updateInventoryProduct(productId, updates);
+
+                    if (result?.error) {
+                        console.warn('Inventory decrement failed for', product.name, result.error);
+                    } else {
+                        Object.assign(product, updates);
+                    }
+                }
+
+                window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
+                    detail: Object.values(productCache)
+                }));
+            } catch (err) {
+                console.warn('Inventory decrement error:', err);
+            }
+
             try {
                 await window.POS_SUPABASE?.addOrder?.(order);
             } catch (err) {
@@ -870,43 +979,6 @@ if (confirmPaymentBtn) {
                 } catch (err) {
                     console.warn('Customer sync failed:', err);
                 }
-            }
-
-            try {
-                const decrements = {};
-                for (const item of items) {
-                    const product = productCache[item.name];
-                    if (!product?.id) continue;
-                    decrements[product.id] = (decrements[product.id] || 0) + item.quantity;
-                }
-
-                for (const [productId, soldQty] of Object.entries(decrements)) {
-                    const product = Object.values(productCache).find(p => p.id === productId);
-                    if (!product) continue;
-
-                    const currentQty = Number(product.quantity) || 0;
-                    const newQty = Math.max(0, currentQty - soldQty);
-
-                    if (currentQty < soldQty) {
-                        console.warn(`Oversold ${product.name}: sold ${soldQty}, had ${currentQty}`);
-                    }
-
-                    const result = await window.POS_SUPABASE.updateInventoryProduct(productId, {
-                        quantity: newQty
-                    });
-
-                    if (result?.error) {
-                        console.warn('Inventory decrement failed for', product.name, result.error);
-                    } else {
-                        product.quantity = newQty;
-                    }
-                }
-
-                window.dispatchEvent(new CustomEvent('inventory-products-loaded', {
-                    detail: Object.values(productCache)
-                }));
-            } catch (err) {
-                console.warn('Inventory decrement error:', err);
             }
 
             const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${selectedPaymentMethod === 'gcash' ? 'GCash' : 'Cash'} · ${items.length} item${items.length === 1 ? '' : 's'}`;

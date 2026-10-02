@@ -12,6 +12,7 @@
     deletingProductId: null,
     initialized: false
 };
+let variantStockDraft = {};
 
 const supabaseApi = window.POS_SUPABASE; // ← ADD THIS LINE
 
@@ -133,10 +134,22 @@ async function addCategoryPrompt() {
         // Legacy: comma present -> treat as variants
         inferredMode = rawSize.includes(',') ? 'variants' : 'spec';
     }
+    const sizeStocks = product.sizeStocks && typeof product.sizeStocks === 'object' && !Array.isArray(product.sizeStocks)
+        ? Object.fromEntries(Object.entries(product.sizeStocks).map(([size, value]) => {
+            const stock = Number(value);
+            return [size, Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : 0];
+        }))
+        : null;
+    const quantity = sizeStocks
+        ? Object.values(sizeStocks).reduce((total, stock) => total + stock, 0)
+        : Number(product.quantity) || 0;
+
     return {
         ...product,
         size: rawSize,
         sizeMode: inferredMode,
+        sizeStocks,
+        quantity,
         minStock: product.minStock ?? product.min_stock ?? 0,
         lastUpdated: product.lastUpdated || product.updated_at || product.created_at || ''
     };
@@ -178,6 +191,15 @@ function specIconClass(spec) {
         return 'in_stock';
     }
 
+    function getProductStockStatus(product) {
+        if (!product.sizeStocks) return getStockStatus(product.quantity, product.minStock);
+        const stocks = Object.values(product.sizeStocks).map(quantity => Number(quantity) || 0);
+        if (!stocks.length || stocks.every(quantity => quantity === 0)) return 'out_of_stock';
+        if (stocks.some(quantity => quantity <= product.minStock)) return 'low_stock';
+        if (product.quantity > product.minStock * 2) return 'over_stock';
+        return 'in_stock';
+    }
+
     function getStockBadge(status) {
         const badges = {
             in_stock: '<span class="stock-badge in-stock"><i class="fas fa-check-circle"></i> In Stock</span>',
@@ -205,9 +227,9 @@ function syncFilterCards() {
         else console.warn(`[INV] updateInventoryStats: missing #${id}`);
     };
     setText('totalProducts', inventoryState.products.length);
-    setText('overStockProducts', inventoryState.products.filter(p => p.quantity > p.minStock * 2).length);
-    setText('lowStockProducts', inventoryState.products.filter(p => p.quantity > 0 && p.quantity <= p.minStock).length);
-    setText('outOfStockProducts', inventoryState.products.filter(p => p.quantity === 0).length);
+    setText('overStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'over_stock').length);
+    setText('lowStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'low_stock').length);
+    setText('outOfStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'out_of_stock').length);
 }
 
     function filterProducts() {
@@ -216,7 +238,7 @@ function syncFilterCards() {
         inventoryState.filteredProducts = inventoryState.products.filter(product => {
             const matchesSearch = !search || product.name.toLowerCase().includes(search) || product.sku.toLowerCase().includes(search) || (product.supplier || '').toLowerCase().includes(search);
             const matchesCategory = !categoryFilter || product.category === categoryFilter;
-            const matchesStock = !stockFilter || getStockStatus(product.quantity, product.minStock) === stockFilter;
+            const matchesStock = !stockFilter || getProductStockStatus(product) === stockFilter;
             return matchesSearch && matchesCategory && matchesStock;
         });
         inventoryState.currentPage = 1;
@@ -244,8 +266,11 @@ function syncFilterCards() {
         const start = (inventoryState.currentPage - 1) * inventoryState.itemsPerPage;
         const pageProducts = products.slice(start, start + inventoryState.itemsPerPage);
         tbody.innerHTML = pageProducts.map(product => {
-            const status = getStockStatus(product.quantity, product.minStock);
+            const status = getProductStockStatus(product);
             const sizeLabel = product.size ? `<span class="product-sku"><i class="${specIconClass(product.size)}"></i> ${escapeHtml(product.size)}</span>` : '';
+            const quantityCell = product.sizeStocks
+                ? `<div class="size-stock-summary">${Object.entries(product.sizeStocks).map(([size, quantity]) => `<div><span>${escapeHtml(size)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
+                : `<input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)">`;
             return `<tr>
                 <td>
                     <div class="product-info">
@@ -258,7 +283,7 @@ function syncFilterCards() {
                 </td>
                 <td>${product.category}</td>
                 <td>${formatCurrency(product.price)}</td>
-                <td><input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)"></td>
+                <td>${quantityCell}</td>
                 <td>${getStockBadge(status)}</td>
                 <td>${product.lastUpdated}</td>
                 <td>
@@ -290,6 +315,7 @@ function syncFilterCards() {
         const form = document.getElementById('productForm');
         if (!modal || !title || !form) return;
         form.reset();
+        variantStockDraft = {};
         if (productId) {
             const product = inventoryState.products.find(p => p.id === productId);
             if (product) {
@@ -301,6 +327,9 @@ function syncFilterCards() {
                 document.getElementById('productQuantity').value = product.quantity;
                 document.getElementById('productMinStock').value = product.minStock;
                 document.getElementById('productSupplier').value = product.supplier || '';
+                const trackSizeStock = document.getElementById('trackSizeStock');
+                if (trackSizeStock) trackSizeStock.checked = Boolean(product.sizeStocks);
+                variantStockDraft = product.sizeStocks ? { ...product.sizeStocks } : {};
                 document.getElementById('productSize').value = product.size || '';
 const mode = product.sizeMode || 'spec';
 const modeRadio = document.querySelector(`input[name="sizeMode"][value="${mode}"]`);
@@ -310,6 +339,8 @@ updateSizePreview();
             }
         } else {
     title.textContent = 'Add Product';
+    const trackSizeStock = document.getElementById('trackSizeStock');
+    if (trackSizeStock) trackSizeStock.checked = true;
     const specRadio = document.querySelector('input[name="sizeMode"][value="spec"]');
     if (specRadio) specRadio.checked = true;
     updateSizePreview();
@@ -329,19 +360,56 @@ const rawSize = document.getElementById('productSize').value.trim();
 const normalizedSize = sizeMode === 'spec' ?
     rawSize :
     [...new Set(rawSize.split(',').map(v => v.trim()).filter(Boolean))].join(',');
+        const tracksSizeStock = sizeMode === 'variants' && document.getElementById('trackSizeStock').checked;
+        const sizes = normalizedSize.split(',').map(size => size.trim()).filter(Boolean);
+        let sizeStocks = null;
+        let quantity;
+
+        if (tracksSizeStock) {
+            if (!sizes.length) {
+                showToast('Add at least one size before setting stock', 'error');
+                return;
+            }
+
+            const existingProduct = inventoryState.products.find(product => product.id === inventoryState.editingProductId);
+            const removedStockedSize = Object.entries(existingProduct?.sizeStocks || {}).some(([size, stock]) => !sizes.includes(size) && stock > 0);
+            if (removedStockedSize) {
+                showToast('Set removed size stock to zero before removing that size', 'error');
+                return;
+            }
+
+            sizeStocks = {};
+            for (const size of sizes) {
+                const input = [...document.querySelectorAll('[data-size-stock]')].find(field => field.dataset.sizeStock === size);
+                const value = input?.value.trim() || '';
+                const stock = Number(value);
+                if (value === '' || !Number.isInteger(stock) || stock < 0) {
+                    showToast(`Enter a whole stock quantity for ${size}`, 'error');
+                    input?.focus();
+                    return;
+                }
+                sizeStocks[size] = stock;
+            }
+            quantity = Object.values(sizeStocks).reduce((total, stock) => total + stock, 0);
+        } else {
+            quantity = parseInt(document.getElementById('productQuantity').value, 10);
+        }
 
 const productData = {
     name: document.getElementById('productName').value.trim(),
     sku: document.getElementById('productSKU').value.trim(),
     category: document.getElementById('productCategory').value,
     price: parseFloat(document.getElementById('productPrice').value),
-    quantity: parseInt(document.getElementById('productQuantity').value),
+    quantity,
     minStock: parseInt(document.getElementById('productMinStock').value),
     supplier: document.getElementById('productSupplier').value.trim(),
     size: normalizedSize,
     sizeMode: sizeMode,
     description: document.getElementById('productDescription').value.trim()
         };
+        const existingProduct = inventoryState.products.find(product => product.id === inventoryState.editingProductId);
+        if (tracksSizeStock) productData.sizeStocks = sizeStocks;
+        else if (existingProduct?.sizeStocks) productData.sizeStocks = null;
         const skuExists = inventoryState.products.some(p => p.sku === productData.sku && p.id !== inventoryState.editingProductId);
         if (skuExists) { showToast('Product code already exists', 'error'); return; }
         const payload = { ...productData, min_stock: productData.minStock };
@@ -387,9 +455,9 @@ const productData = {
 
     function exportInventory() {
         if (!inventoryState.products.length) { showToast('No products to export', 'error'); return; }
-        const headers = ['ID', 'Name', 'Product Code', 'Category', 'Price', 'Quantity', 'Min Stock', 'Supplier', 'Size', 'Description', 'Last Updated'];
+        const headers = ['ID', 'Name', 'Product Code', 'Category', 'Price', 'Quantity', 'Min Stock', 'Supplier', 'Size', 'Stock by Size', 'Description', 'Last Updated'];
         const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-        const rows = inventoryState.products.map(product => [product.id, product.name, product.sku, product.category, product.price, product.quantity, product.minStock, product.supplier, product.size || '', product.description, product.lastUpdated]);
+        const rows = inventoryState.products.map(product => [product.id, product.name, product.sku, product.category, product.price, product.quantity, product.minStock, product.supplier, product.size || '', product.sizeStocks ? JSON.stringify(product.sizeStocks) : '', product.description, product.lastUpdated]);
         const blob = new Blob([[headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -411,6 +479,7 @@ function updateSizePreview() {
         inputEl.placeholder = 'e.g., 2 in, 40 kg, 20 A, or leave blank';
         previewEl.style.display = 'none';
         previewEl.innerHTML = '';
+        renderVariantStockControls();
         return;
     }
 
@@ -423,6 +492,7 @@ function updateSizePreview() {
     if (parts.length === 0) {
         previewEl.style.display = 'none';
         previewEl.innerHTML = '';
+        renderVariantStockControls();
         return;
     }
 
@@ -430,6 +500,39 @@ function updateSizePreview() {
     previewEl.innerHTML =
         '<span class="size-preview-label">Preview:</span> ' +
         parts.map(p => `<span class="size-chip">${escapeHtml(p)}</span>`).join('');
+    renderVariantStockControls();
+}
+
+function renderVariantStockControls() {
+    const mode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
+    const group = document.getElementById('variantStockGroup');
+    const inputContainer = document.getElementById('variantStockInputs');
+    const sharedQuantityGroup = document.getElementById('sharedQuantityGroup');
+    const trackSizeStock = document.getElementById('trackSizeStock');
+    const sharedQuantityInput = document.getElementById('productQuantity');
+    if (!group || !inputContainer || !sharedQuantityGroup || !trackSizeStock || !sharedQuantityInput) return;
+
+    const enabled = mode === 'variants' && trackSizeStock.checked;
+    group.style.display = mode === 'variants' ? '' : 'none';
+    sharedQuantityGroup.style.display = enabled ? 'none' : '';
+    sharedQuantityInput.required = !enabled;
+
+    const currentValues = {};
+    inputContainer.querySelectorAll('[data-size-stock]').forEach(input => {
+        currentValues[input.dataset.sizeStock] = input.value;
+    });
+    variantStockDraft = { ...variantStockDraft, ...currentValues };
+
+    if (!enabled) {
+        inputContainer.innerHTML = '';
+        return;
+    }
+
+    const sizes = [...new Set(document.getElementById('productSize').value.split(',').map(size => size.trim()).filter(Boolean))];
+    inputContainer.innerHTML = sizes.map(size => {
+        const value = Object.hasOwn(variantStockDraft, size) ? variantStockDraft[size] : '';
+        return `<label class="size-stock-row"><span>${escapeHtml(size)}</span><input class="quantity-input" type="number" min="0" step="1" required data-size-stock="${escapeHtml(size)}" value="${escapeHtml(value)}" aria-label="Stock for ${escapeHtml(size)}"></label>`;
+    }).join('');
 }
 
 function setupInventoryEventListeners() {
@@ -443,6 +546,13 @@ function setupInventoryEventListeners() {
         radio.addEventListener('change', updateSizePreview);
     });
     document.getElementById('productSize')?.addEventListener('input', updateSizePreview);
+    document.getElementById('trackSizeStock')?.addEventListener('change', renderVariantStockControls);
+    document.getElementById('variantStockInputs')?.addEventListener('input', () => {
+        const inputs = [...document.querySelectorAll('[data-size-stock]')];
+        const values = inputs.map(input => input.value.trim());
+        if (!inputs.length || values.some(value => value === '' || !Number.isInteger(Number(value)) || Number(value) < 0)) return;
+        document.getElementById('productQuantity').value = values.reduce((total, value) => total + Number(value), 0);
+    });
 
     document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
 
