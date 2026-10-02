@@ -80,23 +80,106 @@ The customer-to-order and profile-to-audit relationships are soft associations, 
 ## Physical Firestore Model
 
 ```mermaid
-flowchart LR
-    Auth["Firebase Authentication<br/>account uid"]
-    Profile["profiles/{uid}<br/>email, full_name, role, created_at"]
-    Product["inventory/{productId}<br/>name, sku, category, price<br/>quantity, min_stock, size, sizeMode<br/>sizeStocks: {size: quantity}<br/>supplier, description, timestamps"]
-    Order["orders/{receiptId}<br/>createdAt, customerName, customerPhone<br/>items: [{productId, name, size, quantity, price}]<br/>subtotal, tax, total, paymentMethod, status, syncedAt"]
-    Customer["customers/{autoId}<br/>name, email, phone, orders, totalSpent<br/>createdAt, syncedAt"]
-    Audit["audit_logs/{autoId}<br/>timestamp, user, action, module<br/>description, ip, severity, syncedAt"]
-    Settings["config/settings<br/>store settings document"]
-    Categories["config/categories<br/>list: string[]"]
-    Queue["Browser localStorage<br/>pos_order_queue: pending orders<br/>pos_order_queue_error: last sync error"]
+erDiagram
+    FIREBASE_AUTH ||--|| PROFILE_DOC : uid
+    PRODUCT_DOC ||--o{ SIZE_STOCK_ENTRY : embeds_stock_map
+    PRODUCT_DOC ||--o{ ORDER_ITEM : product_reference
+    ORDER_DOC ||--|{ ORDER_ITEM : embeds_items_array
+    CUSTOMER_DOC o|--o{ ORDER_DOC : soft_name_match
+    FIREBASE_AUTH o|--o{ AUDIT_LOG_DOC : display_name_only
 
-    Auth -->|uid| Profile
-    Order -->|items[].productId| Product
-    Order -.->|customerName text; no FK| Customer
-    Auth -.->|display name only| Audit
-    Queue -.->|retried after reconnect/sign-in| Order
+    FIREBASE_AUTH {
+        string uid PK
+        string email
+    }
+    PROFILE_DOC {
+        string document_id PK
+        string id FK
+        string email
+        string full_name
+        string role
+        string created_at
+    }
+    PRODUCT_DOC {
+        string document_id PK
+        string name
+        string sku
+        string category
+        number price
+        number quantity
+        number min_stock
+        string size
+        string sizeMode
+        map sizeStocks
+        string supplier
+        string description
+        string created_at
+        string updated_at
+    }
+    SIZE_STOCK_ENTRY {
+        string product_document_id PK, FK
+        string size_label PK
+        number quantity
+    }
+    ORDER_DOC {
+        string document_id PK
+        string id
+        string createdAt
+        string customerName
+        string customerPhone
+        array items
+        number subtotal
+        number tax
+        number total
+        string paymentMethod
+        string status
+        timestamp syncedAt
+    }
+    ORDER_ITEM {
+        number array_index PK
+        string productId FK
+        string name
+        string size
+        number quantity
+        number price
+    }
+    CUSTOMER_DOC {
+        string document_id PK
+        string name
+        string email
+        string phone
+        number orders
+        number totalSpent
+        string createdAt
+        timestamp syncedAt
+    }
+    AUDIT_LOG_DOC {
+        string document_id PK
+        string timestamp
+        string user
+        string action
+        string module
+        string description
+        string ip
+        string severity
+        timestamp syncedAt
+    }
+    SETTINGS_DOC {
+        string document_id PK
+        object settings
+    }
+    CATEGORY_CONFIG_DOC {
+        string document_id PK
+        array list
+    }
+    BROWSER_OUTBOX {
+        string storage_key PK
+        array pending_orders
+        string last_sync_error
+    }
 ```
+
+The boxes above follow SQL-modeler ER notation for readability; this is still a Firestore document model, not a relational schema. `ORDER_ITEM` rows are elements of `ORDER_DOC.items`, `SIZE_STOCK_ENTRY` values live inside `PRODUCT_DOC.sizeStocks`, and `BROWSER_OUTBOX` represents localStorage keys rather than a Firestore collection. `document_id` and `array_index` are diagram keys, not fields persisted in those shapes. Firestore does not enforce the diagram's FK labels.
 
 ### Collection Details
 
