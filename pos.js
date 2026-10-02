@@ -38,7 +38,9 @@
     const gcashQrImage = document.getElementById('gcashQrImage');
     const gcashConfirmCheck = document.getElementById('gcashConfirmCheck');
     const gcashAmountToPay = document.getElementById('gcashAmountToPay');
-    
+   
+   
+   
             function showGcashQr() {
         if (!gcashQrImage) return;
         gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GCASH_QR_CONTENT)}`;
@@ -584,21 +586,16 @@ if (cartItems) {
     }
 
                  function showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, paymentMethod, cash, change) {
-                    // ---- FIX: cancel any pending clear-timer from a previous close ----
-                    if (receiptClearTimer) {
-                        clearTimeout(receiptClearTimer);
-                        receiptClearTimer = null;
-                    }
-                    // -------------------------------------------------------------------
-                    
-                    // Reset any prior modal state so we don't stack receipts
-                    if (receiptModal) {
-                        receiptModal.classList.remove('show');
-                    }
-            if (receiptContent) {
-                receiptContent.innerHTML = '';
-                receiptContent.scrollTop = 0;
-            }
+                     // ---- FIX: cancel any pending clear-timer from a previous close ----
+                     if (receiptClearTimer) {
+                         clearTimeout(receiptClearTimer);
+                         receiptClearTimer = null;
+                     }
+                     
+                     if (receiptContent) {
+                         receiptContent.innerHTML = '';
+                         receiptContent.scrollTop = 0;
+                     }
             
             const itemRows = items.map(item => `
         <div class="receipt-line">
@@ -627,6 +624,7 @@ if (cartItems) {
         ${paymentMethod === 'cash' ? `<div class="receipt-total-line"><span>Cash received</span><span>${formatCurrency(cash)}</span></div><div class="receipt-total-line"><span>Change</span><span>${formatCurrency(change)}</span></div>` : ''}
     `;
             receiptModal.classList.add('show');
+        
         }
     function printReceipt() {
         const printWindow = window.open('', '_blank', 'width=420,height=700');
@@ -660,10 +658,9 @@ if (cartItems) {
             }, 300);
         }
         
-        [receiptClose, receiptDoneBtn].forEach(button => {
+                [receiptClose, receiptDoneBtn].forEach(button => {
             if (button) button.addEventListener('click', () => {
                 receiptModal.classList.remove('show');
-                // Clear the receipt content so stale data doesn't flash on the next open
                 scheduleReceiptClear();
             });
         });
@@ -802,15 +799,25 @@ if (confirmPaymentBtn) {
         // The receipt only needs local data (items, totals, customer).
         // Network sync happens in the background afterwards.
         // ============================================================
-        cart = {};
+                cart = {};
         updateCartDisplay();
         paymentModal.classList.remove('show');
         hideGcashQr();
-        showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
-
+        
         // Restore button for the next sale right away
         confirmPaymentBtn.innerHTML = __origBtnHtml;
         confirmPaymentBtn.disabled = false;
+        
+        // ---- FIX: yield to the browser so it can paint the payment
+        // modal's removal FIRST, then show the receipt on the next
+        // animation frame. Prevents the Chromium backdrop-filter
+        // compositing bug where two blur layers toggle in one tick
+        // and the second one is never painted until the next click.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change);
+            });
+        });
 
         // ---------- LOCAL CACHE (instant UI) ----------
         try {
@@ -921,3 +928,5 @@ if (confirmPaymentBtn) {
     // Initialize cart display
     updateCartDisplay();
     })();
+    
+    
