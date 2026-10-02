@@ -233,7 +233,7 @@
             logs = readStoredRecords(AUDIT_KEY);
         }
 
-        populateUserFilter(logs);
+        await populateUserFilter(logs);
 
         const filtered = logs.filter(log => {
             if (filters.user && log.user !== filters.user) return false;
@@ -344,26 +344,71 @@
         }
     }
 
-    function populateUserFilter(logs) {
+        // ===================== USER FILTER (from logs + profiles) =====================
+    async function populateUserFilter(logs) {
         const select = document.getElementById('auditUserFilter');
         if (!select) return;
+        
         const current = select.value;
-        const names = [...new Set(logs.map(l => l.user).filter(Boolean))].sort();
-        select.innerHTML = '<option value="">All users</option>' +
+        
+        // 1. Collect users who appear in the audit log
+        const fromLogs = new Set(
+            (logs || []).map(l => l.user).filter(Boolean)
+        );
+        
+        // 2. Merge with every user from the profiles collection (Firestore)
+        //    Uses the same 60s cache as renderActiveUsers to avoid Firestore spam.
+        try {
+            const users = await fetchProfileUsers();
+            users.forEach(u => {
+                const name = u.full_name || u.email;
+                if (name) fromLogs.add(name);
+            });
+        } catch (e) {
+            console.warn('[AUDIT] populateUserFilter profile merge failed:', e);
+        }
+        
+        // 3. Build sorted option list
+        const names = [...fromLogs].sort((a, b) => a.localeCompare(b));
+        
+        select.innerHTML = '<option value="">All staff</option>' +
             names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+        
+        // Preserve previous selection if it still exists
         if (current && names.includes(current)) select.value = current;
     }
 
-    // ===================== ACTIVE USERS =====================
-    function renderActiveUsers() {
+       // ===================== ACTIVE USERS =====================
+    // Shows real "online" users derived from auth events.
+    // Falls back to registered users from the profiles collection
+    // when there are no auth events in the log (e.g., after a wipe).
+    let _profileFallbackCache = { ts: 0, users: [] };
+    
+    async function fetchProfileUsers() {
+        // Cache profile lookups for 60s so we don't hammer Firestore
+        const now = Date.now();
+        if (now - _profileFallbackCache.ts < 60000) return _profileFallbackCache.users;
+        try {
+            const { data } = await window.POS_SUPABASE.getUsers();
+            const users = Array.isArray(data) ? data : [];
+            _profileFallbackCache = { ts: now, users };
+            return users;
+        } catch (e) {
+            console.warn('[AUDIT] Profile fallback fetch failed:', e);
+            return _profileFallbackCache.users || [];
+        }
+    }
+    
+    async function renderActiveUsers() {
         const list = document.getElementById('activeUsersList');
         if (!list) return;
-
+        
         const logs = readStoredRecords(AUDIT_KEY);
         const now = Date.now();
         const ACTIVE_WINDOW = 12 * 60 * 60 * 1000;
         const byUser = {};
-
+        
+        // 1. Derive state from auth events
         [...logs].reverse().forEach(log => {
             if (log.module !== 'auth') return;
             if (log.action !== 'login' && log.action !== 'logout') return;
@@ -371,23 +416,57 @@
             if (isNaN(ts) || now - ts > ACTIVE_WINDOW) return;
             byUser[log.user] = { state: log.action, ts: log.timestamp };
         });
-
-        const active = Object.entries(byUser)
+        
+        let active = Object.entries(byUser)
             .filter(([, v]) => v.state === 'login')
             .sort((a, b) => new Date(b[1].ts) - new Date(a[1].ts));
-
+        
+        // 2. Fallback: no auth events → show registered users from profiles
+        let fromProfiles = false;
+        if (active.length === 0) {
+            const users = await fetchProfileUsers();
+            if (users.length > 0) {
+                active = users.map(u => [
+                    u.full_name || u.email || 'Unknown',
+                    {
+                        state: 'login',
+                        ts: u.created_at || new Date().toISOString(),
+                        role: u.role || 'cashier',
+                        fromProfile: true
+                    }
+                ]);
+                fromProfiles = true;
+            }
+        }
+        
         const countEl = document.getElementById('activeUsersCount');
-        if (countEl) countEl.textContent = `${active.length} online`;
-
+        if (countEl) {
+            countEl.textContent = fromProfiles ?
+                `${active.length} registered` :
+                `${active.length} online`;
+        }
+        
         if (active.length === 0) {
             list.innerHTML = `
                 <div class="activity-item" style="justify-content:center;color:var(--text-secondary);font-size:14px;padding:1.5rem 0;">
-                    <span>No one currently signed in</span>
+                    <span>No users found</span>
                 </div>`;
             return;
         }
-
+        
         list.innerHTML = active.map(([name, info]) => {
+            if (info.fromProfile) {
+                const roleLabel = info.role ? ` · ${info.role}` : '';
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon green"><i class="fas fa-user-circle"></i></div>
+                        <div class="activity-content" style="flex:1;">
+                            <p><strong>${escapeHtml(name)}</strong></p>
+                            <span class="activity-time">Registered account${roleLabel}</span>
+                        </div>
+                        <span class="stock-badge">Registered</span>
+                    </div>`;
+            }
             const actionsToday = logs.filter(l =>
                 l.user === name && isToday(l.timestamp) && l.action !== 'login'
             ).length;
@@ -403,15 +482,15 @@
         }).join('');
     }
 
-    // ===================== PER-USER SUMMARY =====================
-    function renderUserSummary() {
+        // ===================== PER-USER SUMMARY =====================
+    async function renderUserSummary() {
         const list = document.getElementById('userSummaryList');
         if (!list) return;
-
+        
         const logs = readStoredRecords(AUDIT_KEY);
         const today = logs.filter(l => isToday(l.timestamp));
         const byUser = {};
-
+        
         today.forEach(log => {
             const u = log.user || 'Unknown';
             if (!byUser[u]) byUser[u] = { sales: 0, salesTotal: 0, deletions: 0, actions: 0 };
@@ -422,26 +501,51 @@
             }
             if (log.action === 'delete') byUser[u].deletions++;
         });
-
-        const entries = Object.entries(byUser).sort((a, b) => b[1].actions - a[1].actions);
-
+        
+        let entries = Object.entries(byUser).sort((a, b) => b[1].actions - a[1].actions);
+        
+        // Fallback: no activity today → show registered users with zero stats
+        let fromProfiles = false;
+        if (entries.length === 0) {
+            const users = await fetchProfileUsers();
+            if (users.length > 0) {
+                entries = users.map(u => [
+                    u.full_name || u.email || 'Unknown',
+                    { sales: 0, salesTotal: 0, deletions: 0, actions: 0, role: u.role || 'cashier' }
+                ]);
+                fromProfiles = true;
+            }
+        }
+        
         const subtitle = document.getElementById('userSummarySubtitle');
         if (subtitle) {
-            subtitle.textContent = `${entries.length} user${entries.length === 1 ? '' : 's'} active today`;
+            subtitle.textContent = fromProfiles ?
+                `${entries.length} registered user${entries.length === 1 ? '' : 's'} — no activity today` :
+                `${entries.length} user${entries.length === 1 ? '' : 's'} active today`;
         }
-
+        
         if (entries.length === 0) {
             list.innerHTML = `
                 <div class="activity-item" style="justify-content:center;color:var(--text-secondary);font-size:14px;padding:1.5rem 0;">
-                    <span>No activity recorded today</span>
+                    <span>No users found</span>
                 </div>`;
             return;
         }
-
+        
         list.innerHTML = entries.map(([name, s]) => {
-            const warn = s.deletions > 0
-                ? `<span class="stock-badge low-stock" style="margin-left:6px;">${s.deletions} deletion${s.deletions === 1 ? '' : 's'}</span>`
-                : '';
+            if (fromProfiles) {
+                return `
+                    <div class="activity-item">
+                        <div class="activity-icon blue"><i class="fas fa-user"></i></div>
+                        <div class="activity-content" style="flex:1;">
+                            <p><strong>${escapeHtml(name)}</strong></p>
+                            <span class="activity-time">${s.role ? s.role : 'user'} · no actions today</span>
+                        </div>
+                    </div>`;
+            }
+            const warn = s.deletions > 0 ?
+                `<span class="stock-badge low-stock" style="margin-left:6px;">${s.deletions} deletion${s.deletions === 1 ? '' : 's'}</span>` :
+                '';
             return `
                 <div class="activity-item">
                     <div class="activity-icon blue"><i class="fas fa-user"></i></div>
