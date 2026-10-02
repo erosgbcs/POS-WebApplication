@@ -210,7 +210,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
-    animation: modalIn 0.25s ease;
+    /* animation removed — was triggering Chromium paint deferral */
 }
 
 .modal-close {
@@ -2830,15 +2830,15 @@ body {
 /* ===== PAYMENT MODAL STYLES ===== */
 /* Override existing .modal-overlay to hide by default and show with .show */
 .modal-overlay {
-    display: none; /* hide by default */
+    display: none;
     position: fixed;
     inset: 0;
     z-index: 10000;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: rgba(2, 6, 23, 0.78);
-    backdrop-filter: blur(8px);
+    background: rgba(2, 6, 23, 0.82);
+    /* backdrop-filter removed — was causing Chromium paint deferral */
 }
 
 .modal-overlay.show {
@@ -5960,4 +5960,12 @@ body:has(#dashboardContainer[style*="display:flex"]) .theme-toggle-login {
     background: rgba(239, 68, 68, 0.1);
     border-color: rgba(239, 68, 68, 0.35);
     color: #991b1b;
+}
+
+/* Force compositor layer for the receipt modal to bypass
+   Chromium's paint deferral when toggling from display:none. */
+#receiptModal.show {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    contain: layout paint;
 }
