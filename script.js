@@ -153,8 +153,10 @@
     const addCustomerBtn = document.getElementById('addCustomerBtn');
     const customersTableBody = document.getElementById('customersTableBody');
     const ordersTableBody = document.getElementById('ordersTableBody');
+    const orderSearch = document.getElementById('orderSearch');
     const orderStatusFilter = document.getElementById('orderStatusFilter');
     const orderDateFilter = document.getElementById('orderDateFilter');
+    const exportOrdersBtn = document.getElementById('exportOrdersBtn');
     
     
     let currentUser = null;
@@ -261,26 +263,51 @@ const CUSTOMERS_KEY = 'pos_customers';
 
     
 
+    function getFilteredOrders(orders = readStoredRecords(ORDERS_KEY)) {
+        const status = orderStatusFilter?.value || '';
+        const dateRange = orderDateFilter?.value || '';
+        const searchTerm = orderSearch?.value.trim().toLowerCase() || '';
+        const now = Date.now();
+        const day = 24 * 60 * 60 * 1000;
+
+        return orders.filter(order => {
+            if (status && order.status !== status) return false;
+
+            if (dateRange) {
+                const timestamp = new Date(order.createdAt).getTime();
+                if (Number.isNaN(timestamp)) return false;
+                const age = now - timestamp;
+                if (dateRange === 'Today' && age >= day) return false;
+                if (dateRange === 'This Week' && age >= day * 7) return false;
+                if (dateRange === 'This Month' && age >= day * 31) return false;
+            }
+
+            if (searchTerm) {
+                const itemText = (order.items || []).map(item =>
+                    [item.name, item.size, item.quantity].filter(Boolean).join(' ')
+                ).join(' ');
+                const searchableText = [
+                    order.id,
+                    order.customerName,
+                    order.customerPhone,
+                    order.status,
+                    order.paymentMethod,
+                    order.total,
+                    itemText
+                ].filter(Boolean).join(' ').toLowerCase();
+                if (!searchableText.includes(searchTerm)) return false;
+            }
+
+            return true;
+        });
+    }
+
     function renderOrders(snapshotOrders = null) {
     if (!ordersTableBody) return;
     
     const orders = Array.isArray(snapshotOrders) ? snapshotOrders : readStoredRecords(ORDERS_KEY);
     if (Array.isArray(snapshotOrders)) writeStoredRecords(ORDERS_KEY, orders.slice(0, 500));
-    
-    const status = orderStatusFilter?.value || '';
-    const dateRange = orderDateFilter?.value || '';
-    const now = Date.now();
-    
-    const filtered = orders.filter(order => {
-        if (status && order.status !== status) return false;
-        if (!dateRange) return true;
-        const age = now - new Date(order.createdAt).getTime();
-        const day = 24 * 60 * 60 * 1000;
-        if (dateRange === 'Today') return age < day;
-        if (dateRange === 'This Week') return age < day * 7;
-        if (dateRange === 'This Month') return age < day * 31;
-        return true;
-    });
+    const filtered = getFilteredOrders(orders);
     
     if (!filtered.length) {
         ordersTableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No orders found</td></tr>';
@@ -318,8 +345,30 @@ renderOrders();
 }
 
    function setupOrderFeatures() {
+    orderSearch?.addEventListener('input', () => renderOrders());
     orderStatusFilter?.addEventListener('change', renderOrders);
     orderDateFilter?.addEventListener('change', renderOrders);
+    exportOrdersBtn?.addEventListener('click', () => {
+        const orders = getFilteredOrders();
+        downloadCsv(
+            `orders_${new Date().toISOString().split('T')[0]}.csv`,
+            ['Order ID', 'Customer', 'Phone', 'Subtotal', 'Tax', 'Total', 'Payment Method', 'Status', 'Date', 'Items'],
+            orders.map(order => [
+                order.id,
+                order.customerName || 'Walk-in customer',
+                order.customerPhone || '',
+                order.subtotal,
+                order.tax,
+                order.total,
+                order.paymentMethod,
+                order.status,
+                order.createdAt,
+                (order.items || []).map(item => `${item.name || ''}${item.size ? ` (${item.size})` : ''} x${item.quantity}`).join('; ')
+            ])
+        );
+        window.POS_APP_LOG?.('export', 'orders', `${orders.length} order${orders.length === 1 ? '' : 's'} exported`, 'info');
+        showToast(`${orders.length} order${orders.length === 1 ? '' : 's'} exported to CSV`, 'success');
+    });
     
     ordersTableBody?.addEventListener('click', event => {
         // Delete button

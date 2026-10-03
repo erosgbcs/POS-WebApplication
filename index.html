@@ -763,6 +763,10 @@
                     </div>
                     <div class="orders-container">
                         <div class="orders-filters">
+                            <div class="nav-search orders-search">
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <input type="search" id="orderSearch" placeholder="Search orders..." aria-label="Search orders">
+                            </div>
                             <select class="filter-select" id="orderStatusFilter">
                                 <option value="">All Orders</option>
                                 <option>Pending</option>
@@ -775,6 +779,9 @@
                                 <option>This Week</option>
                                 <option>This Month</option>
                             </select>
+                            <button class="secondary-btn" id="exportOrdersBtn" type="button">
+                                <i class="fas fa-download" aria-hidden="true"></i> Export CSV
+                            </button>
                         </div>
                         <div class="orders-table-container">
                             <table class="inventory-table">

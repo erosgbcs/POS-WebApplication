@@ -1970,8 +1970,19 @@ body {
 
 .orders-filters {
     display: flex;
+    align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+.orders-search {
+    flex: 1 1 260px;
+    max-width: 340px;
+}
+
+.orders-search input {
+    width: 100%;
+    min-width: 0;
 }
 
 .orders-table-container {
