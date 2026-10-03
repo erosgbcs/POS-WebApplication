@@ -156,6 +156,7 @@
     const orderSearch = document.getElementById('orderSearch');
     const orderStatusFilter = document.getElementById('orderStatusFilter');
     const orderDateFilter = document.getElementById('orderDateFilter');
+    const orderCustomDate = document.getElementById('orderCustomDate');
     const exportOrdersBtn = document.getElementById('exportOrdersBtn');
     
     
@@ -266,6 +267,7 @@ const CUSTOMERS_KEY = 'pos_customers';
     function getFilteredOrders(orders = readStoredRecords(ORDERS_KEY)) {
         const status = orderStatusFilter?.value || '';
         const dateRange = orderDateFilter?.value || '';
+        const customDate = orderCustomDate?.value || '';
         const searchTerm = orderSearch?.value.trim().toLowerCase() || '';
         const now = Date.now();
         const day = 24 * 60 * 60 * 1000;
@@ -273,7 +275,17 @@ const CUSTOMERS_KEY = 'pos_customers';
         return orders.filter(order => {
             if (status && order.status !== status) return false;
 
-            if (dateRange) {
+            if (dateRange === 'custom') {
+                if (!customDate) return false;
+                const timestamp = new Date(order.createdAt);
+                if (Number.isNaN(timestamp.getTime())) return false;
+                const orderDate = [
+                    timestamp.getFullYear(),
+                    String(timestamp.getMonth() + 1).padStart(2, '0'),
+                    String(timestamp.getDate()).padStart(2, '0')
+                ].join('-');
+                if (orderDate !== customDate) return false;
+            } else if (dateRange) {
                 const timestamp = new Date(order.createdAt).getTime();
                 if (Number.isNaN(timestamp)) return false;
                 const age = now - timestamp;
@@ -310,7 +322,10 @@ const CUSTOMERS_KEY = 'pos_customers';
     const filtered = getFilteredOrders(orders);
     
     if (!filtered.length) {
-        ordersTableBody.innerHTML = '<tr><td colspan="7" class="empty-table-message">No orders found</td></tr>';
+        const message = orderDateFilter?.value === 'custom' && !orderCustomDate?.value
+            ? 'Choose a date to view orders.'
+            : 'No orders found';
+        ordersTableBody.innerHTML = `<tr><td colspan="7" class="empty-table-message">${message}</td></tr>`;
         return;
     }
     
@@ -347,7 +362,12 @@ renderOrders();
    function setupOrderFeatures() {
     orderSearch?.addEventListener('input', () => renderOrders());
     orderStatusFilter?.addEventListener('change', renderOrders);
-    orderDateFilter?.addEventListener('change', renderOrders);
+    orderDateFilter?.addEventListener('change', () => {
+        if (orderCustomDate) orderCustomDate.hidden = orderDateFilter.value !== 'custom';
+        renderOrders();
+    });
+    orderCustomDate?.addEventListener('change', renderOrders);
+    if (orderCustomDate) orderCustomDate.hidden = orderDateFilter?.value !== 'custom';
     exportOrdersBtn?.addEventListener('click', () => {
         const orders = getFilteredOrders();
         downloadCsv(

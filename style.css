@@ -1998,6 +1998,10 @@ body {
     min-width: 0;
 }
 
+.orders-custom-date {
+    min-width: 160px;
+}
+
 .orders-table-container {
     background: rgba(30, 41, 59, 0.4);
     backdrop-filter: blur(8px);
