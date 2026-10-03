@@ -892,10 +892,15 @@ body {
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
+    width: 100%;
+    border: 0;
     border-radius: 8px;
+    background: transparent;
     cursor: pointer;
     color: #e2e8f0;
     font-size: 14px;
+    font-family: inherit;
+    text-align: left;
     transition: background 0.2s;
 }
 
@@ -915,6 +920,40 @@ body {
     border: none;
     border-top: 1px solid rgba(255,255,255,0.06);
     margin: 6px 0;
+}
+
+.profile-modal-card {
+    text-align: left;
+}
+
+.profile-modal-card .modal-icon {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.profile-details {
+    display: grid;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.profile-details > div {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.profile-details dt {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.profile-details dd {
+    margin: 0;
+    color: #f8fafc;
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 /* ===== DASHBOARD LAYOUT ===== */

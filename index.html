@@ -327,25 +327,25 @@
                     </div>
                 </div>
                 <div class="user-dropdown">
-                    <button class="user-btn" id="userDropdownBtn">
+                    <button class="user-btn" id="userDropdownBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="userDropdownMenu">
                         <img src="https://ui-avatars.com/api/?name=User&background=4F46E5&color=fff" alt="User">
                         <span id="userDisplayName">User</span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
-                    <div class="dropdown-menu" id="userDropdownMenu">
-                        <div class="dropdown-item">
+                    <div class="dropdown-menu" id="userDropdownMenu" role="menu" aria-label="Account menu">
+                        <button type="button" class="dropdown-item" id="profileMenuBtn" role="menuitem">
                             <i class="fas fa-user"></i>
                             <span>Profile</span>
-                        </div>
-                        <div class="dropdown-item">
+                        </button>
+                        <button type="button" class="dropdown-item" id="settingsMenuBtn" role="menuitem">
                             <i class="fas fa-cog"></i>
                             <span>Settings</span>
-                        </div>
+                        </button>
                         <hr>
-                        <div class="dropdown-item logout" id="logoutBtn">
+                        <button type="button" class="dropdown-item logout" id="logoutBtn" role="menuitem">
                             <i class="fas fa-sign-out-alt"></i>
                             <span>Logout</span>
-                        </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1317,6 +1317,22 @@
             </button>
         </div>
     </div>
+</div>
+
+<div class="modal-overlay" id="profileModal" aria-hidden="true">
+    <section class="modal-card profile-modal-card" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+        <button class="modal-close" id="profileModalClose" type="button" aria-label="Close profile">
+            <i class="fas fa-times"></i>
+        </button>
+        <div class="modal-icon"><i class="fas fa-user"></i></div>
+        <h2 id="profileModalTitle">Profile</h2>
+        <dl class="profile-details">
+            <div><dt>Name</dt><dd id="profileName">—</dd></div>
+            <div><dt>Email</dt><dd id="profileEmail">—</dd></div>
+            <div><dt>Role</dt><dd id="profileRole">—</dd></div>
+            <div><dt>Session</dt><dd id="profileSession">—</dd></div>
+        </dl>
+    </section>
 </div>
   
 <!-- Firebase is intentionally disabled on the test branch to avoid production reads/writes. -->

@@ -133,6 +133,10 @@
     const dashboardUserName = document.getElementById('dashboardUserName');
     const userDropdownBtn = document.getElementById('userDropdownBtn');
     const userDropdownMenu = document.getElementById('userDropdownMenu');
+    const profileMenuBtn = document.getElementById('profileMenuBtn');
+    const settingsMenuBtn = document.getElementById('settingsMenuBtn');
+    const profileModal = document.getElementById('profileModal');
+    const profileModalClose = document.getElementById('profileModalClose');
     const logoutBtn = document.getElementById('logoutBtn');
     const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
     const mobileToggle = document.getElementById('mobileToggle');
@@ -646,6 +650,7 @@ applyRoleAccess(user);
         accountRequestsSection.hidden = !isAdmin;
         if (isAdmin) renderAccountRequests();
     }
+    if (settingsMenuBtn) settingsMenuBtn.hidden = !canAccessPage('settings', user);
     
     if (userDisplayName) userDisplayName.textContent = name;
     if (dashboardUserName) dashboardUserName.textContent = name;
@@ -1237,15 +1242,54 @@ async function logout() {
     if (sidebarLogoutBtn) sidebarLogoutBtn.addEventListener('click', logout);
 
     // ---------- USER DROPDOWN TOGGLE ----------
+    function closeUserDropdown() {
+        userDropdownMenu?.classList.remove('show');
+        userDropdownBtn?.setAttribute('aria-expanded', 'false');
+    }
+
     if (userDropdownBtn) {
         userDropdownBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (userDropdownMenu) userDropdownMenu.classList.toggle('show');
+            const isOpen = userDropdownMenu?.classList.toggle('show') || false;
+            userDropdownBtn.setAttribute('aria-expanded', String(isOpen));
         });
     }
 
     document.addEventListener('click', () => {
-        if (userDropdownMenu) userDropdownMenu.classList.remove('show');
+        closeUserDropdown();
+    });
+
+    function closeProfileModal() {
+        profileModal?.classList.remove('show');
+        profileModal?.setAttribute('aria-hidden', 'true');
+        userDropdownBtn?.focus();
+    }
+
+    profileMenuBtn?.addEventListener('click', () => {
+        const name = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || 'User';
+        document.getElementById('profileName').textContent = name;
+        document.getElementById('profileEmail').textContent = currentUser?.email || '—';
+        document.getElementById('profileRole').textContent = getUserRole().replace(/^./, character => character.toUpperCase());
+        document.getElementById('profileSession').textContent = isSupabaseReady() ? 'Approved account' : 'Local test session';
+        closeUserDropdown();
+        profileModal?.classList.add('show');
+        profileModal?.setAttribute('aria-hidden', 'false');
+        profileModalClose?.focus();
+    });
+
+    settingsMenuBtn?.addEventListener('click', () => {
+        closeUserDropdown();
+        if (canAccessPage('settings')) window.navigateToPage('settings');
+    });
+
+    profileModalClose?.addEventListener('click', closeProfileModal);
+    profileModal?.addEventListener('click', event => {
+        if (event.target === profileModal) closeProfileModal();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        closeUserDropdown();
+        if (profileModal?.classList.contains('show')) closeProfileModal();
     });
 
     // ---------- MOBILE SIDEBAR TOGGLE ----------
