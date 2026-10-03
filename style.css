@@ -1968,6 +1968,19 @@ body {
     gap: 20px;
 }
 
+.orders-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.orders-page-header .secondary-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+}
+
 .orders-filters {
     display: flex;
     align-items: center;

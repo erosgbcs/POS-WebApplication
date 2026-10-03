@@ -757,9 +757,14 @@
 
                 <!-- Orders Page -->
                 <div class="page-content" id="page-orders">
-                    <div class="page-header">
-                        <h1>Orders</h1>
-                        <p>Manage customer orders</p>
+                    <div class="page-header orders-page-header">
+                        <div>
+                            <h1>Orders</h1>
+                            <p>Manage customer orders</p>
+                        </div>
+                        <button class="secondary-btn" id="exportOrdersBtn" type="button">
+                            <i class="fas fa-download" aria-hidden="true"></i> Export CSV
+                        </button>
                     </div>
                     <div class="orders-container">
                         <div class="orders-filters">
@@ -779,9 +784,6 @@
                                 <option>This Week</option>
                                 <option>This Month</option>
                             </select>
-                            <button class="secondary-btn" id="exportOrdersBtn" type="button">
-                                <i class="fas fa-download" aria-hidden="true"></i> Export CSV
-                            </button>
                         </div>
                         <div class="orders-table-container">
                             <table class="inventory-table">
