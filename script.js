@@ -124,6 +124,8 @@
     const accountRequestsSection = document.getElementById('accountRequestsSection');
     const accountRequestsBody = document.getElementById('accountRequestsBody');
     const accountRequestsStatus = document.getElementById('accountRequestsStatus');
+    const loadCsvTestDataBtn = document.getElementById('loadCsvTestDataBtn');
+    const resetCsvTestDataBtn = document.getElementById('resetCsvTestDataBtn');
     const accountStatusText = document.getElementById('accountStatusText');
     const loginContainer = document.getElementById('loginContainer');
     const dashboardContainer = document.getElementById('dashboardContainer');
@@ -658,7 +660,7 @@ applyRoleAccess(user);
     }
     
     showToast(`Welcome, ${name}!`, 'success');
-    localStorage.setItem(CUSTOMERS_CACHE_READY_KEY, 'false');
+    localStorage.setItem(CUSTOMERS_CACHE_READY_KEY, String(Boolean(window.POS_TEST_DATA?.enabled)));
     
     window.refreshOverview?.();
     
@@ -692,6 +694,43 @@ applyRoleAccess(user);
     window.flushPendingSales?.();
 }
 
+    if (loadCsvTestDataBtn) {
+        loadCsvTestDataBtn.hidden = !window.POS_TEST_DATA?.enabled;
+        loadCsvTestDataBtn.addEventListener('click', async () => {
+            loadCsvTestDataBtn.disabled = true;
+            try {
+                await window.POS_TEST_DATA.load();
+                loadDashboard({
+                    uid: 'LOCAL-TEST-ADMIN',
+                    email: 'admin@example.test',
+                    role: 'admin',
+                    user_metadata: { full_name: 'Test Admin', role: 'admin' }
+                });
+                showToast('Local CSV test data loaded. Firebase remains disconnected.', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to load CSV test data.', 'error');
+            } finally {
+                loadCsvTestDataBtn.disabled = false;
+            }
+        });
+    }
+
+    if (resetCsvTestDataBtn) {
+        resetCsvTestDataBtn.hidden = !window.POS_TEST_DATA?.enabled;
+        resetCsvTestDataBtn.addEventListener('click', async () => {
+            resetCsvTestDataBtn.disabled = true;
+            try {
+                await window.POS_TEST_DATA.load({ reset: true });
+                await renderAccountRequests();
+                showToast('CSV test data reset.', 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to reset CSV test data.', 'error');
+            } finally {
+                resetCsvTestDataBtn.disabled = false;
+            }
+        });
+    }
+
     function showLoginView() {
     document.body.classList.remove('is-logged-in');
     loginContainer.style.display = 'flex';
@@ -707,7 +746,9 @@ applyRoleAccess(user);
         if (!accountStatusText) return;
         accountStatusText.textContent = isSupabaseReady()
             ? 'Firebase connected — new accounts require admin approval'
-            : 'Firebase connection required for account approval';
+            : window.POS_TEST_DATA?.enabled
+                ? 'Local test mode — Firebase is disconnected'
+                : 'Firebase connection required for account approval';
         updateSignupRoleAvailability();
     }
 
@@ -721,7 +762,9 @@ applyRoleAccess(user);
             roleAvailabilityAlert.className = 'alert-box info';
             roleAvailabilityText.textContent = isSupabaseReady()
                 ? 'New accounts stay locked until an administrator approves them.'
-                : 'Account requests require a configured Firebase connection.';
+                : window.POS_TEST_DATA?.enabled
+                    ? 'Local test requests are stored in this browser and require approval.'
+                    : 'Account requests require a configured Firebase connection.';
         }
     }
 
@@ -732,7 +775,10 @@ applyRoleAccess(user);
         if (!isAdmin) return;
 
         accountRequestsStatus.textContent = 'Loading account requests...';
-        const { data, error } = await supabaseApi.getUsers();
+        const result = window.POS_TEST_DATA?.enabled
+            ? { data: window.POS_TEST_DATA.readProfiles(), error: null }
+            : await supabaseApi.getUsers();
+        const { data, error } = result;
         if (error) {
             accountRequestsBody.innerHTML = '<tr><td colspan="5" class="empty-table-message">Unable to load requests.</td></tr>';
             accountRequestsStatus.textContent = error.message || 'Unable to load account requests.';
@@ -779,8 +825,12 @@ applyRoleAccess(user);
             button.disabled = true;
             const status = decision === 'approve' ? 'approved' : 'rejected';
             const role = row.querySelector('.account-request-role')?.value || 'cashier';
+            const localTestMode = window.POS_TEST_DATA?.enabled === true;
             if (status === 'approved' && role === 'admin') {
-                const { data: profiles, error: profilesError } = await supabaseApi.getUsers();
+                const profileResult = localTestMode
+                    ? { data: window.POS_TEST_DATA.readProfiles(), error: null }
+                    : await supabaseApi.getUsers();
+                const { data: profiles, error: profilesError } = profileResult;
                 if (profilesError) {
                     button.disabled = false;
                     showToast(profilesError.message || 'Unable to verify administrator limit.', 'error');
@@ -795,7 +845,29 @@ applyRoleAccess(user);
                     return;
                 }
             }
-            const { error } = await supabaseApi.updateProfileApproval(profileId, status, role);
+            let error = null;
+            if (localTestMode) {
+                const profiles = window.POS_TEST_DATA.readProfiles();
+                const profile = profiles.find(item => String(item.id) === String(profileId));
+                if (!profile) {
+                    error = new Error('Test account request was not found.');
+                } else {
+                    profile.status = status;
+                    profile.status_updated_at = new Date().toISOString();
+                    profile.status_updated_by = currentUser?.uid || '';
+                    if (status === 'approved') profile.role = role;
+                    window.POS_TEST_DATA.saveProfiles(profiles);
+
+                    const users = getUsers();
+                    const localUser = users.find(item => item.email.toLowerCase() === profile.email.toLowerCase());
+                    if (localUser && status === 'approved') {
+                        localUser.role = role;
+                        saveUsers(users);
+                    }
+                }
+            } else {
+                ({ error } = await supabaseApi.updateProfileApproval(profileId, status, role));
+            }
             if (error) {
                 button.disabled = false;
                 showToast(error.message || 'Unable to update account request.', 'error');
@@ -951,13 +1023,25 @@ return;
                 await new Promise(r => setTimeout(r, 800));
                 const user = findUserByEmail(email);
                 if (user && user.password === password) {
-    showToast(`Welcome back, ${user.name}!`, 'success');
-    loadDashboard({
-        email: user.email,
-        role: user.role,
-        user_metadata: { full_name: user.name, role: user.role }
-    });
-    window.POS_APP_LOG?.('login', 'auth', `${user.name} signed in`, 'info');
+                    const profile = window.POS_TEST_DATA?.enabled
+                        ? window.POS_TEST_DATA.readProfiles().find(item => item.email.toLowerCase() === user.email.toLowerCase())
+                        : null;
+                    if (profile?.status === 'pending') {
+                        showToast('Your account is awaiting administrator approval.', 'error');
+                        return;
+                    }
+                    if (profile?.status === 'rejected') {
+                        showToast('Your account request was not approved. Contact an administrator.', 'error');
+                        return;
+                    }
+                    const role = profile?.role || user.role;
+                    showToast(`Welcome back, ${user.name}!`, 'success');
+                    loadDashboard({
+                        email: user.email,
+                        role,
+                        user_metadata: { full_name: user.name, role }
+                    });
+                    window.POS_APP_LOG?.('login', 'auth', `${user.name} signed in`, 'info');
 } else if (user) {
     showToast('Incorrect password.', 'error');
 } else {
@@ -988,7 +1072,7 @@ if (signupForm) {
         const agree = document.getElementById('agreeTerms')?.checked || false;
         let valid = true;
 
-        if (!isSupabaseReady()) {
+        if (!isSupabaseReady() && !window.POS_TEST_DATA?.enabled) {
             showToast('Account requests require a configured Firebase connection.', 'error');
             return;
         }
@@ -1014,9 +1098,24 @@ if (signupForm) {
         }
 
         try {
-            const { data, error } = await signUpWithSupabase({ fullName: name, email, password, role });
-            if (error) throw error;
-            if (!data?.pendingApproval) throw new Error('Account request was not saved for review.');
+            if (isSupabaseReady()) {
+                const { data, error } = await signUpWithSupabase({ fullName: name, email, password, role });
+                if (error) throw error;
+                if (!data?.pendingApproval) throw new Error('Account request was not saved for review.');
+            } else {
+                const profiles = window.POS_TEST_DATA.readProfiles();
+                profiles.push({
+                    id: `LOCAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    email,
+                    full_name: name,
+                    role: 'cashier',
+                    requested_role: role === 'admin' ? 'admin' : 'cashier',
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                });
+                window.POS_TEST_DATA.saveProfiles(profiles);
+                addUser({ name, email, password, role: 'cashier' });
+            }
 
             const signinEmail = document.getElementById('signinEmail');
             const signinPassword = document.getElementById('signinPassword');
@@ -1798,6 +1897,12 @@ async function checkAuth() {
     }
 
     // Local demo sessions are only used when Firebase is not configured.
+    if (window.POS_TEST_DATA?.enabled && localStorage.getItem('pos_test_data_loaded') !== 'true') {
+        localStorage.removeItem('pos_current_user');
+        showLoginView();
+        return;
+    }
+
     const cached = localStorage.getItem('pos_current_user');
     if (cached) {
         try {

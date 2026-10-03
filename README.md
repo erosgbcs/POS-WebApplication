@@ -99,9 +99,11 @@ POS-WebApplication/
 ├── firebase.js             # Firebase wrapper (auth, Firestore, offline)
 ├── inventory.js            # Inventory CRUD + custom categories
 ├── overview.js             # Overview KPIs, charts, and activity widgets
+├── test-data.js            # Test-branch CSV fixture loader
 ├── script.js               # Auth, dashboard, navigation, and page logic
 ├── pos.js                  # POS cart, checkout, receipt
 ├── firestore.rules         # Firestore account approval and access rules
+├── test-data/              # Synthetic local CSV fixtures
 ├── qa-checklist.html       # Manual POS and inventory verification checklist
 ├── package.json            # Tailwind build scripts
 ├── package-lock.json       # Dependency lock
@@ -131,6 +133,8 @@ cd POS-WebApplication
 2. Configure Firebase (optional for local UI testing)
 
 This `test` branch intentionally sets `window.FIREBASE_CONFIG = null` in `index.html`, so it does not connect to Firestore or Firebase Authentication. Keep it null for no-cloud testing. If backend testing is needed, create a separate Firebase project and use only that project's web configuration here; never use the production/main project's configuration.
+
+To test the UI without Firebase, serve the app over HTTP and select **Load CSV Test Data** on the sign-in screen. The synthetic CSV files in `test-data/` are copied into this browser's localStorage, then a local test-admin dashboard opens. The Settings page can approve or reject the sample requests; new local signups also remain pending until approved. Use **Reset CSV Test Data** in Settings to restore the original fixtures and clear local test accounts. This browser-only simulation is for UI testing, not a production security boundary.
 
 Create a new Firebase project and grab your web config from:
 Firebase Console → Project Settings → General → Your apps → Web app

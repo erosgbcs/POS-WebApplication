@@ -50,15 +50,7 @@
     <div id="log">Ready. Waiting for Firebase...</div>
 
     <script>
-        window.FIREBASE_CONFIG = {
-            apiKey: "AIzaSyBMt2AwW3cq8Og1gqV3MfPaUGearhnAWcU",
-            authDomain: "basedpos-inventory.firebaseapp.com",
-            projectId: "basedpos-inventory",
-            storageBucket: "basedpos-inventory.firebasestorage.app",
-            messagingSenderId: "563342767045",
-            appId: "1:563342767045:web:b4b4d839bfbe6fe94911ac",
-            measurementId: "G-FPG96DEDQS"
-        };
+        window.FIREBASE_CONFIG = null;
     </script>
 
     <script src="firebase.js"></script>
@@ -89,10 +81,10 @@
 
         // Confirm-input gating
         wipeConfirm.addEventListener('input', () => {
-            wipeInvBtn.disabled = wipeConfirm.value.trim() !== 'DELETE';
+            wipeInvBtn.disabled = !window.FIREBASE_CONFIG || wipeConfirm.value.trim() !== 'DELETE';
         });
         nukeConfirm.addEventListener('input', () => {
-            nukeBtn.disabled = nukeConfirm.value.trim() !== 'DELETE ALL';
+            nukeBtn.disabled = !window.FIREBASE_CONFIG || nukeConfirm.value.trim() !== 'DELETE ALL';
         });
 
         // ---- Firebase + auth bootstrap ----
@@ -147,6 +139,10 @@
 
         (async () => {
             clearLog();
+            if (!window.FIREBASE_CONFIG) {
+                log('Firebase is disabled on the test branch. Cloud seed and wipe actions are unavailable.', 'warn');
+                return;
+            }
             log('Waiting for Firebase...', 'warn');
 
             let fb = null;

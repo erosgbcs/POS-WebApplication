@@ -603,9 +603,19 @@ document.querySelectorAll('.inv-filter-card').forEach(card => {
     if (categoriesCache === null) loadCategoriesFromCloud();
     
     if (!supabaseApi?.isConfigured?.()) {
-        inventoryState.products = [];
+        let testProducts = [];
+        if (window.POS_TEST_MODE) {
+            try {
+                const stored = JSON.parse(localStorage.getItem('pos_test_products') || '[]');
+                if (Array.isArray(stored)) testProducts = stored.map(mapProduct);
+            } catch (error) {
+                console.warn('Unable to load local test products:', error);
+            }
+        }
+        inventoryState.products = testProducts;
         inventoryState.productsLoaded = true;
-        showToast('Firebase is not configured', 'error');
+        if (!window.POS_TEST_MODE) showToast('Firebase is not configured', 'error');
+        window.renderPosCatalog?.(inventoryState.products);
         renderCategoryOptions();
         updateInventoryStats();
         filterProducts();
@@ -638,6 +648,13 @@ document.querySelectorAll('.inv-filter-card').forEach(card => {
     window.setInventoryProducts = function(products) {
         inventoryState.products = (products || []).map(mapProduct);
         inventoryState.productsLoaded = true;
+        if (window.POS_TEST_MODE && !supabaseApi?.isConfigured?.()) {
+            try {
+                localStorage.setItem('pos_test_products', JSON.stringify(inventoryState.products));
+            } catch (error) {
+                console.warn('Unable to persist local test products:', error);
+            }
+        }
         renderCategoryOptions();
         updateInventoryStats();
         filterProducts();

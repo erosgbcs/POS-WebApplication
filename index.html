@@ -131,6 +131,9 @@
                                 <i class="fas fa-user-plus"></i> Create Account
                             </button>
                         </div>
+                        <button type="button" class="secondary-btn" id="loadCsvTestDataBtn" hidden>
+                            <i class="fas fa-database"></i> Load CSV Test Data
+                        </button>
 
                         <div class="helper-text">
                             <i class="fas fa-info-circle"></i>
@@ -1035,6 +1038,9 @@
                                 </div>
                             </div>
                             <p id="accountRequestsStatus" role="status" aria-live="polite"></p>
+                            <button type="button" class="secondary-btn" id="resetCsvTestDataBtn" hidden>
+                                <i class="fas fa-rotate"></i> Reset CSV Test Data
+                            </button>
                         </div>
                         <div class="settings-section">
                             <h3>General Settings</h3>
@@ -1316,13 +1322,16 @@
 <!-- Firebase is intentionally disabled on the test branch to avoid production reads/writes. -->
 <script>
     window.FIREBASE_CONFIG = null;
+    window.POS_TEST_MODE = true;
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.5.3/papaparse.min.js"></script>
 <script src="firebase.js"></script>
 <script src="inventory.js"></script>
 <script src="audit.js"></script>
 <script src="overview.js"></script>
+<script src="test-data.js"></script>
 <script src="script.js"></script>
 <script src="pos.js"></script>
 <script>

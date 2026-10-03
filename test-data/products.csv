@@ -1,0 +1,7 @@
+id,name,sku,category,price,quantity,min_stock,size,sizeMode,sizeStocks,supplier,description,created_at,updated_at
+TEST-P-001,20V Cordless Drill,TEST-001,tools,5499.00,12,3,20V,spec,,Test Supply Co,Battery drill with two speed settings,2026-09-18T09:00:00.000Z,2026-10-02T11:30:00.000Z
+TEST-P-002,Claw Hammer 16 oz,TEST-002,hardware,499.00,0,2,16 oz,spec,,Test Supply Co,Steel claw hammer with fiberglass handle,2026-09-18T09:15:00.000Z,2026-10-01T15:00:00.000Z
+TEST-P-003,Extension Cord 10 m,TEST-003,electrical,1250.00,8,3,10 m,spec,,Test Supply Co,Three outlet grounded extension cord,2026-09-18T09:30:00.000Z,2026-10-02T10:00:00.000Z
+TEST-P-004,PVC Pipe,TEST-004,plumbing,185.00,15,4,"1/2 in, 3/4 in",variants,"{""1/2 in"":9,""3/4 in"":6}",Test Supply Co,Schedule 40 PVC pipe by size,2026-09-18T09:45:00.000Z,2026-10-02T14:20:00.000Z
+TEST-P-005,Interior Paint White 1 L,TEST-005,paint,389.00,4,5,1 L,spec,,Test Supply Co,Low sheen interior wall paint,2026-09-18T10:00:00.000Z,2026-10-03T08:00:00.000Z
+TEST-P-006,Work Gloves Medium,TEST-006,safety,225.00,22,5,M,spec,,Test Supply Co,Coated grip work gloves,2026-09-18T10:15:00.000Z,2026-10-02T09:10:00.000Z

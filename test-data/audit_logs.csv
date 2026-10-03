@@ -1,0 +1,5 @@
+id,timestamp,user,action,module,description,severity,ip
+TEST-A-001,2026-10-03T08:20:05.000Z,Alex Sample,transaction,pos,"Sale TEST-R-1001 · ₱5,938.92 · Cash · 1 item",info,Client
+TEST-A-002,2026-10-03T09:15:04.000Z,Jamie Example,transaction,pos,"Sale TEST-R-1002 · ₱1,077.84 · GCash · 1 item",info,Client
+TEST-A-003,2026-10-02T14:20:00.000Z,Test Admin,update,inventory,Product PVC Pipe updated,info,Client
+TEST-A-004,2026-10-01T12:00:00.000Z,Test Admin,login,auth,Test Admin signed in,info,Client

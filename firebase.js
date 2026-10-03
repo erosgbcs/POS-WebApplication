@@ -2,7 +2,6 @@
 (function() {
     const DEFAULT_CONFIG = {
         enabled: true,
-        projectId: 'basedpos-inventory',
         profilesTable: 'profiles',
         inventoryTable: 'inventory'
     };

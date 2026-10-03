@@ -1,0 +1,4 @@
+id,email,full_name,role,requested_role,status,created_at
+LOCAL-TEST-ADMIN,admin@example.test,Test Admin,admin,admin,approved,2026-09-18T08:00:00.000Z
+TEST-U-001,morgan.pending@example.test,Morgan Pending,cashier,cashier,pending,2026-10-02T09:30:00.000Z
+TEST-U-002,casey.admin@example.test,Casey Admin Request,cashier,admin,pending,2026-10-02T10:15:00.000Z

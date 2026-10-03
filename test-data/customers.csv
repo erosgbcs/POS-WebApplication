@@ -1,0 +1,4 @@
+id,name,email,phone,orders,totalSpent,createdAt
+TEST-C-001,Alex Sample,alex.sample@example.test,09171234567,3,8470.00,2026-09-20T08:00:00.000Z
+TEST-C-002,Jamie Example,jamie.example@example.test,09179876543,1,1250.00,2026-10-01T13:20:00.000Z
+TEST-C-003,Taylor Demo,taylor.demo@example.test,09175551234,0,0,2026-10-02T16:45:00.000Z
