@@ -2021,6 +2021,30 @@ body {
     margin-bottom: 20px;
 }
 
+.account-request-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.account-request-actions .secondary-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.account-request-role {
+    min-width: 110px;
+}
+
+#accountRequestsStatus {
+    min-height: 1em;
+    margin: 12px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 .settings-input {
     width: 100%;
     padding: 0.625rem 1rem;

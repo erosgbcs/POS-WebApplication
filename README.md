@@ -15,7 +15,8 @@ A lightweight, single-store Point of Sale (POS) and Inventory Management web app
 ### 🔐 Authentication & Authorization
 - Firebase Authentication (Email/Password)
 - Role-based access control (Admin / Cashier)
-- Maximum of 2 admin accounts per store
+- Admin approval required before new accounts can sign in
+- Approval UI limits the store to 2 admin accounts
 - Forgot password with email reset link
 - Session persistence via Firebase Auth
 
@@ -97,8 +98,10 @@ POS-WebApplication/
 ├── tailwind.css            # Compiled Tailwind output
 ├── firebase.js             # Firebase wrapper (auth, Firestore, offline)
 ├── inventory.js            # Inventory CRUD + custom categories
-├── script.js               # Auth, dashboard, navigation, audit
+├── overview.js             # Overview KPIs, charts, and activity widgets
+├── script.js               # Auth, dashboard, navigation, and page logic
 ├── pos.js                  # POS cart, checkout, receipt
+├── firestore.rules         # Firestore account approval and access rules
 ├── qa-checklist.html       # Manual POS and inventory verification checklist
 ├── package.json            # Tailwind build scripts
 ├── package-lock.json       # Dependency lock
@@ -125,12 +128,14 @@ git clone https://github.com/Feitan982/POS-WebApplication.git
 cd POS-WebApplication
 ```
 
-2. Configure Firebase
+2. Configure Firebase (optional for local UI testing)
+
+This `test` branch intentionally sets `window.FIREBASE_CONFIG = null` in `index.html`, so it does not connect to Firestore or Firebase Authentication. Keep it null for no-cloud testing. If backend testing is needed, create a separate Firebase project and use only that project's web configuration here; never use the production/main project's configuration.
 
 Create a new Firebase project and grab your web config from:
 Firebase Console → Project Settings → General → Your apps → Web app
 
-Then paste it into the <script> block near the bottom of index.html:
+For an isolated test project only, place that test project's configuration in the script block near the bottom of `index.html`:
 
 ```html
 <script>
@@ -157,7 +162,15 @@ Firestore Database:
 
 1. Firebase Console → Firestore Database
 2. Click Create database → Production mode
-3. Configure and test Firestore Security Rules before connecting real data. This repository does not include a reviewed rules file. Client-side role checks are not authorization: the app creates profiles and runs sale transactions from the browser. In particular, do not allow users to update their own role, and do not use open/test-mode rules. The first admin should be provisioned through a trusted setup process.
+3. Deploy this repository's rules before opening the app to users:
+
+```bash
+firebase deploy --only firestore:rules --project YOUR_PROJECT_ID
+```
+
+The rules allow approved profiles to access app data and allow a pending user to read only their own request. Existing profiles without a `status` field remain approved for migration compatibility. New public signups are always created as pending; their selected role is only a request.
+
+For a new project, provision the first administrator through Firebase Console using a trusted process: create the Auth user, then create `profiles/{AUTH_UID}` with matching `id`, `email`, `full_name`, `role: "admin"`, and `status: "approved"`. Do not use public signup to bootstrap the first admin, because self-created requests cannot approve themselves. The approval UI caps admin grants at two; role/status changes are restricted by Firestore rules to existing admins.
 
 4. Build Tailwind (optional — only if you edit src/input.css)
 
@@ -184,7 +197,7 @@ Then visit http://localhost:8000.
 
 ## First Admin Setup
 
-The signup screen offers an initial Admin role, but that client-side limit is not a security boundary. For production, provision the first Admin through a trusted setup process and secure role assignment before enabling public signup. The app currently does not include a trusted bootstrap function or reviewed Firestore rules.
+Provision the first Admin through Firebase Console as described in the Firebase setup above. Self-service signup only creates a pending request; no one can approve their own account. Firestore rules must be deployed before enabling public signup.
 
 ---
 
@@ -198,7 +211,7 @@ See the [logical and physical ERD](docs/erd.md) for entity relationships and Fir
 
 | Collection | Purpose | Key fields |
 | --- | --- | --- |
-| `profiles` | User accounts and roles | `email`, `full_name`, `role`, `created_at` |
+| `profiles` | User accounts and roles | `email`, `full_name`, `role`, `requested_role`, `status`, `created_at` |
 | `inventory` | Product catalog and stock | `name`, `sku`, `price`, `quantity`, `size`, optional `sizeStocks`, `min_stock` |
 | `orders` | Completed sales | receipt ID, items, totals, payment method, status |
 | `customers` | Customer records and totals | name, phone, order count, total spent |

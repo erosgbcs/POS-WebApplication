@@ -116,28 +116,48 @@ return state.fb;
     }
 
     // ---------- AUTHENTICATION ----------
+    function getProfileApprovalError(profile) {
+        if (!profile) return new Error('This account has no profile. Contact an administrator.');
+        if (profile.status === 'pending') return new Error('Your account is awaiting administrator approval.');
+        if (profile.status === 'rejected') return new Error('Your account request was not approved. Contact an administrator.');
+        if (Object.hasOwn(profile, 'status') && profile.status !== 'approved') return new Error('This account is not approved. Contact an administrator.');
+        return null;
+    }
+
     async function signUpUser({ fullName, email, password, role = 'cashier' }) {
         const fb = await getFirebase();
         if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
 
+        let user = null;
         try {
-            const { createUserWithEmailAndPassword, updateProfile } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+            const { createUserWithEmailAndPassword, updateProfile, signOut: fbSignOut } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
             const userCredential = await createUserWithEmailAndPassword(fb.auth, email, password);
-            const user = userCredential.user;
+            user = userCredential.user;
 
             await updateProfile(user, { displayName: fullName });
 
             const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
             await setDoc(doc(fb.db, 'profiles', user.uid), {
                 id: user.uid,
-                email,
+                email: user.email || email,
                 full_name: fullName,
-                role,
+                role: 'cashier',
+                requested_role: role === 'admin' ? 'admin' : 'cashier',
+                status: 'pending',
                 created_at: new Date().toISOString()
             });
 
-            return { data: { user }, error: null };
+            await fbSignOut(fb.auth);
+            state.currentUser = null;
+            return { data: { user, pendingApproval: true }, error: null };
         } catch (error) {
+            if (user) {
+                try {
+                    const { signOut: fbSignOut } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+                    await fbSignOut(fb.auth);
+                } catch {}
+            }
+            state.currentUser = null;
             return { data: null, error };
         }
     }
@@ -154,15 +174,18 @@ return state.fb;
             const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
             const profileDoc = await getDoc(doc(fb.db, 'profiles', user.uid));
             const profile = profileDoc.exists() ? profileDoc.data() : null;
-
-            if (profile) {
-                user.role = profile.role;
-                user.user_metadata = {
-                    ...(user.user_metadata || {}),
-                    full_name: profile.full_name,
-                    role: profile.role
-                };
+            const approvalError = getProfileApprovalError(profile);
+            if (approvalError) {
+                await signOutUser();
+                return { data: null, error: approvalError };
             }
+
+            user.role = profile.role || 'cashier';
+            user.user_metadata = {
+                ...(user.user_metadata || {}),
+                full_name: profile.full_name,
+                role: user.role
+            };
 
             state.currentUser = user;
             return { data: { user }, error: null };
@@ -204,58 +227,37 @@ return state.fb;
                         return;
                     }
 
-                                        try {
+                    try {
                         const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
                         const profileDoc = await getDoc(doc(fb.db, 'profiles', user.uid));
                         const profile = profileDoc.exists() ? profileDoc.data() : null;
-
-                        if (profile) {
-                            user.role = profile.role;
-                            user.user_metadata = {
-                                ...(user.user_metadata || {}),
-                                full_name: profile.full_name,
-                                role: profile.role
-                            };
-                            // Cache the decorated profile so offline reloads keep the role.
-                            try {
-                                localStorage.setItem('pos_user_profile_' + user.uid, JSON.stringify({
-                                    full_name: profile.full_name,
-                                    role: profile.role
-                                }));
-                            } catch (e) {}
-                        } else {
-                            // Profile not reachable (offline) — hydrate from cache if we have it.
-                            try {
-                                const cached = JSON.parse(localStorage.getItem('pos_user_profile_' + user.uid) || 'null');
-                                if (cached) {
-                                    user.role = cached.role;
-                                    user.user_metadata = {
-                                        ...(user.user_metadata || {}),
-                                        full_name: cached.full_name,
-                                        role: cached.role
-                                    };
-                                }
-                            } catch (e) {}
+                        const approvalError = getProfileApprovalError(profile);
+                        if (approvalError) {
+                            await signOutUser();
+                            resolve({ user: null, error: approvalError });
+                            return;
                         }
+
+                        user.role = profile.role || 'cashier';
+                        user.user_metadata = {
+                            ...(user.user_metadata || {}),
+                            full_name: profile.full_name,
+                            role: user.role
+                        };
+                        try {
+                            localStorage.setItem('pos_user_profile_' + user.uid, JSON.stringify({
+                                full_name: profile.full_name,
+                                role: user.role,
+                                status: profile.status || 'approved'
+                            }));
+                        } catch (e) {}
 
                         state.currentUser = user;
                         resolve({ user, error: null });
                     } catch (error) {
-                        // Firestore unreachable — still return the authenticated user, don't fail.
-                        // Try to hydrate role from cache one more time.
-                        try {
-                            const cached = JSON.parse(localStorage.getItem('pos_user_profile_' + user.uid) || 'null');
-                            if (cached) {
-                                user.role = cached.role;
-                                user.user_metadata = {
-                                    ...(user.user_metadata || {}),
-                                    full_name: cached.full_name,
-                                    role: cached.role
-                                };
-                            }
-                        } catch (e) {}
-                        state.currentUser = user;
-                        resolve({ user, error: null });
+                        await signOutUser();
+                        state.currentUser = null;
+                        resolve({ user: null, error });
                     }
                 });
             });
@@ -304,6 +306,26 @@ return state.fb;
             return { data: [profileData], error: null };
         } catch (error) {
             return { data: null, error };
+        }
+    }
+
+    async function updateProfileApproval(profileId, status, role) {
+        const fb = await getFirebase();
+        if (!fb) return { error: new Error('Firebase is not configured.') };
+        if (!['approved', 'rejected'].includes(status)) return { error: new Error('Invalid account decision.') };
+
+        try {
+            const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+            const updates = {
+                status,
+                status_updated_at: new Date().toISOString(),
+                status_updated_by: state.currentUser?.uid || ''
+            };
+            if (status === 'approved') updates.role = role === 'admin' ? 'admin' : 'cashier';
+            await updateDoc(doc(fb.db, 'profiles', String(profileId)), updates);
+            return { error: null };
+        } catch (error) {
+            return { error };
         }
     }
 
@@ -922,6 +944,7 @@ function subscribeInventory(callback) {
         resetPassword,
         getUsers,
         upsertProfile,
+        updateProfileApproval,
         // Inventory
         getInventoryProducts,
         getInventoryProduct,

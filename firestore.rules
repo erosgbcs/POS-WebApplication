@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profilePath(uid) {
+      return /databases/$(database)/documents/profiles/$(uid);
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(profilePath(request.auth.uid));
+    }
+
+    function currentProfile() {
+      return get(profilePath(request.auth.uid)).data;
+    }
+
+    function approvedUser() {
+      return hasProfile() &&
+        (!('status' in currentProfile()) || currentProfile().status == 'approved');
+    }
+
+    function adminUser() {
+      return approvedUser() && currentProfile().role == 'admin';
+    }
+
+    match /profiles/{uid} {
+      allow create: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.keys().hasAll([
+          'id', 'email', 'full_name', 'role', 'requested_role', 'status', 'created_at'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'email', 'full_name', 'role', 'requested_role', 'status', 'created_at'
+        ]) &&
+        request.resource.data.id == uid &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.role == 'cashier' &&
+        request.resource.data.requested_role in ['admin', 'cashier'] &&
+        request.resource.data.status == 'pending';
+
+      allow read: if signedIn() && (request.auth.uid == uid || adminUser());
+      allow update, delete: if adminUser();
+    }
+
+    match /inventory/{documentId} {
+      allow read, write: if approvedUser();
+    }
+
+    match /orders/{documentId} {
+      allow read, write: if approvedUser();
+    }
+
+    match /customers/{documentId} {
+      allow read, write: if approvedUser();
+    }
+
+    match /audit_logs/{documentId} {
+      allow read, write: if approvedUser();
+    }
+
+    match /config/{documentId} {
+      allow read, write: if approvedUser();
+    }
+  }
+}
