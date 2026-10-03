@@ -307,7 +307,7 @@ ISC License — see package.json for details.
 👥 Credits
 
 · Client: Kirby's Hardware (Santa Maria, Bulacan)
-· Developer: Feitan982
+· Developer: Erosgbcs, Feitan982
 · Icons: Font Awesome
 · Charts: Chart.js
 · Backend: Firebase (Google)
