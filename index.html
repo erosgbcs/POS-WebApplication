@@ -123,110 +123,20 @@
                         </div>
 
                         <div class="button-group">
-                            <button type="submit" class="submit-btn" id="signinSubmitBtn">
-                                <span class="btn-text"><i class="fas fa-sign-in-alt"></i> Sign In</span>
-                                <span class="btn-loader"><i class="fas fa-spinner fa-spin"></i></span>
-                            </button>
-                            <button type="button" class="secondary-btn" id="createAccountBtn">
-                                <i class="fas fa-user-plus"></i> Create Account
-                            </button>
-                        </div>
+    <button type="submit" class="submit-btn" id="signinSubmitBtn">
+        <span class="btn-text"><i class="fas fa-sign-in-alt"></i> Sign In</span>
+        <span class="btn-loader"><i class="fas fa-spinner fa-spin"></i></span>
+    </button>
+</div>
 
-                        <div class="helper-text">
-                            <i class="fas fa-info-circle"></i>
-                            <span>No account yet? Create one to get started.</span>
-                        </div>
-                    </form>
-                </div>
+<div class="helper-text">
+    <i class="fas fa-info-circle"></i>
+    <span>Need an account? Ask an administrator to create one for you.</span>
+</div>
+                            
 
-                <div id="signupView" class="view-panel" style="display: none;">
-                    <div class="auth-header">
-                        <div class="icon-badge" aria-hidden="true">
-                            <i class="fas fa-user-plus"></i>
-                        </div>
-                        <h2>Create Account</h2>
-                        <p>Register to get started</p>
-                    </div>
-
-                    <div class="alert-box info" id="roleAvailabilityAlert" style="display: none;">
-                        <i class="fas fa-info-circle"></i>
-                        <span id="roleAvailabilityText"></span>
-                    </div>
-
-                    <form id="signupForm" autocomplete="off" novalidate>
-                        <div class="form-group">
-                            <label for="signupFullName">Your Name</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon" aria-hidden="true"><i class="fas fa-user"></i></span>
-                                <input type="text" id="signupFullName" placeholder="Enter your full name" required>
-                            </div>
-                            <span class="error-message" id="signupFullNameError"></span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="signupEmail">Email Address</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon" aria-hidden="true"><i class="fas fa-envelope"></i></span>
-                                <input type="email" id="signupEmail" placeholder="your@email.com" required>
-                            </div>
-                            <span class="error-message" id="signupEmailError"></span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="signupRole">Account Role</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon" aria-hidden="true"><i class="fas fa-shield"></i></span>
-                                <select id="signupRole" required>
-                                    <option value="cashier">Cashier</option>
-                                    <option value="admin" id="adminRoleOption">Admin</option>
-                                </select>
-                            </div>
-                            <span class="info-message" id="signupRoleInfo"></span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="signupPassword">Create Password</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon" aria-hidden="true"><i class="fas fa-lock"></i></span>
-                                <input type="password" id="signupPassword" placeholder="Create a strong password" required>
-                                <button type="button" class="toggle-password" data-target="signupPassword" aria-label="Show password">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <span class="error-message" id="signupPasswordError"></span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="signupConfirmPassword">Confirm Password</label>
-                            <div class="input-wrapper">
-                                <span class="input-icon" aria-hidden="true"><i class="fas fa-lock"></i></span>
-                                <input type="password" id="signupConfirmPassword" placeholder="Re-enter your password" required>
-                                <button type="button" class="toggle-password" data-target="signupConfirmPassword" aria-label="Show password">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <span class="error-message" id="signupConfirmPasswordError"></span>
-                        </div>
-
-                        <div class="terms-row">
-                            <label class="checkbox-wrapper">
-                                <input type="checkbox" id="agreeTerms" required>
-                                <span class="checkmark"></span>
-                                <span>I agree to the <a href="#" class="link-btn">Terms of Service</a></span>
-                            </label>
-                            <span class="error-message" id="termsError"></span>
-                        </div>
-
-                        <div class="button-group">
-                            <button type="submit" class="submit-btn" id="signupSubmitBtn">
-                                <span class="btn-text"><i class="fas fa-user-plus"></i> Create Account</span>
-                                <span class="btn-loader"><i class="fas fa-spinner fa-spin"></i></span>
-                            </button>
-                            <button type="button" class="secondary-btn" id="backToSignin">
-                                <i class="fas fa-arrow-left"></i> Back to Sign In
-                            </button>
-                        </div>
-                    </form>
+                        
+                                       </form>
                 </div>
 
                 <div id="forgotView" class="view-panel" style="display: none;">
@@ -390,6 +300,10 @@
         <a href="#" class="sidebar-link" data-page="audit">
             <i class="fas fa-history"></i>
             <span>Audit Trail</span>
+        </a>
+        <a href="#" class="sidebar-link" data-page="users">
+            <i class="fas fa-user-cog"></i>
+            <span>User Management</span>
         </a>
         <a href="#" class="sidebar-link" data-page="settings">
             <i class="fas fa-cog"></i>
@@ -580,7 +494,7 @@
                                 <i class="fas fa-file-invoice"></i>
                                 Generate Report
                             </button>
-                            <button class="action-btn" onclick="navigateToPage('settings')">
+                            <button class="action-btn" onclick="navigateToPage('users')">
                                 <i class="fas fa-users-cog"></i>
                                 Manage Users
                             </button>
@@ -1008,6 +922,71 @@
         </div>
     </div>
 </div>
+<!-- User Management Page (Admin only) -->
+<div class="page-content" id="page-users">
+    <div class="inventory-header">
+        <div>
+            <h1>User Management</h1>
+            <p>Create and manage staff accounts</p>
+        </div>
+        <div class="inventory-actions">
+            <button class="submit-btn" id="addUserBtn" type="button">
+                <i class="fas fa-user-plus"></i> Add User
+            </button>
+            <button class="secondary-btn" id="refreshUsersBtn" type="button">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <h3 id="usersTotalCount">0</h3>
+                <p>Total Users</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-user-shield"></i></div>
+            <div class="stat-info">
+                <h3 id="usersAdminCount">0</h3>
+                <p>Admins</p>
+                <span class="stat-change" id="usersAdminLimit">Max 2</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="fas fa-user"></i></div>
+            <div class="stat-info">
+                <h3 id="usersCashierCount">0</h3>
+                <p>Cashiers</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="inventory-table-container">
+        <div style="overflow-x: auto;">
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <tr>
+                        <td colspan="4" style="text-align:center;padding:3rem;color:var(--text-secondary);">
+                            <i class="fas fa-spinner fa-spin"></i> Loading users...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
                 <div class="page-content" id="page-settings">
                     <div class="page-header">
                         <h1>Settings</h1>
@@ -1290,6 +1269,52 @@
         </div>
     </div>
 </div>
+
+<!-- Create User Modal (Admin only) -->
+<div class="modal" id="userModal">
+    <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+            <h2 id="userModalTitle">Create User Account</h2>
+            <button class="modal-close-btn" id="closeUserModal" type="button">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="userForm" autocomplete="off">
+            <div class="form-group">
+                <label for="newUserFullName">Full Name *</label>
+                <input type="text" id="newUserFullName" required placeholder="Enter full name">
+            </div>
+            <div class="form-group">
+                <label for="newUserEmail">Email *</label>
+                <input type="email" id="newUserEmail" required placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label for="newUserPassword">Password *</label>
+                <input type="password" id="newUserPassword" required minlength="6" placeholder="Minimum 6 characters">
+            </div>
+            <div class="form-group">
+                <label for="newUserRole">Role *</label>
+                <select id="newUserRole" required>
+                    <option value="cashier">Cashier</option>
+                    <option value="admin" id="newUserAdminOption">Admin</option>
+                </select>
+            </div>
+            <div class="form-group" id="adminReauthGroup" style="display: none;">
+                <label for="adminReauthPassword">Your Admin Password *</label>
+                <input type="password" id="adminReauthPassword" placeholder="Confirm your password to continue">
+                <small style="color:var(--text-secondary);font-size:12px;display:block;margin-top:6px;">
+                    <i class="fas fa-info-circle"></i> Required so we can keep you signed in after creating the account.
+                </small>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="secondary-btn" id="cancelUserBtn">Cancel</button>
+                <button type="submit" class="submit-btn" id="saveUserBtn">
+                    <i class="fas fa-user-plus"></i> Create User
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
   
 <!-- Firebase Config (regular script - runs synchronously) -->
 <script>
@@ -1308,6 +1333,7 @@
 <script src="firebase.js"></script>
 <script src="inventory.js"></script>
 <script src="audit.js"></script>
+<script src="auth.js"></script>
 <script src="script.js"></script>
 <script src="pos.js"></script>
 <script>

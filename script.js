@@ -1,64 +1,24 @@
 (function() {
     const supabaseApi = window.POS_SUPABASE || {};
 
-    // Example Supabase setup:
-    // window.POS_SUPABASE.setConfig({
-    //     enabled: true,
-    //     url: 'https://your-project-ref.supabase.co',
-    //     anonKey: 'your-anon-key',
-    //     tableName: 'profiles'
-    // });
-
-    const authMode = {
-        local: 'local',
-        supabase: 'supabase'
-    };
-
-    function getAuthMode() {
-        return isSupabaseReady() ? authMode.supabase : authMode.local;
-    }
+    // Auth helpers now live in auth.js. Expose thin shims so existing code
+    // inside this file that calls isSupabaseReady() / getAuthMode() still works.
+    const authMode = { local: 'local', supabase: 'supabase' };
 
     function isSupabaseReady() {
         return !!(supabaseApi && typeof supabaseApi.isConfigured === 'function' && supabaseApi.isConfigured());
     }
 
-    async function signInWithSupabase(email, password) {
-        if (!isSupabaseReady()) {
-            return { data: null, error: new Error('Supabase is not configured.') };
-        }
-        return supabaseApi.signInUser({ email, password });
+    function getAuthMode() {
+        return isSupabaseReady() ? authMode.supabase : authMode.local;
     }
 
-    async function signUpWithSupabase({ fullName, email, password, role }) {
+    async function getCurrentUser() {
         if (!isSupabaseReady()) {
-            return { data: null, error: new Error('Supabase is not configured.') };
+            return { user: null, error: new Error('Backend is not configured.') };
         }
-        return supabaseApi.signUpUser({ fullName, email, password, role });
+        return supabaseApi.getCurrentUser();
     }
-
-    async function resetPasswordWithSupabase(email) {
-        if (!isSupabaseReady()) {
-            return { data: null, error: new Error('Supabase is not configured.') };
-        }
-        return supabaseApi.getClient().auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin || window.location.href
-        });
-    }
-
-    async function signOutWithSupabase() {
-        if (!isSupabaseReady()) {
-            return { error: new Error('Supabase is not configured.') };
-        }
-        return supabaseApi.signOut();
-    }
-
-   async function getCurrentUser() {
-    if (!isSupabaseReady()) {
-        return { user: null, error: new Error('Backend is not configured.') };
-    }
-    // Delegate to firebase.js — it correctly uses user.uid
-    return supabaseApi.getCurrentUser();
-}
 
     // ---------- RESPONSIVE DETECTION ----------
     const isMobile = () => window.innerWidth < 768;
@@ -75,83 +35,21 @@
         document.head.appendChild(style);
     }
 
-    // ---------- USER DATABASE (localStorage) ----------
-    const USERS_KEY = 'pos_users_pro_v2';
+    // ---------- USER DB (delegated to auth.js) ----------
     const ADMIN_CREATED_KEY = 'pos_admin_account_created';
-    const ADMIN_COUNT_KEY = 'pos_admin_account_count';
     const MAX_ADMIN_ACCOUNTS = 2;
-    
-    function getUsers() {
-        try {
-            const stored = localStorage.getItem(USERS_KEY);
-            if (stored) {
-                const users = JSON.parse(stored);
-                return Array.isArray(users) ? users : [];
-            }
-        } catch (e) {
-            console.error('Error reading users:', e);
-        }
-        return [];
-    }
 
-    function saveUsers(users) {
-        try {
-            localStorage.setItem(USERS_KEY, JSON.stringify(users));
-        } catch (e) {
-            console.error('Error saving users:', e);
-        }
-    }
-
-    function getAdminAccountCount() {
-        const localAdminCount = getUsers().filter(user => user.role === 'admin').length;
-        const storedAdminCount = Number.parseInt(localStorage.getItem(ADMIN_COUNT_KEY), 10);
-        const legacyAdminCount = localStorage.getItem(ADMIN_CREATED_KEY) === 'true' ? 1 : 0;
-        return Math.max(localAdminCount, Number.isNaN(storedAdminCount) ? legacyAdminCount : storedAdminCount);
-    }
-
-    function hasAdminAccount() {
-        return getAdminAccountCount() > 0;
-    }
-
-    async function refreshAdminAvailability() {
-        if (!isSupabaseReady()) return;
-
-        const { data, error } = await supabaseApi.getUsers();
-        if (error) {
-            console.warn('Unable to check existing admin accounts:', error.message);
-            return;
-        }
-
-        if (Array.isArray(data)) {
-            const adminCount = data.filter(user => user.role === 'admin').length;
-            localStorage.setItem(ADMIN_COUNT_KEY, String(adminCount));
-            if (adminCount > 0) localStorage.setItem(ADMIN_CREATED_KEY, 'true');
-            updateSignupRoleAvailability();
-        }
-    }
-
-    function findUserByEmail(email) {
-        return getUsers().find(u => u.email.toLowerCase() === email.toLowerCase());
-    }
-
-    function addUser(user) {
-        const users = getUsers();
-        users.push(user);
-        saveUsers(users);
-    }
+    const getUsers = () => window.AUTH?.getUsers?.() || [];
+    const saveUsers = (u) => window.AUTH?.saveUsers?.(u);
+    const getAdminAccountCount = () => window.AUTH?.getAdminAccountCount?.() || 0;
+    const findUserByEmail = (email) => window.AUTH?.findUserByEmail?.(email);
+    const addUser = (user) => window.AUTH?.addUser?.(user);
+    const refreshAdminAvailability = () => window.AUTH?.refreshAdminAvailability?.();
+    function hasAdminAccount() { return getAdminAccountCount() > 0; }
 
     // ---------- DOM ELEMENTS ----------
     const signinView = document.getElementById('signinView');
-    const signupView = document.getElementById('signupView');
     const forgotView = document.getElementById('forgotView');
-    const signinForm = document.getElementById('signinForm');
-    const signupForm = document.getElementById('signupForm');
-    const forgotForm = document.getElementById('forgotForm');
-    const signupRoleSelect = document.getElementById('signupRole');
-    const adminRoleOption = document.getElementById('adminRoleOption');
-    const signupRoleInfo = document.getElementById('signupRoleInfo');
-    const roleAvailabilityAlert = document.getElementById('roleAvailabilityAlert');
-    const roleAvailabilityText = document.getElementById('roleAvailabilityText');
     const accountStatusText = document.getElementById('accountStatusText');
     const loginContainer = document.getElementById('loginContainer');
     const dashboardContainer = document.getElementById('dashboardContainer');
@@ -190,7 +88,7 @@ const CUSTOMERS_KEY = 'pos_customers';
   
 
     const ROLE_ACCESS = {
-        admin: new Set(['overview', 'pos', 'inventory', 'orders', 'customers', 'reports', 'audit', 'settings']),
+        admin: new Set(['overview', 'pos', 'inventory', 'orders', 'customers', 'reports', 'audit', 'users', 'settings']),
         cashier: new Set(['overview', 'pos', 'orders', 'customers', 'reports'])
     };
 
@@ -1795,60 +1693,19 @@ applyRoleAccess(user);
         } else {
             accountStatusText.textContent = 'No accounts yet — Create Admin first';
         }
-        
-        updateSignupRoleAvailability();
     }
 
-    // ---------- UPDATE SIGNUP ROLE ----------
-    function updateSignupRoleAvailability() {
-        if (!signupRoleSelect) return;
-        
-        const adminCount = getAdminAccountCount();
-        const adminsAvailable = adminCount < MAX_ADMIN_ACCOUNTS;
-        
-        if (!adminsAvailable) {
-            adminRoleOption.disabled = true;
-            adminRoleOption.textContent = 'Admin (limit reached)';
-            signupRoleSelect.value = 'cashier';
-            if (signupRoleInfo) {
-                signupRoleInfo.textContent = 'Two Admin accounts are already registered. You can create a Cashier.';
-            }
-            if (roleAvailabilityAlert) {
-                roleAvailabilityAlert.style.display = 'flex';
-                roleAvailabilityAlert.className = 'alert-box warning';
-                roleAvailabilityText.textContent = 'Admin limit reached — new accounts must be Cashier.';
-            }
-        } else {
-            adminRoleOption.disabled = false;
-            adminRoleOption.textContent = 'Admin';
-            if (adminCount === 0) signupRoleSelect.value = 'admin';
-            if (signupRoleInfo) {
-                signupRoleInfo.textContent = `${MAX_ADMIN_ACCOUNTS - adminCount} Admin account slot${MAX_ADMIN_ACCOUNTS - adminCount === 1 ? '' : 's'} available.`;
-            }
-            if (roleAvailabilityAlert) {
-                roleAvailabilityAlert.style.display = 'flex';
-                roleAvailabilityAlert.className = 'alert-box info';
-                roleAvailabilityText.textContent = adminCount === 0
-                    ? 'First account must be Admin. Two Admin accounts are allowed.'
-                    : `${MAX_ADMIN_ACCOUNTS - adminCount} Admin account slot available.`;
-            }
-        }
-    }
+    // ---------- UPDATE SIGNUP ROLE (removed — signup lives in auth.js) ----------
 
     // ---------- SHOW VIEW ----------
     function showView(view) {
         if (signinView) signinView.style.display = 'none';
-        if (signupView) signupView.style.display = 'none';
         if (forgotView) forgotView.style.display = 'none';
         if (view) view.style.display = 'block';
         
         // Scroll to top on mobile
         if (isMobile()) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        
-        if (view === signupView) {
-            updateSignupRoleAvailability();
         }
     }
 
@@ -1879,324 +1736,18 @@ applyRoleAccess(user);
         });
     }
 
-    // ---------- FORM SWITCHING ----------
-    const createAccountBtn = document.getElementById('createAccountBtn');
-    const backToSignin = document.getElementById('backToSignin');
-    const forgotLink = document.getElementById('forgotLink');
-    const backToSigninFromForgot = document.getElementById('backToSigninFromForgot');
+    // ---------- FORM SWITCHING (handled in auth.js) ----------
 
-    if (createAccountBtn) {
-        createAccountBtn.addEventListener('click', () => {
-            showView(signupView);
-            setTimeout(() => {
-                const el = document.getElementById('signupFullName');
-                if (el) el.focus();
-            }, 100);
-        });
-    }
-    
-    if (backToSignin) {
-        backToSignin.addEventListener('click', () => {
-            showView(signinView);
-            updateSystemStatus();
-        });
-    }
-    
-    if (forgotLink) {
-        forgotLink.addEventListener('click', () => {
-            showView(forgotView);
-            setTimeout(() => {
-                const el = document.getElementById('forgotEmail');
-                if (el) el.focus();
-            }, 100);
-        });
-    }
-    
-    if (backToSigninFromForgot) {
-        backToSigninFromForgot.addEventListener('click', () => {
-            showView(signinView);
-            updateSystemStatus();
-        });
-    }
+    // ---------- VALIDATION (delegated to auth.js) ----------
+    const validateEmail = (email) => window.AUTH?.validateEmail?.(email) ?? false;
 
-    // ---------- VALIDATION ----------
-    function validateEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    }
-    
-    function setError(id, msg) {
-        const errorEl = document.getElementById(id);
-        if (errorEl) {
-            errorEl.textContent = msg;
-            if (isMobile() && msg) {
-                errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-        }
-    }
-    
-    function clearErrors() {
-        document.querySelectorAll('.error-message, .info-message').forEach(el => el.textContent = '');
-    }
+    // ---------- SIGN IN (handled in auth.js) ----------
 
-    // ---------- SIGN IN ----------
-    if (signinForm) {
-        signinForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearErrors();
-            const email = document.getElementById('signinEmail')?.value.trim() || '';
-            const password = document.getElementById('signinPassword')?.value || '';
-            let valid = true;
+    // ---------- SIGN UP (removed — admin-only creation lives in auth.js) ----------
 
-            if (!email) { setError('signinEmailError', 'Email is required'); valid = false; }
-            else if (!validateEmail(email)) { setError('signinEmailError', 'Invalid email format'); valid = false; }
-            if (!password) { setError('signinPasswordError', 'Password is required'); valid = false; }
-            else if (password.length < 6) { setError('signinPasswordError', 'Minimum 6 characters'); valid = false; }
+    // ---------- FORGOT PASSWORD (handled in auth.js) ----------
 
-            if (!valid) return;
-
-            const btn = document.getElementById('signinSubmitBtn');
-            if (btn) {
-                btn.classList.add('loading');
-                btn.disabled = true;
-            }
-
-            try {
-                if (getAuthMode() === authMode.supabase) {
-                    const { data, error } = await signInWithSupabase(email, password);
-                    if (error) throw error;
-                    
-                    if (data?.user) {
-    loadDashboard(data.user);
-    // Log the login for owner monitoring.
-    window.POS_APP_LOG?.('login', 'auth', `${data.user.user_metadata?.full_name || data.user.email} signed in`, 'info');
-    // Close dropdown if open
-    if (userDropdownMenu) userDropdownMenu.classList.remove('show');
-}
-return;
-                }
-
-                // Local mode
-                await new Promise(r => setTimeout(r, 800));
-                const user = findUserByEmail(email);
-                if (user && user.password === password) {
-    showToast(`Welcome back, ${user.name}!`, 'success');
-    loadDashboard({
-        email: user.email,
-        role: user.role,
-        user_metadata: { full_name: user.name, role: user.role }
-    });
-    window.POS_APP_LOG?.('login', 'auth', `${user.name} signed in`, 'info');
-} else if (user) {
-    showToast('Incorrect password.', 'error');
-} else {
-    showToast('No account found with this email.', 'error');
-}
-            } catch (error) {
-                const message = error?.message || 'Unable to sign in.';
-                showToast(message, 'error');
-            } finally {
-                if (btn) {
-                    btn.classList.remove('loading');
-                    btn.disabled = false;
-                }
-            }
-        });
-    }
-
-// ---------- SIGN UP ----------
-if (signupForm) {
-    signupForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        clearErrors();
-        const name = document.getElementById('signupFullName')?.value.trim() || '';
-        const email = document.getElementById('signupEmail')?.value.trim() || '';
-        const role = document.getElementById('signupRole')?.value || 'cashier';
-        const password = document.getElementById('signupPassword')?.value || '';
-        const confirm = document.getElementById('signupConfirmPassword')?.value || '';
-        const agree = document.getElementById('agreeTerms')?.checked || false;
-        let valid = true;
-
-        if (role === 'admin' && getAdminAccountCount() >= MAX_ADMIN_ACCOUNTS) {
-            if (signupRoleInfo) signupRoleInfo.textContent = 'Two Admin accounts are already registered. You can create a Cashier.';
-            updateSignupRoleAvailability();
-            return;
-        }
-
-        if (!name) { setError('signupFullNameError', 'Your name is required'); valid = false; }
-        else if (name.length < 2) { setError('signupFullNameError', 'Minimum 2 characters'); valid = false; }
-        if (!email) { setError('signupEmailError', 'Email is required'); valid = false; }
-        else if (!validateEmail(email)) { setError('signupEmailError', 'Invalid email format'); valid = false; }
-        else if (!isSupabaseReady() && findUserByEmail(email)) {
-            setError('signupEmailError', 'Email already registered'); valid = false;
-        }
-        if (!password) { setError('signupPasswordError', 'Password is required'); valid = false; }
-        else if (password.length < 6) { setError('signupPasswordError', 'Minimum 6 characters'); valid = false; }
-        if (password !== confirm) { setError('signupConfirmPasswordError', 'Passwords do not match'); valid = false; }
-        if (!agree) { setError('termsError', 'You must agree to terms'); valid = false; }
-
-        if (!valid) return;
-
-        const btn = document.getElementById('signupSubmitBtn');
-        if (btn) {
-            btn.classList.add('loading');
-            btn.disabled = true;
-        }
-
-        try {
-            if (getAuthMode() === authMode.supabase) {
-    const { data, error } = await signUpWithSupabase({ fullName: name, email, password, role });
-    if (error) throw error;
-    
-    selectedRole = role;
-    
-    if (role === 'admin') {
-        localStorage.setItem(ADMIN_CREATED_KEY, 'true');
-        refreshAdminAvailability(); // fire-and-forget: refresh admin count
-    }
-    
-    // Firebase auto-signs the user in after signup.
-    // Fetch the profile-decorated user object and go straight to the dashboard.
-    const { user, error: userError } = await getCurrentUser();
-    
-    if (user && !userError) {
-        showToast(`Welcome, ${name}!`, 'success');
-        loadDashboard(user);
-    } else {
-        // Fallback: profile fetch failed — force manual sign-in
-        const signinEmail = document.getElementById('signinEmail');
-        const signinPassword = document.getElementById('signinPassword');
-        if (signinEmail) signinEmail.value = email;
-        if (signinPassword) signinPassword.value = '';
-        showView(signinView);
-        updateSignupRoleAvailability();
-        showToast(`Account created for ${name} (${role})! Please sign in.`, 'success');
-    }
-    return; // exit before local mode runs
-}
-
-            // Local mode
-            await new Promise(r => setTimeout(r, 800));
-            addUser({ name, email, password, role });
-            updateSystemStatus();
-            showToast(`Account created for ${name} (${role})!`, 'success');
-            const signinEmail = document.getElementById('signinEmail');
-            const signinPassword = document.getElementById('signinPassword');
-            if (signinEmail) signinEmail.value = email;
-            if (signinPassword) signinPassword.value = '';
-            showView(signinView);
-            selectedRole = role;
-        } catch (error) {
-            const message = error?.message || 'Unable to create account.';
-            showToast(message, 'error');
-        } finally {
-            if (btn) {
-                btn.classList.remove('loading');
-                btn.disabled = false;
-            }
-        }
-    });
-}
-
-    // ---------- FORGOT PASSWORD ----------
-    if (forgotForm) {
-        forgotForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearErrors();
-            const email = document.getElementById('forgotEmail')?.value.trim() || '';
-            let valid = true;
-
-            if (!email) { setError('forgotEmailError', 'Email is required'); valid = false; }
-            else if (!validateEmail(email)) { setError('forgotEmailError', 'Invalid email format'); valid = false; }
-
-            if (!valid) return;
-
-            const btn = document.getElementById('forgotSubmitBtn');
-            if (btn) {
-                btn.classList.add('loading');
-                btn.disabled = true;
-            }
-
-            try {
-                if (getAuthMode() === authMode.supabase) {
-                    const { error } = await resetPasswordWithSupabase(email);
-                    if (error) throw error;
-
-                    const infoBox = document.getElementById('forgotInfoBox');
-                    const infoText = document.getElementById('forgotInfoText');
-                    if (infoBox) {
-                        infoBox.style.display = 'flex';
-                        infoBox.className = 'alert-box success';
-                    }
-                    if (infoText) {
-                        infoText.textContent = `Reset link sent to ${email}. Check your inbox.`;
-                    }
-                    showToast('Password reset link sent!', 'success');
-                    return;
-                }
-
-                // Local mode
-                await new Promise(r => setTimeout(r, 800));
-                const user = findUserByEmail(email);
-                const infoBox = document.getElementById('forgotInfoBox');
-                const infoText = document.getElementById('forgotInfoText');
-
-                if (infoBox) {
-                    infoBox.style.display = 'flex';
-                    infoBox.className = user ? 'alert-box success' : 'alert-box error';
-                }
-                if (infoText) {
-                    infoText.textContent = user 
-                        ? `Reset link sent to ${user.email}. Check your inbox.`
-                        : `No account found with ${email}.`;
-                }
-                showToast(user ? 'Password reset link sent!' : 'No account found with this email', 
-                         user ? 'success' : 'error');
-            } catch (error) {
-                const infoBox = document.getElementById('forgotInfoBox');
-                const infoText = document.getElementById('forgotInfoText');
-                if (infoBox) {
-                    infoBox.style.display = 'flex';
-                    infoBox.className = 'alert-box error';
-                }
-                if (infoText) {
-                    infoText.textContent = error?.message || 'Unable to reset password.';
-                }
-                showToast(error?.message || 'Unable to reset password.', 'error');
-            } finally {
-                if (btn) {
-                    btn.classList.remove('loading');
-                    btn.disabled = false;
-                }
-            }
-        });
-    }
-
-    // ---------- LOGOUT ----------
-    // ---------- LOGOUT ----------
-async function logout() {
-        try {
-            // Log BEFORE we clear the session so we still know who it was.
-            const name = currentUser?.user_metadata?.full_name || currentUser?.email || 'Unknown user';
-            window.POS_APP_LOG?.('logout', 'auth', `${name} signed out`, 'info');
-            
-            if (window._posUnsubscribers) {
-                window._posUnsubscribers.forEach(fn => { try { fn(); } catch (e) {} });
-                window._posUnsubscribers = null;
-            }
-            if (getAuthMode() === authMode.supabase) {
-                const { error } = await signOutWithSupabase();
-                if (error) throw error;
-            }
-            showLoginView();
-        showToast('Logged out successfully', 'success');
-        if (userDropdownMenu) userDropdownMenu.classList.remove('show');
-    } catch (error) {
-        showToast(error?.message || 'Error logging out', 'error');
-    }
-}
-
-    if (logoutBtn) logoutBtn.addEventListener('click', logout);
-    if (sidebarLogoutBtn) sidebarLogoutBtn.addEventListener('click', logout);
+    // ---------- LOGOUT (handled in auth.js) ----------
 
     // ---------- USER DROPDOWN TOGGLE ----------
     if (userDropdownBtn) {
@@ -2244,6 +1795,9 @@ async function logout() {
         if (page === 'pos') {
             window.reloadPosCatalog?.();
         }
+        if (page === 'users') {
+            window.AUTH?.renderUsers?.().catch(() => {});
+        }
         
         // Close mobile sidebar
         if (sidebar) sidebar.classList.remove('open');
@@ -2269,6 +1823,9 @@ async function logout() {
     }
     if (page === 'pos') {
         window.reloadPosCatalog?.(); // ← ADD
+    }
+    if (page === 'users') {
+        window.AUTH?.renderUsers?.().catch(() => {});
     }
 };
 
@@ -2307,25 +1864,7 @@ async function logout() {
     });
 });
 
-    // ---------- ROLE CHANGE ----------
-    if (signupRoleSelect) {
-        signupRoleSelect.addEventListener('change', function() {
-            if (roleAvailabilityAlert) {
-                roleAvailabilityAlert.style.display = 'flex';
-                if (this.value === 'admin') {
-                    roleAvailabilityAlert.className = 'alert-box info';
-                    if (roleAvailabilityText) {
-                        roleAvailabilityText.textContent = 'Admin accounts have full access to all system features.';
-                    }
-                } else {
-                    roleAvailabilityAlert.className = 'alert-box info';
-                    if (roleAvailabilityText) {
-                        roleAvailabilityText.textContent = 'Cashier accounts have limited access to sales features.';
-                    }
-                }
-            }
-        });
-    }
+    // ---------- ROLE CHANGE (removed with signup form) ----------
 
     /* Legacy inventory implementation removed; inventory.js owns this feature. */
     /*
@@ -2836,46 +2375,7 @@ async function logout() {
 
     */
 
-    // ---------- CHECK AUTH STATUS ON LOAD ----------
-async function checkAuth() {
-    // Step 1: try Firebase (works offline via browserLocalPersistence)
-    if (getAuthMode() === authMode.supabase) {
-        try {
-            const { user } = await getCurrentUser();
-            if (user) {
-                loadDashboard(user);
-                return;
-            }
-        } catch (err) {
-            console.warn('checkAuth: getCurrentUser failed, falling back to cache', err);
-        }
-    }
-
-    // Step 2: fall back to cached session
-    const cached = localStorage.getItem('pos_current_user');
-    if (cached) {
-        try {
-            const user = JSON.parse(cached);
-            if (getAuthMode() !== authMode.supabase && user?.email) {
-                const stored = findUserByEmail(user.email);
-                if (stored) {
-                    user.role = stored.role;
-                    user.user_metadata = {
-                        ...(user.user_metadata || {}),
-                        role: stored.role
-                    };
-                }
-            }
-            loadDashboard(user);
-            return;
-        } catch (e) {
-            localStorage.removeItem('pos_current_user');
-        }
-    }
-
-    // Step 3: no session — show login
-    showLoginView();
-}
+    // ---------- CHECK AUTH STATUS (moved to auth.js) ----------
 
     // ---------- WINDOW RESIZE HANDLER ----------
     let resizeTimeout;
@@ -2903,13 +2403,11 @@ async function checkAuth() {
 window.setupAuditFeatures?.();
 setupSalesPeriodControls();
 setupTopProductsPeriodControls();
-    
-    // Check authentication status
-    checkAuth();
 
-        // Restore the admin account count from Supabase after refresh.
-        refreshAdminAvailability();
-        
+    // Auth boot (signin/forgot/logout + checkAuth) lives in auth.js
+    window.AUTH?.initAuth?.();
+    window.AUTH?.setupUserManagement?.();
+
         // Update system status
         updateSystemStatus();
 
@@ -3187,6 +2685,14 @@ setupTopProductsPeriodControls();
         refresh();
     })();
 
+
+    // Expose for auth.js (assigned after the override wrappers, so the
+    // session-save/clear behaviour is preserved).
+    window.loadDashboard = loadDashboard;
+    window.showLoginView = showLoginView;
+    window.showView = showView;
+    window.updateSystemStatus = updateSystemStatus;
+    window.escapeCustomerText = escapeCustomerText;
 
     init();
     })();
