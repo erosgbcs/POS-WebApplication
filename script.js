@@ -1672,7 +1672,13 @@ function refreshOverview() {
     renderLowStockWidget();
     renderHourlyHeatmap();
     renderRecentActivity();
-    refreshAiCards();
+    // Only hit the AI proxy when the Overview page is actually visible.
+    // Background refreshes (sales, inventory snapshots) skip the network
+    // entirely; the next visit to Overview triggers a fresh load via
+    // navigateToPage('overview').
+    if (document.getElementById('page-overview')?.classList.contains('active')) {
+        refreshAiCards();
+    }
 }
 
 // ---------- AI FEATURES ----------
@@ -1960,11 +1966,14 @@ function setupAiFeatures() {
         }
     });
 
-    // ---- Forecast + Restock refresh buttons (unchanged) ----
+    // ---- Forecast + Restock refresh buttons ----
+    // Each button now invalidates only its own cache key, so refreshing
+    // the forecast doesn't force the restock list to re-fetch on the
+    // next render — and vice versa.
     document.getElementById('aiForecastRefresh')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
-        window.POS_AI.clearCache();
+        window.POS_AI.clearCache('forecast_14d');
         await refreshAiCards();
         btn.disabled = false;
     });
@@ -1972,7 +1981,7 @@ function setupAiFeatures() {
     document.getElementById('aiRestockRefresh')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
-        window.POS_AI.clearCache();
+        window.POS_AI.clearCache('restock_priority');
         await refreshAiCards();
         btn.disabled = false;
     });
@@ -2242,6 +2251,9 @@ applyRoleAccess(user);
         }
         if (page === 'pos') {
             window.reloadPosCatalog?.();
+        }
+        if (page === 'overview') {
+            refreshAiCards();
         }
         if (page === 'users') {
             window.AUTH?.renderUsers?.().catch(() => {});
@@ -2984,7 +2996,9 @@ function scheduleAiRefresh() {
 
 // Refresh overview when data changes
 window.addEventListener('pos-order-created', () => {
-    window.POS_AI?.clearCache?.();   // invalidate AI cache on new sale
+    // AI cache is no longer busted on every sale. A single sale barely
+    // moves a 90-day forecast; the 6h TTL is fine, and the ↻ button
+    // exists for users who want a forced refresh.
     scheduleOverviewRefresh();
     scheduleAiRefresh();
 });

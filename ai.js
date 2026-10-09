@@ -23,11 +23,16 @@
         } catch (e) {}
     }
 
-    function clearCache() {
+    function clearCache(key) {
         try {
-            Object.keys(localStorage)
-                .filter(k => k.startsWith(CACHE_PREFIX))
-                .forEach(k => localStorage.removeItem(k));
+            if (!key) {
+                // No argument — wipe everything (kept for backwards compat)
+                Object.keys(localStorage)
+                    .filter(k => k.startsWith(CACHE_PREFIX))
+                    .forEach(k => localStorage.removeItem(k));
+                return;
+            }
+            localStorage.removeItem(CACHE_PREFIX + key);
         } catch (e) {}
     }
 
@@ -57,6 +62,8 @@
         return { raw: json.text, parsed };
     }
 
+    let __forecastInflight = null;
+
     async function forecastSales({ forceRefresh = false } = {}) {
         const cacheKey = 'forecast_14d';
         if (!forceRefresh) {
@@ -64,38 +71,51 @@
             if (cached) return cached;
         }
 
-        const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-        const byDay = {};
-        const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+        // Share one network request across concurrent callers.
+        // Bursts from Firestore snapshots otherwise fire N parallel calls;
+        // this collapses them to 1 and returns the same promise to all.
+        if (__forecastInflight) return __forecastInflight;
 
-        orders.forEach(o => {
-            const ts = new Date(o.createdAt).getTime();
-            if (isNaN(ts) || ts < cutoff) return;
-            const key = new Date(ts).toISOString().split('T')[0];
-            byDay[key] = (byDay[key] || 0) + (Number(o.total) || 0);
-        });
+        __forecastInflight = (async () => {
+            try {
+                const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+                const byDay = {};
+                const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
 
-        const daily = Object.entries(byDay)
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([date, revenue]) => ({ date, revenue: Math.round(revenue * 100) / 100 }));
+                orders.forEach(o => {
+                    const ts = new Date(o.createdAt).getTime();
+                    if (isNaN(ts) || ts < cutoff) return;
+                    const key = new Date(ts).toISOString().split('T')[0];
+                    byDay[key] = (byDay[key] || 0) + (Number(o.total) || 0);
+                });
 
-        if (daily.length < 7) {
-            return {
-                forecast: [],
-                summary: 'Not enough sales history yet — need at least 7 days of data.',
-                trend: 'stable'
-            };
-        }
+                const daily = Object.entries(byDay)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([date, revenue]) => ({ date, revenue: Math.round(revenue * 100) / 100 }));
 
-        const prompt = buildForecastPrompt(daily);
-        const { parsed } = await callProxy(prompt, 'forecast');
+                if (daily.length < 7) {
+                    return {
+                        forecast: [],
+                        summary: 'Not enough sales history yet — need at least 7 days of data.',
+                        trend: 'stable'
+                    };
+                }
 
-        const result = parsed && Array.isArray(parsed.forecast) && parsed.forecast.length > 0
-            ? parsed
-            : { forecast: [], summary: 'AI returned an unexpected response.', trend: 'stable' };
+                const prompt = buildForecastPrompt(daily);
+                const { parsed } = await callProxy(prompt, 'forecast');
 
-        writeCache(cacheKey, result);
-        return result;
+                const result = parsed && Array.isArray(parsed.forecast) && parsed.forecast.length > 0
+                    ? parsed
+                    : { forecast: [], summary: 'AI returned an unexpected response.', trend: 'stable' };
+
+                writeCache(cacheKey, result);
+                return result;
+            } finally {
+                __forecastInflight = null;
+            }
+        })();
+
+        return __forecastInflight;
     }
 
     function buildForecastPrompt(daily) {
@@ -136,6 +156,8 @@ Return ONLY valid JSON in this exact shape (no markdown, no extra text):
 The forecast array must contain exactly 14 entries, starting tomorrow.`;
     }
 
+    let __restockInflight = null;
+
     async function restockPriority({ forceRefresh = false } = {}) {
         const cacheKey = 'restock_priority';
         if (!forceRefresh) {
@@ -143,47 +165,58 @@ The forecast array must contain exactly 14 entries, starting tomorrow.`;
             if (cached) return cached;
         }
 
-        const products = window.getInventorySnapshot?.() || [];
-        const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        // Same in-flight sharing as forecastSales.
+        if (__restockInflight) return __restockInflight;
 
-        const sold30d = {};
-        orders.forEach(o => {
-            const ts = new Date(o.createdAt).getTime();
-            if (isNaN(ts) || ts < cutoff) return;
-            (o.items || []).forEach(item => {
-                const name = String(item.name || '').toLowerCase();
-                if (!name) return;
-                sold30d[name] = (sold30d[name] || 0) + (Number(item.quantity) || 0);
-            });
-        });
+        __restockInflight = (async () => {
+            try {
+                const products = window.getInventorySnapshot?.() || [];
+                const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+                const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
-        const candidates = products
-            .map(p => ({
-                name: p.name,
-                stock: Number(p.quantity) || 0,
-                minStock: Number(p.minStock ?? p.min_stock ?? 0) || 0,
-                sold30d: sold30d[String(p.name).toLowerCase()] || 0
-            }))
-            .filter(p => p.sold30d > 0 || p.stock <= p.minStock * 2)
-            .sort((a, b) => b.sold30d - a.sold30d)
-            .slice(0, 25);
+                const sold30d = {};
+                orders.forEach(o => {
+                    const ts = new Date(o.createdAt).getTime();
+                    if (isNaN(ts) || ts < cutoff) return;
+                    (o.items || []).forEach(item => {
+                        const name = String(item.name || '').toLowerCase();
+                        if (!name) return;
+                        sold30d[name] = (sold30d[name] || 0) + (Number(item.quantity) || 0);
+                    });
+                });
 
-        if (candidates.length === 0) {
-            const empty = { items: [] };
-            writeCache(cacheKey, empty);
-            return empty;
-        }
+                const candidates = products
+                    .map(p => ({
+                        name: p.name,
+                        stock: Number(p.quantity) || 0,
+                        minStock: Number(p.minStock ?? p.min_stock ?? 0) || 0,
+                        sold30d: sold30d[String(p.name).toLowerCase()] || 0
+                    }))
+                    .filter(p => p.sold30d > 0 || p.stock <= p.minStock * 2)
+                    .sort((a, b) => b.sold30d - a.sold30d)
+                    .slice(0, 25);
 
-        const prompt = buildRestockPrompt(candidates);
-        const { parsed } = await callProxy(prompt, 'restock');
+                if (candidates.length === 0) {
+                    const empty = { items: [] };
+                    writeCache(cacheKey, empty);
+                    return empty;
+                }
 
-        const result = parsed && Array.isArray(parsed.items)
-            ? parsed
-            : { items: [] };
+                const prompt = buildRestockPrompt(candidates);
+                const { parsed } = await callProxy(prompt, 'restock');
 
-        writeCache(cacheKey, result);
-        return result;
+                const result = parsed && Array.isArray(parsed.items)
+                    ? parsed
+                    : { items: [] };
+
+                writeCache(cacheKey, result);
+                return result;
+            } finally {
+                __restockInflight = null;
+            }
+        })();
+
+        return __restockInflight;
     }
 
     function buildRestockPrompt(candidates) {
