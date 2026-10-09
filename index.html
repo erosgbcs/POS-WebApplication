@@ -368,15 +368,8 @@
     </div>
 </div>
 
-<!-- AI Query Bar -->
-<div class="ai-query-bar">
-    <i class="fas fa-wand-magic-sparkles ai-query-icon"></i>
-    <input type="text" id="aiQueryInput" placeholder="Ask about your store… e.g. 'How much did we make on hammers this week?'" autocomplete="off">
-    <button type="button" id="aiQueryBtn" class="ai-query-btn">
-        <i class="fas fa-paper-plane"></i> Ask
-    </button>
-</div>
-<div class="ai-query-answer" id="aiQueryAnswer" style="display: none;"></div>
+
+
 
 <!-- Sales Chart — Configurable Period (FULL WIDTH) -->
 <div class="recent-activity" style="margin-bottom: 2rem;">
@@ -1496,5 +1489,41 @@
         });
     }
 </script>
+
+<!-- AI Assistant — floating button + slide-out panel -->
+<button class="ai-fab" id="aiFab" type="button" aria-label="Open AI assistant" aria-expanded="false">
+    <i class="fas fa-wand-magic-sparkles"></i>
+    <span class="ai-fab-badge" id="aiFabBadge" hidden></span>
+</button>
+
+<aside class="ai-panel" id="aiPanel" role="dialog" aria-label="AI assistant" aria-hidden="true">
+    <div class="ai-panel-header">
+        <div class="ai-panel-title">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <span>Ask AI</span>
+        </div>
+        <div class="ai-panel-actions">
+            <button type="button" class="ai-panel-icon-btn" id="aiClearThread" title="Clear conversation">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+            <button type="button" class="ai-panel-icon-btn" id="aiPanelClose" title="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="ai-thread" id="aiThread">
+        <div class="ai-bubble ai">
+            Hi! Ask me about your store — sales, stock, top products, or what to restock.
+        </div>
+    </div>
+
+    <form class="ai-panel-input" id="aiPanelForm" autocomplete="off">
+        <input type="text" id="aiPanelInput" placeholder="Type a message…" aria-label="Ask AI">
+        <button type="submit" id="aiPanelSend" aria-label="Send">
+            <i class="fas fa-paper-plane"></i>
+        </button>
+    </form>
+</aside>
 </body>
 </html>

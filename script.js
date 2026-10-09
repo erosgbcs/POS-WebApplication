@@ -1769,58 +1769,175 @@ function renderAiRestock(container, subtitleEl, data) {
     }).join('');
 }
 
+// ---------- AI ASSISTANT — FAB + SLIDE-OUT PANEL ----------
+const AI_THREAD_KEY = 'pos_ai_thread';
+const AI_THREAD_MAX = 20;
+
+function loadAiThread() {
+    try {
+        const raw = localStorage.getItem(AI_THREAD_KEY);
+        const arr = JSON.parse(raw || '[]');
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+}
+
+function saveAiThread(thread) {
+    try {
+        localStorage.setItem(AI_THREAD_KEY, JSON.stringify(thread.slice(-AI_THREAD_MAX)));
+    } catch (e) {}
+}
+
+function escapeAiText(value) {
+    return String(value || '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+function renderAiThread() {
+    const threadEl = document.getElementById('aiThread');
+    if (!threadEl) return;
+
+    const history = loadAiThread();
+    const html = [];
+
+    if (history.length === 0) {
+        html.push(`
+            <div class="ai-bubble ai">
+                Hi! Ask me about your store — sales, stock, top products, or what to restock.
+            </div>`);
+    } else {
+        history.forEach(msg => {
+            const cls = msg.role === 'user' ? 'user' : 'ai';
+            html.push(`<div class="ai-bubble ${cls}">${escapeAiText(msg.text)}</div>`);
+        });
+    }
+
+    threadEl.innerHTML = html.join('');
+    threadEl.scrollTop = threadEl.scrollHeight;
+}
+
+function appendAiBubble(role, text, extraClass = '') {
+    const threadEl = document.getElementById('aiThread');
+    if (!threadEl) return;
+    const div = document.createElement('div');
+    div.className = `ai-bubble ${role}${extraClass ? ' ' + extraClass : ''}`;
+    div.innerHTML = escapeAiText(text);
+    threadEl.appendChild(div);
+    threadEl.scrollTop = threadEl.scrollHeight;
+    return div;
+}
+
+function openAiPanel() {
+    const panel = document.getElementById('aiPanel');
+    const fab = document.getElementById('aiFab');
+    if (!panel || !fab) return;
+
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    fab.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('ai-panel-open');
+
+    setTimeout(() => document.getElementById('aiPanelInput')?.focus(), 250);
+}
+
+function closeAiPanel() {
+    const panel = document.getElementById('aiPanel');
+    const fab = document.getElementById('aiFab');
+    if (!panel || !fab) return;
+
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    fab.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('ai-panel-open');
+}
+
+function clearAiThread() {
+    if (!window.confirm('Clear the conversation?')) return;
+    try { localStorage.removeItem(AI_THREAD_KEY); } catch (e) {}
+    renderAiThread();
+}
+
 function setupAiFeatures() {
     if (!window.POS_AI) {
         console.warn('[AI] POS_AI not loaded — check that ai.js is included before script.js');
         return;
     }
 
-    const queryInput = document.getElementById('aiQueryInput');
-    const queryBtn = document.getElementById('aiQueryBtn');
-    const queryAnswer = document.getElementById('aiQueryAnswer');
+    // ---- Open / close panel ----
+    document.getElementById('aiFab')?.addEventListener('click', openAiPanel);
+    document.getElementById('aiPanelClose')?.addEventListener('click', closeAiPanel);
+    document.getElementById('aiClearThread')?.addEventListener('click', clearAiThread);
 
-    if (queryBtn && queryInput) {
-        const ask = async () => {
-            const q = queryInput.value.trim();
-            if (!q) return;
+    // ---- Esc closes panel ----
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('aiPanel')?.classList.contains('open')) {
+            closeAiPanel();
+        }
+    });
 
-            const originalHtml = queryBtn.innerHTML;
-            queryBtn.disabled = true;
-            queryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking…';
-            if (queryAnswer) {
-                queryAnswer.style.display = 'block';
-                queryAnswer.textContent = 'Analyzing your store data…';
-            }
+    // ---- Restore thread from localStorage ----
+    renderAiThread();
 
-            try {
-                const { answer } = await window.POS_AI.askQuestion(q);
-                if (queryAnswer) queryAnswer.textContent = answer;
-            } catch (err) {
-                if (queryAnswer) queryAnswer.textContent = '⚠️ ' + (err.message || 'AI request failed.');
-            } finally {
-                queryBtn.disabled = false;
-                queryBtn.innerHTML = originalHtml;
-            }
-        };
+    // ---- Form submission ----
+    const form = document.getElementById('aiPanelForm');
+    const input = document.getElementById('aiPanelInput');
+    const sendBtn = document.getElementById('aiPanelSend');
 
-        queryBtn.addEventListener('click', ask);
-        queryInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); ask(); }
-        });
-    }
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const question = (input?.value || '').trim();
+        if (!question) return;
 
+        // Append user message
+        appendAiBubble('user', question);
+        input.value = '';
+        input.disabled = true;
+        if (sendBtn) sendBtn.disabled = true;
+
+        // Append loading placeholder
+        const loadingEl = appendAiBubble('ai', 'Thinking…', 'loading');
+        loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking…';
+
+        try {
+            const { answer } = await window.POS_AI.askQuestion(question);
+            loadingEl.remove();
+            appendAiBubble('ai', answer || 'AI returned an empty response.');
+
+            // Persist to storage
+            const history = loadAiThread();
+            history.push({ role: 'user', text: question, ts: Date.now() });
+            history.push({ role: 'ai', text: answer || '', ts: Date.now() });
+            saveAiThread(history);
+        } catch (err) {
+            loadingEl.remove();
+            appendAiBubble('ai', err.message || 'AI request failed.', 'error');
+
+            const history = loadAiThread();
+            history.push({ role: 'user', text: question, ts: Date.now() });
+            history.push({ role: 'ai', text: '⚠️ ' + (err.message || 'AI request failed.'), ts: Date.now() });
+            saveAiThread(history);
+        } finally {
+            input.disabled = false;
+            if (sendBtn) sendBtn.disabled = false;
+            input.focus();
+        }
+    });
+
+    // ---- Forecast + Restock refresh buttons (unchanged) ----
     document.getElementById('aiForecastRefresh')?.addEventListener('click', async (e) => {
-        e.currentTarget.disabled = true;
+        const btn = e.currentTarget;
+        btn.disabled = true;
         window.POS_AI.clearCache();
         await refreshAiCards();
-        e.currentTarget.disabled = false;
+        btn.disabled = false;
     });
 
     document.getElementById('aiRestockRefresh')?.addEventListener('click', async (e) => {
-        e.currentTarget.disabled = true;
+        const btn = e.currentTarget;
+        btn.disabled = true;
         window.POS_AI.clearCache();
         await refreshAiCards();
-        e.currentTarget.disabled = false;
+        btn.disabled = false;
     });
 }
 
