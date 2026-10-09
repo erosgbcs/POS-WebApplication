@@ -80,7 +80,10 @@
             try {
                 const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
                 const byDay = {};
-                const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+                // 90 → 45 days. Halves the daily-array prompt. The model
+                // doesn't need 13 weeks of granularity to see the pattern;
+                // 6 weeks is plenty for weekday + trend inference.
+                const cutoff = Date.now() - 45 * 24 * 60 * 60 * 1000;
 
                 orders.forEach(o => {
                     const ts = new Date(o.createdAt).getTime();
@@ -134,10 +137,16 @@
             ])
         );
 
+        // Send compact "M/D:revenue" strings instead of full ISO dates.
+        // Shaves ~40% off the daily block, which was the biggest prompt cost.
+        const compactDaily = daily
+            .map(d => `${d.date.slice(5)}:${Math.round(d.revenue)}`)
+            .join(' ');
+
         return `You are analyzing sales data for a small hardware store POS.
 
-Historical daily revenue (last ${daily.length} days, oldest first):
-${JSON.stringify(daily)}
+Historical daily revenue (last ${daily.length} days, oldest first, format M-D:revenue):
+${compactDaily}
 
 Total: PHP ${total.toFixed(2)} across ${daily.length} days
 Average: PHP ${avg.toFixed(2)}/day
@@ -258,15 +267,22 @@ Sort by urgency (critical first), then by daysLeft ascending. Return at most 6 i
     const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
     const products = window.getInventorySnapshot?.() || [];
 
-    const recent = orders.slice(0, 50).map(o => ({
+    // Trimmed payload: Groq free tier caps at 8,000 tokens per minute.
+    // The old version (50 orders × full item lines + 100 products) was
+    // ~6,700 tokens — one message consumed 84% of the minute's budget.
+    // This version is ~1,200 tokens: 15 orders with condensed items,
+    // 40 products.
+    const recent = orders.slice(0, 15).map(o => ({
         id: o.id,
         date: o.createdAt,
         customer: o.customerName || 'Walk-in',
         total: o.total,
-        items: (o.items || []).map(i => ({ name: i.name, qty: i.quantity, price: i.price }))
+        itemCount: (o.items || []).length,
+        itemSummary: (o.items || []).slice(0, 3)
+            .map(i => `${i.name} x${i.quantity}`).join(', ')
     }));
 
-    const catalog = products.slice(0, 100).map(p => ({
+    const catalog = products.slice(0, 40).map(p => ({
         name: p.name,
         category: p.category,
         stock: p.quantity,
