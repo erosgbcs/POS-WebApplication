@@ -1,4 +1,4 @@
-/* ai.js — Client wrapper for the Gemini Cloud Function proxy */
+/* ai.js — Client wrapper for the AI proxy (Gemini primary, Groq fallback) */
 (function () {
     'use strict';
 
@@ -26,7 +26,6 @@
     function clearCache(key) {
         try {
             if (!key) {
-                // No argument — wipe everything (kept for backwards compat)
                 Object.keys(localStorage)
                     .filter(k => k.startsWith(CACHE_PREFIX))
                     .forEach(k => localStorage.removeItem(k));
@@ -62,6 +61,9 @@
         return { raw: json.text, parsed };
     }
 
+    // =================================================================
+    // FORECAST
+    // =================================================================
     let __forecastInflight = null;
 
     async function forecastSales({ forceRefresh = false } = {}) {
@@ -71,18 +73,17 @@
             if (cached) return cached;
         }
 
-        // Share one network request across concurrent callers.
-        // Bursts from Firestore snapshots otherwise fire N parallel calls;
-        // this collapses them to 1 and returns the same promise to all.
+        // Share one network request across concurrent callers. Bursts
+        // from Firestore snapshots otherwise fire N parallel calls; this
+        // collapses them to 1 and returns the same promise to all.
         if (__forecastInflight) return __forecastInflight;
 
         __forecastInflight = (async () => {
             try {
                 const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
                 const byDay = {};
-                // 90 → 45 days. Halves the daily-array prompt. The model
-                // doesn't need 13 weeks of granularity to see the pattern;
-                // 6 weeks is plenty for weekday + trend inference.
+                // 45 days is plenty for weekday + trend inference and
+                // halves the daily-array prompt vs. the old 90-day window.
                 const cutoff = Date.now() - 45 * 24 * 60 * 60 * 1000;
 
                 orders.forEach(o => {
@@ -137,8 +138,8 @@
             ])
         );
 
-        // Send compact "M/D:revenue" strings instead of full ISO dates.
-        // Shaves ~40% off the daily block, which was the biggest prompt cost.
+        // Compact "MM-DD:revenue" strings instead of full ISO dates.
+        // ~40% smaller daily block than the JSON equivalent.
         const compactDaily = daily
             .map(d => `${d.date.slice(5)}:${Math.round(d.revenue)}`)
             .join(' ');
@@ -165,6 +166,9 @@ Return ONLY valid JSON in this exact shape (no markdown, no extra text):
 The forecast array must contain exactly 14 entries, starting tomorrow.`;
     }
 
+    // =================================================================
+    // RESTOCK
+    // =================================================================
     let __restockInflight = null;
 
     async function restockPriority({ forceRefresh = false } = {}) {
@@ -174,7 +178,6 @@ The forecast array must contain exactly 14 entries, starting tomorrow.`;
             if (cached) return cached;
         }
 
-        // Same in-flight sharing as forecastSales.
         if (__restockInflight) return __restockInflight;
 
         __restockInflight = (async () => {
@@ -203,7 +206,7 @@ The forecast array must contain exactly 14 entries, starting tomorrow.`;
                     }))
                     .filter(p => p.sold30d > 0 || p.stock <= p.minStock * 2)
                     .sort((a, b) => b.sold30d - a.sold30d)
-                    .slice(0, 25);
+                    .slice(0, 20);
 
                 if (candidates.length === 0) {
                     const empty = { items: [] };
@@ -229,10 +232,17 @@ The forecast array must contain exactly 14 entries, starting tomorrow.`;
     }
 
     function buildRestockPrompt(candidates) {
+        // CSV-style rows: name|stock|minStock|sold30d
+        // ~40% smaller than the JSON equivalent.
+        const rows = candidates.map(c => {
+            const name = String(c.name || '').replace(/\|/g, '/');
+            return `${name}|${c.stock}|${c.minStock}|${c.sold30d}`;
+        }).join('\n');
+
         return `Rank these hardware store products by restock urgency.
 
-Products:
-${JSON.stringify(candidates)}
+Products (format: name|stock|minStock|sold30d):
+${rows}
 
 Rules:
 - dailyRate = sold30d / 30
@@ -260,64 +270,71 @@ Return ONLY valid JSON (no markdown):
 Sort by urgency (critical first), then by daysLeft ascending. Return at most 6 items.`;
     }
 
-  async function askQuestion(question, history = []) {
-    const trimmed = String(question || '').trim();
-    if (!trimmed) return { answer: 'Please type a question.' };
+    // =================================================================
+    // CHAT — askQuestion
+    // =================================================================
+    async function askQuestion(question, history = []) {
+        const trimmed = String(question || '').trim();
+        if (!trimmed) return { answer: 'Please type a question.' };
 
-    const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-    const products = window.getInventorySnapshot?.() || [];
+        // Cache identical non-follow-up questions so asking the same thing
+        // twice doesn't cost two Groq calls. Follow-ups ("and last week?",
+        // "why?") skip the cache since their answer depends on context.
+        const isFollowUp = trimmed.length < 20 && /^(and|why|how|what|who|when|then)\b/i.test(trimmed);
+        const cacheKey = `qa_${trimmed.toLowerCase()}`;
+        if (!isFollowUp) {
+            const cached = readCache(cacheKey);
+            if (cached) return cached;
+        }
 
-    // Trimmed payload: Groq free tier caps at 8,000 tokens per minute.
-    // The old version (50 orders × full item lines + 100 products) was
-    // ~6,700 tokens — one message consumed 84% of the minute's budget.
-    // This version is ~1,200 tokens: 15 orders with condensed items,
-    // 40 products.
-    const recent = orders.slice(0, 15).map(o => ({
-        id: o.id,
-        date: o.createdAt,
-        customer: o.customerName || 'Walk-in',
-        total: o.total,
-        itemCount: (o.items || []).length,
-        itemSummary: (o.items || []).slice(0, 3)
-            .map(i => `${i.name} x${i.quantity}`).join(', ')
-    }));
+        const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+        const products = window.getInventorySnapshot?.() || [];
 
-    const catalog = products.slice(0, 40).map(p => ({
-        name: p.name,
-        category: p.category,
-        stock: p.quantity,
-        price: p.price
-    }));
+        // Compact CSV payload. JSON's verbose keys doubled every line;
+        // Groq free tier caps at 8,000 tokens per minute, so we send
+        // pipe-delimited rows instead.
+        //   Order format:   receipt|date|customer|total|itemCount|top items
+        //   Product format: name|category|stock|price
+        const recentLines = orders.slice(0, 10).map(o => {
+            const topItems = (o.items || []).slice(0, 3)
+                .map(i => `${i.name} x${i.quantity}`).join(', ');
+            const date = String(o.createdAt || '').slice(0, 10);
+            const customer = String(o.customerName || 'Walk-in').replace(/\|/g, '/');
+            return `${o.id}|${date}|${customer}|${o.total}|${(o.items || []).length}|${topItems}`;
+        }).join('\n');
 
-    // ---- Conversation memory ----
-    // Keep the last N turns so the model can resolve follow-ups like
-    // "and last week?" or "what about Tuesday?" without the user having
-    // to re-state context. Each entry is { role: 'user' | 'ai', text, ts }.
-    const HISTORY_TURNS = 8;
-    const trimmedHistory = Array.isArray(history)
-        ? history
-            .filter(m => m && typeof m.text === 'string' && m.text.trim())
-            .slice(-HISTORY_TURNS)
-        : [];
+        const catalogLines = products.slice(0, 25).map(p => {
+            const name = String(p.name || '').replace(/\|/g, '/');
+            return `${name}|${p.category}|${p.quantity}|${p.price}`;
+        }).join('\n');
 
-    const historyBlock = trimmedHistory.length
-        ? trimmedHistory
-            .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
-            .join('\n')
-        : '(no previous turns — this is the first question)';
+        // Conversation memory — last 4 turns. Deeper history costs tokens
+        // and rarely improves the answer for this class of question.
+        const HISTORY_TURNS = 4;
+        const trimmedHistory = Array.isArray(history)
+            ? history
+                .filter(m => m && typeof m.text === 'string' && m.text.trim())
+                .slice(-HISTORY_TURNS)
+            : [];
 
-    const prompt = `You are answering questions about a small hardware store POS system.
+        const historyBlock = trimmedHistory.length
+            ? trimmedHistory
+                .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
+                .join('\n')
+            : '(no previous turns — this is the first question)';
+
+        const prompt = `You are answering questions about a small hardware store POS system.
 
 Context:
 - Today's date: ${new Date().toISOString().split('T')[0]}
 - Total orders on record: ${orders.length}
 - Total products in inventory: ${products.length}
 
-Recent orders (last 50, newest first):
-${JSON.stringify(recent)}
+Recent orders (last 10, newest first, format: receipt|date|customer|total|itemCount|top items):
+${recentLines}
 
-Product catalog (first 100):
-${JSON.stringify(catalog)}
+Product catalog (first 25, format: name|category|stock|price):
+${catalogLines}
 
 Previous conversation (oldest → newest):
 ${historyBlock}
@@ -335,12 +352,20 @@ Instructions:
 Return ONLY valid JSON (no markdown):
 { "answer": "<your answer>" }`;
 
-    const { parsed } = await callProxy(prompt, 'query');
-    return parsed && parsed.answer
-        ? parsed
-        : { answer: 'AI returned an unexpected response.' };
-}
+        const { parsed } = await callProxy(prompt, 'query');
+        const result = parsed && parsed.answer
+            ? parsed
+            : { answer: 'AI returned an unexpected response.' };
 
+        if (!isFollowUp && result.answer) {
+            writeCache(cacheKey, result);
+        }
+        return result;
+    }
+
+    // =================================================================
+    // PUBLIC API
+    // =================================================================
     window.POS_AI = {
         forecastSales,
         restockPriority,
