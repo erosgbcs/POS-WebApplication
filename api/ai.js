@@ -1,7 +1,7 @@
 // api/ai.js — Vercel serverless function: AI proxy with Gemini + Groq fallback
 
 // --- Gemini Config ---
-const GEMINI_MODEL = 'gemini-2.5-flash'; 
+const GEMINI_MODEL = 'gemini-3.8-flash'; // kept per instruction
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 // --- Groq Config ---
