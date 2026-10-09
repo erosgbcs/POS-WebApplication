@@ -4,35 +4,286 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seed Data - Kirby's Hardware</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; max-width: 600px; margin: 0 auto; }
-        h1 { color: #4ade80; font-size: 20px; }
-        h2 { color: #e2e8f0; font-size: 15px; margin-top: 24px; margin-bottom: 8px; padding-top: 16px; border-top: 1px solid #334155; }
-        h2:first-of-type { border-top: none; padding-top: 0; margin-top: 16px; }
-        p { color: #94a3b8; font-size: 13px; line-height: 1.5; }
-        button { background: #16a34a; color: white; border: none; padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 600; width: 100%; margin: 8px 0; cursor: pointer; font-family: inherit; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        button.danger { background: #dc2626; }
-        button.danger:hover:not(:disabled) { background: #b91c1c; }
-        button.neutral { background: #334155; }
-        button.neutral:hover:not(:disabled) { background: #475569; }
-        button.warning { background: #ea580c; }
-        button.warning:hover:not(:disabled) { background: #c2410c; }
-        #log { background: #1e293b; border-radius: 10px; padding: 14px; margin-top: 16px; font-size: 13px; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; font-family: monospace; }
-        .ok { color: #4ade80; }
-        .err { color: #f87171; }
-        .warn { color: #fb923c; }
-        .info { color: #60a5fa; }
-        .count-badge { display: inline-block; background: #334155; color: #e2e8f0; padding: 2px 8px; border-radius: 6px; font-size: 12px; margin-left: 6px; }
-        .confirm-input { width: 100%; padding: 10px 14px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 14px; font-family: inherit; margin: 6px 0; box-sizing: border-box; }
-        .confirm-input:focus { outline: none; border-color: #dc2626; }
+        /* ============================================================
+           TOKENS — mirrors the app's palette so this tool feels native
+           ============================================================ */
+        :root {
+            --bg: #141210;
+            --surface: rgba(30, 27, 23, 0.75);
+            --surface-solid: #1e1b17;
+            --surface-soft: rgba(250, 204, 21, 0.05);
+            --border: rgba(250, 204, 21, 0.12);
+            --border-strong: rgba(250, 204, 21, 0.28);
+            --text: #fef9e7;
+            --text-2: #d6cfc0;
+            --text-3: #8a8275;
+            --accent: #FACC15;
+            --accent-hover: #EAB308;
+            --accent-text: #141210;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --warn: #fb923c;
+            --warn-hover: #ea580c;
+            --ok: #4ade80;
+            --info: #60a5fa;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            background-image:
+                radial-gradient(ellipse at 15% 50%, rgba(250, 204, 21, 0.10) 0%, transparent 60%),
+                radial-gradient(ellipse at 85% 50%, rgba(234, 179, 8, 0.06) 0%, transparent 60%);
+            color: var(--text);
+            padding: 24px 20px 60px;
+            max-width: 620px;
+            margin: 0 auto;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ---------- Page header ---------- */
+        h1 {
+            color: var(--text);
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        h1::before {
+            content: '';
+            display: inline-block;
+            width: 5px;
+            height: 22px;
+            border-radius: 3px;
+            background: var(--accent);
+        }
+
+        body > p:first-of-type {
+            color: var(--text-3);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        /* ---------- Section headings ---------- */
+        h2 {
+            color: var(--text-2);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 28px;
+            margin-bottom: 12px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        h2:first-of-type {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 20px;
+        }
+
+        /* ---------- Body copy ---------- */
+        p {
+            color: var(--text-2);
+            font-size: 13px;
+            line-height: 1.55;
+            margin-bottom: 6px;
+        }
+
+        p code {
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 5px;
+            background: var(--surface-soft);
+            color: var(--accent);
+            border: 1px solid var(--border);
+        }
+
+        /* ---------- Buttons ---------- */
+        button {
+            width: 100%;
+            padding: 14px 18px;
+            margin: 8px 0;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            font: 600 14.5px 'Inter', sans-serif;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:active:not(:disabled) { transform: scale(0.985); }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        /* Primary — yellow, dark text (matches submit-btn) */
+        #seedBtn {
+            background: var(--accent);
+            color: var(--accent-text);
+            border-color: var(--accent);
+        }
+        #seedBtn:hover:not(:disabled) {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+            box-shadow: 0 8px 24px rgba(250, 204, 21, 0.28);
+        }
+
+        /* Warning — orange */
+        .warning {
+            background: var(--warn);
+            color: #1a0f00;
+            border-color: var(--warn);
+        }
+        .warning:hover:not(:disabled) {
+            background: var(--warn-hover);
+            border-color: var(--warn-hover);
+            box-shadow: 0 8px 24px rgba(251, 146, 60, 0.28);
+        }
+
+        /* Danger — red */
+        .danger {
+            background: var(--danger);
+            color: #ffffff;
+            border-color: var(--danger);
+        }
+        .danger:hover:not(:disabled) {
+            background: var(--danger-hover);
+            border-color: var(--danger-hover);
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Neutral — glass, text-only */
+        .neutral {
+            background: var(--surface-soft);
+            color: var(--text-2);
+            border-color: var(--border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .neutral:hover:not(:disabled) {
+            background: rgba(250, 204, 21, 0.10);
+            border-color: var(--border-strong);
+            color: var(--text);
+        }
+
+        /* ---------- Confirm inputs ---------- */
+        .confirm-input {
+            width: 100%;
+            padding: 12px 14px;
+            margin: 6px 0;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface-soft);
+            color: var(--text);
+            font: 500 14px 'Inter', sans-serif;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+
+        .confirm-input::placeholder { color: var(--text-3); }
+
+        .confirm-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.14);
+            background: rgba(250, 204, 21, 0.04);
+        }
+
+        /* ---------- Count badges ---------- */
+        .count-badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 6px;
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: none;
+        }
+
+        /* ---------- Log panel ---------- */
+        #log {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+            font-size: 12.5px;
+            line-height: 1.55;
+            color: var(--text-2);
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 420px;
+            overflow-y: auto;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: var(--shadow);
+        }
+
+        #log > div {
+            padding: 2px 0;
+        }
+
+        #log > div:first-child { padding-top: 0; }
+
+        /* Log scrollbar */
+        #log::-webkit-scrollbar { width: 6px; }
+        #log::-webkit-scrollbar-thumb {
+            background: rgba(250, 204, 21, 0.25);
+            border-radius: 999px;
+        }
+        #log::-webkit-scrollbar-thumb:hover {
+            background: rgba(250, 204, 21, 0.45);
+        }
+
+        /* ---------- Log level colors ---------- */
+        .ok   { color: var(--ok); }
+        .err  { color: var(--danger); }
+        .warn { color: var(--warn); }
+        .info { color: var(--info); }
+
+        /* ---------- Responsive tweak ---------- */
+        @media (max-width: 480px) {
+            body { padding: 20px 14px 48px; }
+            h1 { font-size: 19px; }
+            h2 { font-size: 11px; }
+            button { padding: 13px 16px; font-size: 14px; }
+            #log { font-size: 12px; padding: 14px; }
+        }
     </style>
 </head>
 <body>
-    <h1>Seed Data - Kirby's Hardware</h1>
+    <h1>Seed Data — Kirby's Hardware</h1>
     <p>One-time admin tool. Delete this file after use.</p>
 
-    <h2>Seed <span class="count-badge" id="seedCount">300 items</span></h2>
+    <h2>Seed <span class="count-badge" id="seedCount">300 items with brands</span></h2>
+    <p>Paint, electrical, plumbing, tools, hardware, garden, and safety items get brand variants auto-injected. Building and fasteners stay unbranded. Brand names come from <code>CATEGORY_BRAND_POOLS</code> — edit that constant to change them.</p>
     <button id="seedBtn" disabled>Insert 300 Hardware Items</button>
 
     <h2>Danger Zone <span class="count-badge" id="invCount">— items in cloud</span></h2>
@@ -74,6 +325,19 @@
 
         // Collections covered by nuclear delete
         const ALL_COLLECTIONS = ['inventory', 'orders', 'customers', 'audit_logs', 'config'];
+
+        // Brand pools per category — injected automatically during seed.
+        // An item can override by declaring its own `brand` field.
+        // Categories not listed get no brand (commodity items like fasteners).
+        const CATEGORY_BRAND_POOLS = {
+            paint:       'Boysen,Davies,Pacific Paint',
+            electrical:  'Omni,Firefly,Akari',
+            plumbing:    'Neltex,Emerald',
+            tools:       'Stanley,Bosch,DeWalt',
+            hardware:    'Wilcon,Stanley',
+            garden:      'Ace,Karcher,Gardena',
+            safety:      '3M,Honeywell,MSA'
+        };
 
         function log(msg, cls = '') {
             const line = document.createElement('div');
@@ -575,16 +839,29 @@
                     { name: 'First Aid Kit', sku: 'SF-015', category: 'safety', price: 850, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Complete first aid kit' }
                 ];
 
-                log('Prepared ' + items.length + ' items. Writing...', 'warn');
+                log('Prepared ' + items.length + ' items.', 'warn');
+                log('Injecting brand variants by category...', 'info');
 
                 let batch = writeBatch(fb.db);
                 let count = 0;
                 let total = 0;
+                let brandedCount = 0;
 
                 for (const item of items) {
                     const ref = doc(collection(fb.db, 'inventory'));
+
+                    // Brand injection — explicit item.brand wins; otherwise
+                    // pull the category pool. Empty string = unbranded.
+                    const pool = CATEGORY_BRAND_POOLS[item.category] || '';
+                    const brand = item.brand !== undefined ? item.brand : pool;
+                    const brandMode = item.brandMode
+                        || (brand.includes(',') ? 'variants' : 'single');
+                    if (brand) brandedCount++;
+
                     const payload = {
                         ...item,
+                        brand,
+                        brandMode,
                         id: ref.id,
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),
@@ -601,7 +878,7 @@
                     }
                 }
                 if (count > 0) await batch.commit();
-                log('Done. Inserted ' + total + ' items.', 'ok');
+                log('Done. Inserted ' + total + ' items (' + brandedCount + ' with brands).', 'ok');
                 log('Go back to the app and reload.', 'ok');
 
                 await refreshInventoryCount();

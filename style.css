@@ -8849,3 +8849,747 @@ body:not(.is-logged-in) .ai-panel {
         display: none;   /* keep only the arrow */
     }
 }
+
+/* ============================================
+   MOBILE RESPONSIVE — ORDERS, CUSTOMERS, ACTIVITY
+   Applied at ≤ 768px. Desktop layout untouched.
+   ============================================ */
+
+@media (max-width: 768px) {
+
+    /* ============================================================
+       ORDERS PAGE — convert rows to stacked cards
+       ============================================================ */
+    .orders-table-container {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    .orders-table-container > div {
+        overflow: visible !important;
+    }
+
+    .orders-table-container .inventory-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .orders-table-container .inventory-table thead {
+        display: none;
+    }
+
+    .orders-table-container .inventory-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .orders-table-container .inventory-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "id       actions"
+            "customer customer"
+            "items    items"
+            "total    total"
+            "date     date";
+        gap: 4px 12px;
+        padding: 14px;
+        background: var(--glass-surface, #1e293b);
+        border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+        border-radius: 14px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    .orders-table-container .inventory-table tbody td {
+        display: block;
+        padding: 0;
+        border: none;
+        font-size: 13px;
+        line-height: 1.4;
+        color: var(--text-primary);
+    }
+
+    /* Assign each cell to a grid area */
+    .orders-table-container .inventory-table tbody td:nth-child(1) {
+        grid-area: id;
+        font-family: ui-monospace, 'SF Mono', monospace;
+        font-size: 11px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        align-self: center;
+    }
+
+    .orders-table-container .inventory-table tbody td:nth-child(2) {
+        grid-area: customer;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .orders-table-container .inventory-table tbody td:nth-child(3) {
+        grid-area: items;
+        padding-top: 8px;
+        margin-top: 4px;
+        border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+    }
+
+    .orders-table-container .inventory-table tbody td:nth-child(4) {
+        grid-area: total;
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--text-primary);
+        margin-top: 4px;
+    }
+
+    /* Status column — hidden (all rows are "Completed") */
+    .orders-table-container .inventory-table tbody td:nth-child(5) {
+        display: none;
+    }
+
+    .orders-table-container .inventory-table tbody td:nth-child(6) {
+        grid-area: date;
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    .orders-table-container .inventory-table tbody td:nth-child(7) {
+        grid-area: actions;
+        justify-self: end;
+        align-self: start;
+    }
+
+    /* Items cell — full width inside the card */
+    .orders-table-container .order-items-cell {
+        max-width: 100%;
+    }
+
+    .orders-table-container .order-items-btn {
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+    }
+
+    .orders-table-container .order-items-text {
+        font-size: 12.5px;
+        -webkit-line-clamp: 2;
+    }
+
+    .orders-table-container .order-items-badge {
+        font-size: 10px;
+    }
+
+    /* ============================================================
+       CUSTOMERS PAGE — hide less-critical columns
+       ============================================================ */
+    .customers-table-container {
+        overflow-x: visible;
+    }
+
+    .customers-table-container .inventory-table {
+        min-width: 0;
+        width: 100%;
+    }
+
+    /* Hide Email (2) and Phone (3) on mobile */
+    .customers-table-container .inventory-table thead th:nth-child(2),
+    .customers-table-container .inventory-table tbody td:nth-child(2),
+    .customers-table-container .inventory-table thead th:nth-child(3),
+    .customers-table-container .inventory-table tbody td:nth-child(3) {
+        display: none;
+    }
+
+    .customers-table-container .inventory-table th,
+    .customers-table-container .inventory-table td {
+        padding: 12px 10px;
+        font-size: 13px;
+    }
+
+    /* Customer name — clamp to one line, ellipsis */
+    .customers-table-container .inventory-table td:nth-child(1) {
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 600;
+    }
+
+    /* Numeric columns right-aligned */
+    .customers-table-container .inventory-table td:nth-child(4),
+    .customers-table-container .inventory-table td:nth-child(5) {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ============================================================
+       ACTIVITY LOG — graceful wrapping for long names
+       ============================================================ */
+    .activity-item {
+        align-items: flex-start;
+        padding: 12px 10px;
+        gap: 10px;
+    }
+
+    .activity-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .activity-content p {
+        font-size: 13px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .activity-time {
+        font-size: 11px;
+        line-height: 1.4;
+        display: block;
+        margin-top: 3px;
+        color: var(--text-muted);
+    }
+
+    /* Badge stays beside content, never pushed off */
+    .activity-item > .stock-badge {
+        flex-shrink: 0;
+        align-self: center;
+        font-size: 10.5px;
+    }
+
+    /* Keep stat cards 2-column but tighter */
+    .recent-activity .stats-grid {
+        gap: 10px;
+    }
+}
+/* ============================================
+   MOBILE RESPONSIVE — INVENTORY MANAGEMENT
+   Converts the 7-column table to stacked cards
+   at ≤ 768px. Desktop layout untouched.
+   ============================================ */
+
+@media (max-width: 768px) {
+
+    /* ---------- Container ---------- */
+    .inventory-table-container {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    .inventory-table-container > div {
+        overflow: visible !important;
+    }
+
+    .inventory-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .inventory-table thead {
+        display: none;
+    }
+
+    .inventory-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* ---------- Row = card ---------- */
+    .inventory-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "product  actions"
+            "meta     meta"
+            "stock    stock"
+            "status   status"
+            "updated  updated";
+        gap: 6px 12px;
+        padding: 14px;
+        background: var(--glass-surface, #1e293b);
+        border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+        border-radius: 14px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    .inventory-table tbody td {
+        display: block;
+        padding: 0;
+        border: none;
+        font-size: 13px;
+        line-height: 1.4;
+        color: var(--text-primary);
+    }
+
+    /* Cell 1 — Product (name + size/brand + sku) */
+    .inventory-table tbody td:nth-child(1) {
+        grid-area: product;
+        min-width: 0;
+    }
+
+    .inventory-table .product-info {
+        align-items: flex-start;
+    }
+
+    .inventory-table .product-details {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .inventory-table .product-name {
+        font-size: 14.5px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+        overflow-wrap: anywhere;
+    }
+
+    /* Size + brand lines under the name */
+    .inventory-table .product-sku {
+        display: block;
+        font-size: 11.5px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    .inventory-table .product-sku i {
+        width: 14px;
+        text-align: center;
+        margin-right: 2px;
+    }
+
+    /* Cell 2 — Category */
+    .inventory-table tbody td:nth-child(2) {
+        grid-area: meta;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    /* Cell 3 — Price */
+    .inventory-table tbody td:nth-child(3) {
+        display: none; /* merged into the price row below */
+    }
+
+    /* Cell 4 — Stock input or per-size summary */
+    .inventory-table tbody td:nth-child(4) {
+        grid-area: stock;
+        padding-top: 10px;
+        margin-top: 4px;
+        border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+    }
+
+    .inventory-table tbody td:nth-child(4) .quantity-input {
+        width: 100%;
+        max-width: 120px;
+        padding: 8px;
+        font-size: 13px;
+    }
+
+    /* Per-size stock summary grid */
+    .inventory-table .size-stock-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .inventory-table .size-stock-summary > div {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-size: 12.5px;
+    }
+
+    .inventory-table .size-stock-summary > div > span {
+        color: var(--text-secondary);
+    }
+
+    .inventory-table .size-stock-total {
+        width: 100%;
+        padding-top: 6px;
+        margin-top: 4px;
+        border-top: 1px dashed var(--glass-border, rgba(255, 255, 255, 0.08));
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    /* Cell 5 — Status badge */
+    .inventory-table tbody td:nth-child(5) {
+        grid-area: status;
+        margin-top: 4px;
+    }
+
+    /* Cell 6 — Last updated */
+    .inventory-table tbody td:nth-child(6) {
+        grid-area: updated;
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    /* Cell 7 — Actions */
+    .inventory-table tbody td:nth-child(7) {
+        grid-area: actions;
+        justify-self: end;
+        align-self: start;
+    }
+
+    .inventory-table .action-buttons {
+        flex-direction: row;
+        gap: 4px;
+    }
+
+    .inventory-table .btn-icon {
+        padding: 8px;
+        font-size: 13px;
+    }
+
+    /* ---------- Inventory stats — tighter 2-col grid ---------- */
+    .inventory-stats {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .inventory-stats .stat-card {
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .inventory-stats .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+        border-radius: 10px;
+    }
+
+    .inventory-stats .stat-info h3 {
+        font-size: 22px;
+    }
+
+    .inventory-stats .stat-info p {
+        font-size: 11px;
+    }
+
+    /* ---------- Inventory tools — stack controls ---------- */
+    .inventory-tools {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .inventory-tools .nav-search {
+        width: 100%;
+        max-width: none;
+    }
+
+    .inventory-filters {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .inventory-filters .filter-select {
+        min-width: 0;
+        width: 100%;
+    }
+
+    /* ---------- Inventory header buttons ---------- */
+    .inventory-header {
+        gap: 12px;
+    }
+
+    .inventory-actions {
+        width: 100%;
+        gap: 8px;
+    }
+
+    .inventory-actions .submit-btn,
+    .inventory-actions .secondary-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 11px 12px;
+        font-size: 12.5px;
+    }
+
+    /* ---------- Pagination — tighter buttons ---------- */
+    .pagination {
+        gap: 4px;
+        margin-top: 12px;
+    }
+
+    .page-btn {
+        min-width: 34px;
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE — USER MANAGEMENT
+   Converts the user table row to a stacked
+   card at ≤ 768px. Desktop untouched.
+   ============================================ */
+
+@media (max-width: 768px) {
+
+    /* ---------- Container ---------- */
+    #page-users .inventory-table-container {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    #page-users .inventory-table-container > div {
+        overflow: visible !important;
+    }
+
+    #page-users .inventory-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #page-users .inventory-table thead {
+        display: none;
+    }
+
+    #page-users .inventory-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* ---------- Row = card ---------- */
+    #page-users .inventory-table tbody tr {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        grid-template-areas:
+            "avatar name"
+            "avatar email"
+            "role   role"
+            "status status"
+            "login  login"
+            "actions actions";
+        gap: 6px 12px;
+        padding: 14px;
+        background: var(--glass-surface, #1e293b);
+        border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+        border-radius: 14px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        align-items: center;
+    }
+
+    #page-users .inventory-table tbody td {
+        display: block;
+        padding: 0;
+        border: none;
+        font-size: 13px;
+        line-height: 1.4;
+        color: var(--text-primary);
+    }
+
+    /* Cell 1 — Name + avatar (uses product-info wrapper already) */
+    #page-users .inventory-table tbody td:nth-child(1) {
+        grid-area: name;
+        display: contents; /* let the product-info layout pass through */
+    }
+
+    #page-users .inventory-table .product-info {
+        display: contents;
+    }
+
+    #page-users .inventory-table .product-info img {
+        grid-area: avatar;
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 50%;
+        align-self: start;
+    }
+
+    #page-users .inventory-table .product-details {
+        grid-area: name;
+        align-self: end;
+        min-width: 0;
+    }
+
+    #page-users .inventory-table .product-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Cell 2 — Email */
+    #page-users .inventory-table tbody td:nth-child(2) {
+        grid-area: email;
+        font-size: 12px;
+        color: var(--text-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        align-self: start;
+    }
+
+    /* Cell 3 — Role badge */
+    #page-users .inventory-table tbody td:nth-child(3) {
+        grid-area: role;
+        margin-top: 6px;
+    }
+
+    /* Cell 4 — Status badge */
+    #page-users .inventory-table tbody td:nth-child(4) {
+        grid-area: status;
+    }
+
+    /* Cell 5 — Last login */
+    #page-users .inventory-table tbody td:nth-child(5) {
+        grid-area: login;
+        font-size: 11.5px;
+        color: var(--text-muted);
+    }
+
+    /* Cell 6 — Actions: horizontal row, full width */
+    #page-users .inventory-table tbody td:nth-child(6) {
+        grid-area: actions;
+        padding-top: 10px;
+        margin-top: 6px;
+        border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+        width: 100%;
+    }
+
+    #page-users .inventory-table .action-buttons {
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        flex-wrap: wrap;
+        gap: 6px;
+        width: 100%;
+    }
+
+    #page-users .inventory-table .btn-icon {
+        padding: 9px 12px;
+        font-size: 13px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        min-width: 38px;
+    }
+
+    #page-users .inventory-table .btn-icon:disabled {
+        opacity: 0.35;
+    }
+
+    /* ---------- Stats grid on users page ---------- */
+    #page-users .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    #page-users .stats-grid .stat-card {
+        padding: 14px;
+        gap: 10px;
+    }
+
+    #page-users .stats-grid .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+        border-radius: 10px;
+    }
+
+    #page-users .stats-grid .stat-info h3 {
+        font-size: 22px;
+    }
+
+    #page-users .stats-grid .stat-info p {
+        font-size: 11px;
+    }
+
+    #page-users .stats-grid .stat-change {
+        font-size: 10px;
+    }
+
+    /* ---------- Header buttons ---------- */
+    #page-users .inventory-header {
+        gap: 12px;
+    }
+
+    #page-users .inventory-actions {
+        width: 100%;
+        gap: 8px;
+    }
+
+    #page-users .inventory-actions .submit-btn,
+    #page-users .inventory-actions .secondary-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 11px 12px;
+        font-size: 12.5px;
+    }
+
+    /* ---------- Tools bar ---------- */
+    #page-users .inventory-tools {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    #page-users .inventory-tools .nav-search {
+        width: 100%;
+        max-width: none;
+    }
+
+    #page-users .inventory-filters {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    #page-users .inventory-filters .filter-select {
+        min-width: 0;
+        width: 100%;
+    }
+
+    /* ---------- Pagination ---------- */
+    #page-users .pagination {
+        gap: 4px;
+        margin-top: 12px;
+    }
+
+    #page-users .page-btn {
+        min-width: 34px;
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+}
+
+/* Extra-tight phones */
+@media (max-width: 420px) {
+    #page-users .inventory-table tbody tr {
+        padding: 12px;
+    }
+
+    #page-users .inventory-table .btn-icon {
+        padding: 8px 10px;
+        min-width: 34px;
+    }
+}
