@@ -1,7 +1,7 @@
 // api/ai.js — Vercel serverless function: Gemini API proxy
 // The API key lives only in Vercel env vars, never reaches the browser.
 
-const GEMINI_MODEL = 'gemini-3.6-flash'; // <-- UPDATED to latest stable version
+const GEMINI_MODEL = 'gemini-2.5-flash'; // <-- UPDATED to latest stable version
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const rateState = { count: 0, windowStart: Date.now() };
