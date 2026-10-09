@@ -10,20 +10,12 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 export const config = { maxDuration: 30 };
 
-// ---------- Rate limiting (best-effort per instance) ----------
-const rateState = { count: 0, windowStart: Date.now() };
-const RATE_LIMIT = 12; // Lowered to protect Gemini's 15 RPM limit
-const RATE_WINDOW_MS = 60 * 1000;
-
-function rateLimitOk() {
-    const now = Date.now();
-    if (now - rateState.windowStart > RATE_WINDOW_MS) {
-        rateState.count = 0;
-        rateState.windowStart = now;
-    }
-    rateState.count++;
-    return rateState.count <= RATE_LIMIT;
-}
+// ---------- Rate limiting ----------
+// Removed. The in-memory counter ran per serverless instance, so it
+// never actually capped anything globally — it only rejected legitimate
+// bursts from the same user. Gemini and Groq each enforce their own
+// upstream quotas, and the client has in-flight dedup. No proxy-level
+// limiter needed.
 
 // ---------- Retry tuning ----------
 const MAX_ATTEMPTS = 1; // Single attempt per provider
