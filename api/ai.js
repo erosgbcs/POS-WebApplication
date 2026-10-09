@@ -23,12 +23,13 @@ function rateLimitOk() {
 }
 
 // ---------- Retry tuning ----------
-// Sized to stay under Vercel Hobby's 10s hard cap:
-//   2 attempts × 4s abort + 0.4s base delay (+jitter) ≈ 8.8s worst case
-// If you upgrade to Vercel Pro, raise MAX_ATTEMPTS to 3 and ABORT_MS to 8000.
-const MAX_ATTEMPTS = 2;
+// Single-attempt timeout. Higher = fewer false 504s when Gemini is slow,
+// but retries stack and must stay under Vercel's 10s hard cap on Hobby.
+//   2 attempts × 8s abort = 16s worst case → WILL hit the platform cap.
+// To keep 8s AND stay under 10s, set MAX_ATTEMPTS = 1.
+const MAX_ATTEMPTS = 1;
 const BASE_DELAY_MS = 400;
-const ABORT_MS = 4000;
+const ABORT_MS = 8000;
 const RETRYABLE_STATUSES = new Set([503, 429, 500, 504]);
 
 export default async function handler(req, res) {
