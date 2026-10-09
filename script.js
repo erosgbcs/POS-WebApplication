@@ -2821,12 +2821,23 @@ setupAiFeatures();
     })();
 
     
-    // Refresh overview when data changes
+    // Debounced AI refresh — coalesce bursts into one call
+let __aiRefreshTimer = null;
+function scheduleAiRefresh() {
+    clearTimeout(__aiRefreshTimer);
+    __aiRefreshTimer = setTimeout(() => refreshAiCards(), 4000);
+}
+
+// Refresh overview when data changes
 window.addEventListener('pos-order-created', () => {
     window.POS_AI?.clearCache?.();   // invalidate AI cache on new sale
     refreshOverview();
+    scheduleAiRefresh();
 });
-window.addEventListener('inventory-products-loaded', refreshOverview);
+window.addEventListener('inventory-products-loaded', () => {
+    refreshOverview();
+    scheduleAiRefresh();
+});
     
         // ---------- NOTIFICATIONS BELL + PANEL ----------
     (function setupNotificationsBell() {
