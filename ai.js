@@ -41,7 +41,7 @@
         if (!res.ok) {
             let msg = '';
             try { msg = (await res.json()).error || ''; } catch (e) {}
-            throw new Error(msg || `AI proxy error (${res.status})`);
+            throw new Error(msg || `AI is temporarily unavailable (${res.status}). Try again in a moment.`);
         }
 
         const json = await res.json();

@@ -1,9 +1,13 @@
 // api/ai.js — Vercel serverless function: Gemini API proxy
 // The API key lives only in Vercel env vars, never reaches the browser.
 
-const GEMINI_MODEL = 'gemini-3.8-flash'; // <-- UPDATED to latest stable version
+const GEMINI_MODEL = 'gemini-3.8-flash'; // <-- KEPT as requested
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+// Vercel config — Hobby caps at 10s regardless; Pro honors this.
+export const config = { maxDuration: 30 };
+
+// ---------- Rate limiting (best-effort per instance) ----------
 const rateState = { count: 0, windowStart: Date.now() };
 const RATE_LIMIT = 60;
 const RATE_WINDOW_MS = 60 * 1000;
@@ -17,6 +21,15 @@ function rateLimitOk() {
     rateState.count++;
     return rateState.count <= RATE_LIMIT;
 }
+
+// ---------- Retry tuning ----------
+// Sized to stay under Vercel Hobby's 10s hard cap:
+//   2 attempts × 4s abort + 0.4s base delay (+jitter) ≈ 8.8s worst case
+// If you upgrade to Vercel Pro, raise MAX_ATTEMPTS to 3 and ABORT_MS to 8000.
+const MAX_ATTEMPTS = 2;
+const BASE_DELAY_MS = 400;
+const ABORT_MS = 4000;
+const RETRYABLE_STATUSES = new Set([503, 429, 500, 504]);
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -49,37 +62,75 @@ export default async function handler(req, res) {
         return;
     }
 
-    try {
-        const upstream = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.35,
-                    maxOutputTokens: 2048,
-                    responseMimeType: 'application/json'
-                },
-                safetySettings: [
-                    { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
-                    { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
-                    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-                    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
-                ]
-            })
-        });
+    const requestBody = JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+            temperature: 0.35,
+            maxOutputTokens: 2048,
+            responseMimeType: 'application/json'
+        },
+        safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
+        ]
+    });
 
-        if (!upstream.ok) {
-            const body = await upstream.text();
-            console.error('Gemini upstream error', upstream.status, body.slice(0, 400));
-            res.status(502).json({ error: `AI upstream error (${upstream.status})` });
+    try {
+        let upstream = null;
+        let lastStatus = 0;
+        let lastBody = '';
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            const controller = new AbortController();
+            const abortTimer = setTimeout(() => controller.abort(), ABORT_MS);
+
+            try {
+                upstream = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: controller.signal,
+                    body: requestBody
+                });
+            } finally {
+                clearTimeout(abortTimer);
+            }
+
+            if (upstream.ok) break;
+
+            lastStatus = upstream.status;
+            lastBody = await upstream.text();
+
+            const retryable = RETRYABLE_STATUSES.has(lastStatus);
+            if (!retryable || attempt === MAX_ATTEMPTS) break;
+
+            const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.random() * 250;
+            console.warn(`Gemini ${lastStatus} on attempt ${attempt}/${MAX_ATTEMPTS} — retrying in ${Math.round(delay)}ms`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+
+        if (!upstream || !upstream.ok) {
+            console.error('Gemini upstream error after retries', lastStatus, lastBody.slice(0, 400));
+            const friendly = lastStatus === 503
+                ? 'AI is busy right now — please try again in a few seconds.'
+                : lastStatus === 429
+                    ? 'AI rate limit reached — try again in a minute.'
+                    : `AI upstream error (${lastStatus})`;
+            res.status(503).json({ error: friendly });
             return;
         }
 
         const data = await upstream.json();
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         res.status(200).json({ ok: true, task: task || 'generic', text });
+
     } catch (err) {
+        if (err?.name === 'AbortError') {
+            console.error('Gemini call aborted after', ABORT_MS, 'ms');
+            res.status(504).json({ error: 'AI took too long to respond. Try again.' });
+            return;
+        }
         console.error('Proxy error', err);
         res.status(500).json({ error: err.message || 'Unknown error' });
     }
