@@ -1,30 +1,17 @@
-// api/ai.js — Vercel serverless function: AI proxy with Gemini + Groq fallback
+// api/ai.js — Vercel serverless function: Gemini proxy with Groq fallback
 
-// --- Gemini Config ---
-const GEMINI_MODEL = 'gemini-3.8-flash'; // kept per instruction
+// --- Gemini ---
+const GEMINI_MODEL = 'gemini-3.8-flash'; // kept per product decision
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_ABORT_MS = 3500;
 
-// --- Groq Config ---
+// --- Groq (fallback) ---
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
-
-export const config = { maxDuration: 30 };
-
-// ---------- Rate limiting ----------
-// Removed. The in-memory counter ran per serverless instance, so it
-// never actually capped anything globally — it only rejected legitimate
-// bursts from the same user. Gemini and Groq each enforce their own
-// upstream quotas, and the client has in-flight dedup. No proxy-level
-// limiter needed.
-
-// ---------- Timeout budget ----------
-// Vercel Hobby caps functions at 10s. Gemini + Groq run sequentially,
-// so their combined abort windows must stay under that.
-//   Gemini: 3500ms (it fails fast on a bad model ID anyway)
-//   Groq:   4500ms (usually responds in 200-500ms, this is generous)
-//   Total:  8000ms worst case, plus fetch overhead → safely under 10s
-const GEMINI_ABORT_MS = 3500;
 const GROQ_ABORT_MS = 4500;
+
+// Vercel function config. Hobby caps at 10s regardless; Pro honors this.
+export const config = { maxDuration: 30 };
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,11 +21,6 @@ export default async function handler(req, res) {
 
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
-
-    if (!rateLimitOk()) {
-        res.status(429).json({ error: 'Rate limit exceeded. Try again in a minute.' });
-        return;
-    }
 
     const { prompt, task } = req.body || {};
     if (!prompt || typeof prompt !== 'string') {
@@ -64,8 +46,8 @@ export default async function handler(req, res) {
                     responseMimeType: 'application/json'
                 },
                 safetySettings: [
-                    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-                    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+                    { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
+                    { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
                     { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
                     { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
                 ]
@@ -90,10 +72,9 @@ export default async function handler(req, res) {
                 const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 return res.status(200).json({ ok: true, task: task || 'generic', provider: 'gemini', text });
             }
-            
-            const errBody = await response.text();
-            console.warn(`Gemini failed with status ${response.status}. Body: ${errBody.slice(0, 200)}. Falling back to Groq.`);
 
+            const errBody = await response.text();
+            console.warn(`Gemini failed (${response.status}): ${errBody.slice(0, 200)}. Falling back to Groq.`);
         } catch (error) {
             console.warn(`Gemini fetch error: ${error.message}. Falling back to Groq.`);
         }
@@ -102,7 +83,7 @@ export default async function handler(req, res) {
     }
 
     // =================================================================
-    // ATTEMPT 2: Groq (Fallback)
+    // ATTEMPT 2: Groq (fallback)
     // =================================================================
     const groqApiKey = process.env.GROQ_API_KEY;
     if (!groqApiKey) {
@@ -141,7 +122,7 @@ export default async function handler(req, res) {
 
         if (!response.ok) {
             const errBody = await response.text();
-            console.error(`Groq failed with status ${response.status}. Body: ${errBody.slice(0, 400)}`);
+            console.error(`Groq failed (${response.status}): ${errBody.slice(0, 400)}`);
             return res.status(502).json({ error: `AI fallback error (${response.status})` });
         }
 
@@ -151,7 +132,7 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('Groq proxy error:', error);
-        if (error.name === 'AbortError') {
+        if (error?.name === 'AbortError') {
             return res.status(504).json({ error: 'AI fallback timed out. Please try again.' });
         }
         return res.status(500).json({ error: error.message || 'Unknown AI fallback error' });
