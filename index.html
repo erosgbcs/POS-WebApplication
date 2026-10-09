@@ -1211,6 +1211,40 @@
     </label>
     <div id="variantStockInputs" class="size-stock-inputs"></div>
 </div>
+
+
+
+<!-- NEW: Brand variant block -->
+<div class="form-group">
+    <label>Brand Type</label>
+    <div class="size-mode-radio">
+        <label class="radio-wrapper">
+            <input type="radio" name="brandMode" value="single" id="brandModeSingle" checked>
+            <span class="radio-mark"></span>
+            <span>Single brand &mdash; e.g., Bosny</span>
+        </label>
+        <label class="radio-wrapper">
+            <input type="radio" name="brandMode" value="variants" id="brandModeVariants">
+            <span class="radio-mark"></span>
+            <span>Multiple brands &mdash; e.g., Bosny, Boysen, Davies</span>
+        </label>
+    </div>
+</div>
+
+<div class="form-group">
+    <label for="productBrand" id="productBrandLabel">Brand (optional)</label>
+    <input type="text" id="productBrand" placeholder="e.g., Bosny, Stanley, Boysen">
+    <div id="brandPreview" class="size-preview" style="display: none;"></div>
+</div>
+<div class="form-group" id="brandStockGroup" style="display: none;">
+    <label>Stock by brand</label>
+    <label class="checkbox-wrapper">
+        <input type="checkbox" id="trackBrandStock" checked>
+        <span class="checkmark"></span>
+        <span>Track stock separately for each brand</span>
+    </label>
+    <div id="brandStockInputs" class="size-stock-inputs"></div>
+</div>
                     <div class="form-group">
                         <label for="productDescription">Description</label>
                         <textarea id="productDescription" rows="3" placeholder="Product description..."></textarea>

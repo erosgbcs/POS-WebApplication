@@ -4503,15 +4503,18 @@ html, body {
     border-color: #16a34a;
 }
 
-/* Make the Size Type + Specification groups span full width */
+/* Make the Size Type / Brand Type / spec groups span full width */
 .form-grid .form-group:has(.size-mode-radio),
-.form-grid .form-group:has(#productSize) {
+.form-grid .form-group:has(#productSize),
+.form-grid .form-group:has(#productBrand) {
     grid-column: 1 / -1;
 }
 
 /* Fallback for browsers without :has() */
-.form-grid>.form-group:nth-child(8),
-.form-grid>.form-group:nth-child(9) {
+.form-grid > .form-group:nth-child(8),
+.form-grid > .form-group:nth-child(9),
+.form-grid > .form-group:nth-child(11),
+.form-grid > .form-group:nth-child(12) {
     grid-column: 1 / -1;
 }
 

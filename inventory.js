@@ -14,6 +14,7 @@
     initialized: false
 };
 let variantStockDraft = {};
+let brandStockDraft = {};
 let inventoryProductsLoadPromise = null;
 
 const supabaseApi = window.POS_SUPABASE; // ← ADD THIS LINE
@@ -133,7 +134,6 @@ async function addCategoryPrompt() {
     const rawSize = String(product.size || '').trim();
     let inferredMode = product.sizeMode;
     if (!inferredMode) {
-        // Legacy: comma present -> treat as variants
         inferredMode = rawSize.includes(',') ? 'variants' : 'spec';
     }
     const sizeStocks = product.sizeStocks && typeof product.sizeStocks === 'object' && !Array.isArray(product.sizeStocks)
@@ -142,15 +142,39 @@ async function addCategoryPrompt() {
             return [size, Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : 0];
         }))
         : null;
-    const quantity = sizeStocks
-        ? Object.values(sizeStocks).reduce((total, stock) => total + stock, 0)
-        : Number(product.quantity) || 0;
+
+    // ---------- Brand variants (parallel to size) ----------
+    const rawBrand = String(product.brand || '').trim();
+    let brandMode = product.brandMode;
+    if (!brandMode) {
+        // Legacy: comma present -> treat as variants; else single
+        brandMode = rawBrand.includes(',') ? 'variants' : 'single';
+    }
+    const brandStocks = product.brandStocks && typeof product.brandStocks === 'object' && !Array.isArray(product.brandStocks)
+        ? Object.fromEntries(Object.entries(product.brandStocks).map(([brand, value]) => {
+            const stock = Number(value);
+            return [brand, Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : 0];
+        }))
+        : null;
+
+    // Total quantity: prefer whichever dimension owns the stock
+    let quantity;
+    if (sizeStocks) {
+        quantity = Object.values(sizeStocks).reduce((total, stock) => total + stock, 0);
+    } else if (brandStocks) {
+        quantity = Object.values(brandStocks).reduce((total, stock) => total + stock, 0);
+    } else {
+        quantity = Number(product.quantity) || 0;
+    }
 
     return {
         ...product,
         size: rawSize,
         sizeMode: inferredMode,
         sizeStocks,
+        brand: rawBrand,
+        brandMode,
+        brandStocks,
         quantity,
         minStock: product.minStock ?? product.min_stock ?? 0,
         lastUpdated: product.lastUpdated || product.updated_at || product.created_at || ''
@@ -194,12 +218,22 @@ function specIconClass(spec) {
     }
 
     function getProductStockStatus(product) {
-        if (!product.sizeStocks) return getStockStatus(product.quantity, product.minStock);
-        const stocks = Object.values(product.sizeStocks).map(quantity => Number(quantity) || 0);
-        if (!stocks.length || stocks.every(quantity => quantity === 0)) return 'out_of_stock';
-        if (stocks.some(quantity => quantity <= product.minStock)) return 'low_stock';
-        if (product.quantity > product.minStock * 2) return 'over_stock';
-        return 'in_stock';
+        // Whichever dimension owns the stock drives the status
+        if (product.sizeStocks) {
+            const stocks = Object.values(product.sizeStocks).map(q => Number(q) || 0);
+            if (!stocks.length || stocks.every(q => q === 0)) return 'out_of_stock';
+            if (stocks.some(q => q <= product.minStock)) return 'low_stock';
+            if (product.quantity > product.minStock * 2) return 'over_stock';
+            return 'in_stock';
+        }
+        if (product.brandStocks) {
+            const stocks = Object.values(product.brandStocks).map(q => Number(q) || 0);
+            if (!stocks.length || stocks.every(q => q === 0)) return 'out_of_stock';
+            if (stocks.some(q => q <= product.minStock)) return 'low_stock';
+            if (product.quantity > product.minStock * 2) return 'over_stock';
+            return 'in_stock';
+        }
+        return getStockStatus(product.quantity, product.minStock);
     }
 
     function getStockBadge(status) {
@@ -271,15 +305,19 @@ function syncFilterCards() {
         tbody.innerHTML = pageProducts.map(product => {
             const status = getProductStockStatus(product);
             const sizeLabel = product.size ? `<span class="product-sku"><i class="${specIconClass(product.size)}"></i> ${escapeHtml(product.size)}</span>` : '';
+            const brandLabel = product.brand ? `<span class="product-sku"><i class="fas fa-tag"></i> ${escapeHtml(product.brand)}</span>` : '';
             const quantityCell = product.sizeStocks
                 ? `<div class="size-stock-summary">${Object.entries(product.sizeStocks).map(([size, quantity]) => `<div><span>${escapeHtml(size)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
-                : `<input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)">`;
+                : product.brandStocks
+                    ? `<div class="size-stock-summary">${Object.entries(product.brandStocks).map(([brand, quantity]) => `<div><span>${escapeHtml(brand)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
+                    : `<input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)">`;
             return `<tr>
                 <td>
                     <div class="product-info">
                         <div class="product-details">
                             <p class="product-name">${product.name}</p>
                             ${sizeLabel}
+                            ${brandLabel}
                             <span class="product-sku">Product Code: ${product.sku}</span>
                         </div>
                     </div>
@@ -338,6 +376,16 @@ const mode = product.sizeMode || 'spec';
 const modeRadio = document.querySelector(`input[name="sizeMode"][value="${mode}"]`);
 if (modeRadio) modeRadio.checked = true;
 updateSizePreview();
+
+                // Brand fields
+                document.getElementById('productBrand').value = product.brand || '';
+                const brandMode = product.brandMode || 'single';
+                const brandRadio = document.querySelector(`input[name="brandMode"][value="${brandMode}"]`);
+                if (brandRadio) brandRadio.checked = true;
+                const trackBrandStock = document.getElementById('trackBrandStock');
+                if (trackBrandStock) trackBrandStock.checked = Boolean(product.brandStocks);
+                brandStockDraft = product.brandStocks ? { ...product.brandStocks } : {};
+                updateBrandPreview();
                 document.getElementById('productDescription').value = product.description || '';
             }
         } else {
@@ -347,6 +395,13 @@ updateSizePreview();
     const specRadio = document.querySelector('input[name="sizeMode"][value="spec"]');
     if (specRadio) specRadio.checked = true;
     updateSizePreview();
+
+    const trackBrandStock = document.getElementById('trackBrandStock');
+    if (trackBrandStock) trackBrandStock.checked = true;
+    const brandSingleRadio = document.querySelector('input[name="brandMode"][value="single"]');
+    if (brandSingleRadio) brandSingleRadio.checked = true;
+    brandStockDraft = {};
+    updateBrandPreview();
 }
 modal.classList.add('active');
     }
@@ -358,65 +413,121 @@ modal.classList.add('active');
 
     async function saveProduct(event) {
         event.preventDefault();
-        const sizeMode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
-const rawSize = document.getElementById('productSize').value.trim();
-const normalizedSize = sizeMode === 'spec' ?
-    rawSize :
-    [...new Set(rawSize.split(',').map(v => v.trim()).filter(Boolean))].join(',');
-        const tracksSizeStock = sizeMode === 'variants' && document.getElementById('trackSizeStock').checked;
-        const sizes = normalizedSize.split(',').map(size => size.trim()).filter(Boolean);
-        let sizeStocks = null;
-        let quantity;
 
+        // ---------- Size ----------
+        const sizeMode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
+        const rawSize = document.getElementById('productSize').value.trim();
+        const normalizedSize = sizeMode === 'spec'
+            ? rawSize
+            : [...new Set(rawSize.split(',').map(v => v.trim()).filter(Boolean))].join(',');
+        const tracksSizeStock = sizeMode === 'variants' && document.getElementById('trackSizeStock').checked;
+
+        // ---------- Brand ----------
+        const brandMode = document.querySelector('input[name="brandMode"]:checked')?.value || 'single';
+        const rawBrand = document.getElementById('productBrand').value.trim();
+        const normalizedBrand = brandMode === 'single'
+            ? rawBrand
+            : [...new Set(rawBrand.split(',').map(v => v.trim()).filter(Boolean))].join(',');
+        const tracksBrandStock = brandMode === 'variants' && document.getElementById('trackBrandStock').checked;
+
+        // Guard: only one dimension can track stock
+        if (tracksSizeStock && tracksBrandStock) {
+            showToast('Only one dimension (size or brand) can track stock per product', 'error');
+            return;
+        }
+
+        // ---------- Size stocks ----------
+        const sizes = normalizedSize.split(',').map(s => s.trim()).filter(Boolean);
+        let sizeStocks = null;
         if (tracksSizeStock) {
             if (!sizes.length) {
                 showToast('Add at least one size before setting stock', 'error');
                 return;
             }
-
-            const existingProduct = inventoryState.products.find(product => product.id === inventoryState.editingProductId);
-            const removedStockedSize = Object.entries(existingProduct?.sizeStocks || {}).some(([size, stock]) => !sizes.includes(size) && stock > 0);
+            const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
+            const removedStockedSize = Object.entries(existingProduct?.sizeStocks || {})
+                .some(([size, stock]) => !sizes.includes(size) && stock > 0);
             if (removedStockedSize) {
                 showToast('Set removed size stock to zero before removing that size', 'error');
                 return;
             }
-
             sizeStocks = {};
             for (const size of sizes) {
-                const input = [...document.querySelectorAll('[data-size-stock]')].find(field => field.dataset.sizeStock === size);
+                const input = [...document.querySelectorAll('[data-size-stock]')].find(f => f.dataset.sizeStock === size);
                 const value = input?.value.trim() || '';
                 const stock = Number(value);
                 if (value === '' || !Number.isInteger(stock) || stock < 0) {
-                    showToast(`Enter a whole stock quantity for ${size}`, 'error');
+                    showToast(`Enter a whole stock quantity for size ${size}`, 'error');
                     input?.focus();
                     return;
                 }
                 sizeStocks[size] = stock;
             }
-            quantity = Object.values(sizeStocks).reduce((total, stock) => total + stock, 0);
-        } else {
-            quantity = parseInt(document.getElementById('productQuantity').value, 10);
         }
 
-const productData = {
-    name: document.getElementById('productName').value.trim(),
-    sku: document.getElementById('productSKU').value.trim(),
-    category: document.getElementById('productCategory').value,
-    price: parseFloat(document.getElementById('productPrice').value),
-    quantity,
-    minStock: parseInt(document.getElementById('productMinStock').value),
-    supplier: document.getElementById('productSupplier').value.trim(),
-    size: normalizedSize,
-    sizeMode: sizeMode,
-    description: document.getElementById('productDescription').value.trim()
+        // ---------- Brand stocks ----------
+        const brands = normalizedBrand.split(',').map(b => b.trim()).filter(Boolean);
+        let brandStocks = null;
+        if (tracksBrandStock) {
+            if (!brands.length) {
+                showToast('Add at least one brand before setting stock', 'error');
+                return;
+            }
+            const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
+            const removedStockedBrand = Object.entries(existingProduct?.brandStocks || {})
+                .some(([brand, stock]) => !brands.includes(brand) && stock > 0);
+            if (removedStockedBrand) {
+                showToast('Set removed brand stock to zero before removing that brand', 'error');
+                return;
+            }
+            brandStocks = {};
+            for (const brand of brands) {
+                const input = [...document.querySelectorAll('[data-brand-stock]')].find(f => f.dataset.brandStock === brand);
+                const value = input?.value.trim() || '';
+                const stock = Number(value);
+                if (value === '' || !Number.isInteger(stock) || stock < 0) {
+                    showToast(`Enter a whole stock quantity for brand ${brand}`, 'error');
+                    input?.focus();
+                    return;
+                }
+                brandStocks[brand] = stock;
+            }
+        }
+
+        // ---------- Total quantity ----------
+        let quantity;
+        if (sizeStocks) quantity = Object.values(sizeStocks).reduce((t, s) => t + s, 0);
+        else if (brandStocks) quantity = Object.values(brandStocks).reduce((t, s) => t + s, 0);
+        else quantity = parseInt(document.getElementById('productQuantity').value, 10);
+
+        const productData = {
+            name: document.getElementById('productName').value.trim(),
+            sku: document.getElementById('productSKU').value.trim(),
+            category: document.getElementById('productCategory').value,
+            price: parseFloat(document.getElementById('productPrice').value),
+            quantity,
+            minStock: parseInt(document.getElementById('productMinStock').value),
+            supplier: document.getElementById('productSupplier').value.trim(),
+            size: normalizedSize,
+            sizeMode: sizeMode,
+            brand: normalizedBrand,
+            brandMode: brandMode,
+            description: document.getElementById('productDescription').value.trim()
         };
-        const existingProduct = inventoryState.products.find(product => product.id === inventoryState.editingProductId);
-        if (tracksSizeStock) productData.sizeStocks = sizeStocks;
+
+        const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
+        if (sizeStocks) productData.sizeStocks = sizeStocks;
         else if (existingProduct?.sizeStocks) productData.sizeStocks = null;
+
+        if (brandStocks) productData.brandStocks = brandStocks;
+        else if (existingProduct?.brandStocks) productData.brandStocks = null;
+
         const skuExists = inventoryState.products.some(p => p.sku === productData.sku && p.id !== inventoryState.editingProductId);
         if (skuExists) { showToast('Product code already exists', 'error'); return; }
+
         const payload = { ...productData, min_stock: productData.minStock };
         delete payload.minStock;
+
         let result;
         if (inventoryState.editingProductId) {
             result = await supabaseApi.updateInventoryProduct(inventoryState.editingProductId, payload);
@@ -505,7 +616,79 @@ function updateSizePreview() {
         parts.map(p => `<span class="size-chip">${escapeHtml(p)}</span>`).join('');
     renderVariantStockControls();
 }
+function updateBrandPreview() {
+    const previewEl = document.getElementById('brandPreview');
+    const inputEl = document.getElementById('productBrand');
+    const labelEl = document.getElementById('productBrandLabel');
+    const mode = document.querySelector('input[name="brandMode"]:checked')?.value || 'single';
 
+    if (!previewEl || !inputEl || !labelEl) return;
+
+    if (mode === 'single') {
+        labelEl.textContent = 'Brand (optional)';
+        inputEl.placeholder = 'e.g., Bosny, Stanley, Boysen';
+        previewEl.style.display = 'none';
+        previewEl.innerHTML = '';
+        renderBrandStockControls();
+        return;
+    }
+
+    labelEl.textContent = 'Brands (separated by comma)';
+    inputEl.placeholder = 'e.g., Bosny, Boysen, Davies';
+
+    const raw = inputEl.value.trim();
+    const parts = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
+
+    if (parts.length === 0) {
+        previewEl.style.display = 'none';
+        previewEl.innerHTML = '';
+        renderBrandStockControls();
+        return;
+    }
+
+    previewEl.style.display = 'flex';
+    previewEl.innerHTML =
+        '<span class="size-preview-label">Preview:</span> ' +
+        parts.map(p => `<span class="size-chip">${escapeHtml(p)}</span>`).join('');
+    renderBrandStockControls();
+}
+
+function renderBrandStockControls() {
+    const mode = document.querySelector('input[name="brandMode"]:checked')?.value || 'single';
+    const group = document.getElementById('brandStockGroup');
+    const inputContainer = document.getElementById('brandStockInputs');
+    const trackBrandStock = document.getElementById('trackBrandStock');
+    if (!group || !inputContainer || !trackBrandStock) return;
+
+    const enabled = mode === 'variants' && trackBrandStock.checked;
+    group.style.display = mode === 'variants' ? '' : 'none';
+
+    const currentValues = {};
+    inputContainer.querySelectorAll('[data-brand-stock]').forEach(input => {
+        currentValues[input.dataset.brandStock] = input.value;
+    });
+    brandStockDraft = { ...brandStockDraft, ...currentValues };
+
+    if (!enabled) {
+        inputContainer.innerHTML = '';
+        // Re-show the shared quantity field if neither dimension tracks stock
+        const sharedQty = document.getElementById('sharedQuantityGroup');
+        const sizeTracks = document.querySelector('input[name="sizeMode"]:checked')?.value === 'variants'
+            && document.getElementById('trackSizeStock')?.checked;
+        if (sharedQty) sharedQty.style.display = sizeTracks ? 'none' : '';
+        return;
+    }
+
+    const brands = [...new Set(document.getElementById('productBrand').value.split(',').map(b => b.trim()).filter(Boolean))];
+    inputContainer.innerHTML = brands.map(brand => {
+        const value = Object.hasOwn(brandStockDraft, brand) ? brandStockDraft[brand] : '';
+        return `<label class="size-stock-row"><span>${escapeHtml(brand)}</span><input class="quantity-input" type="number" min="0" step="1" required data-brand-stock="${escapeHtml(brand)}" value="${escapeHtml(value)}" aria-label="Stock for ${escapeHtml(brand)}"></label>`;
+    }).join('');
+
+    // Hide the shared quantity field while brand stock tracking is active
+    const sharedQty = document.getElementById('sharedQuantityGroup');
+    if (sharedQty) sharedQty.style.display = 'none';
+}
 function renderVariantStockControls() {
     const mode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
     const group = document.getElementById('variantStockGroup');
@@ -552,6 +735,19 @@ function setupInventoryEventListeners() {
     document.getElementById('trackSizeStock')?.addEventListener('change', renderVariantStockControls);
     document.getElementById('variantStockInputs')?.addEventListener('input', () => {
         const inputs = [...document.querySelectorAll('[data-size-stock]')];
+        const values = inputs.map(input => input.value.trim());
+        if (!inputs.length || values.some(value => value === '' || !Number.isInteger(Number(value)) || Number(value) < 0)) return;
+        document.getElementById('productQuantity').value = values.reduce((total, value) => total + Number(value), 0);
+    });
+
+    // Brand mode radios + live preview
+    document.querySelectorAll('input[name="brandMode"]').forEach(radio => {
+        radio.addEventListener('change', updateBrandPreview);
+    });
+    document.getElementById('productBrand')?.addEventListener('input', updateBrandPreview);
+    document.getElementById('trackBrandStock')?.addEventListener('change', renderBrandStockControls);
+    document.getElementById('brandStockInputs')?.addEventListener('input', () => {
+        const inputs = [...document.querySelectorAll('[data-brand-stock]')];
         const values = inputs.map(input => input.value.trim());
         if (!inputs.length || values.some(value => value === '' || !Number.isInteger(Number(value)) || Number(value) < 0)) return;
         document.getElementById('productQuantity').value = values.reduce((total, value) => total + Number(value), 0);
