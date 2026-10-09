@@ -1882,24 +1882,46 @@ function setupAiFeatures() {
     const form = document.getElementById('aiPanelForm');
     const input = document.getElementById('aiPanelInput');
     const sendBtn = document.getElementById('aiPanelSend');
+    const quickPromptsEl = document.getElementById('aiQuickPrompts');
+
+    function setQuickPromptsDisabled(disabled) {
+        quickPromptsEl?.querySelectorAll('.ai-chip').forEach(chip => {
+            chip.disabled = disabled;
+        });
+    }
+
+    // ---- Quick-prompt chips: fill the input, then submit ----
+    quickPromptsEl?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.ai-chip');
+        if (!chip || chip.disabled || !input) return;
+        const prompt = chip.dataset.prompt;
+        if (!prompt) return;
+        input.value = prompt;
+        form?.requestSubmit();
+    });
 
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const question = (input?.value || '').trim();
         if (!question) return;
 
+        // Capture history BEFORE appending the new bubble, so the current
+        // question is not duplicated inside the prompt's history block.
+        const priorHistory = loadAiThread();
+
         // Append user message
         appendAiBubble('user', question);
         input.value = '';
         input.disabled = true;
         if (sendBtn) sendBtn.disabled = true;
+        setQuickPromptsDisabled(true);
 
         // Append loading placeholder
         const loadingEl = appendAiBubble('ai', 'Thinking…', 'loading');
         loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking…';
 
         try {
-            const { answer } = await window.POS_AI.askQuestion(question);
+            const { answer } = await window.POS_AI.askQuestion(question, priorHistory);
             loadingEl.remove();
             appendAiBubble('ai', answer || 'AI returned an empty response.');
 
@@ -1919,6 +1941,7 @@ function setupAiFeatures() {
         } finally {
             input.disabled = false;
             if (sendBtn) sendBtn.disabled = false;
+            setQuickPromptsDisabled(false);
             input.focus();
         }
     });

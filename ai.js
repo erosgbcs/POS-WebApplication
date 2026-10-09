@@ -218,29 +218,46 @@ Return ONLY valid JSON (no markdown):
 Sort by urgency (critical first), then by daysLeft ascending. Return at most 6 items.`;
     }
 
-    async function askQuestion(question) {
-        const trimmed = String(question || '').trim();
-        if (!trimmed) return { answer: 'Please type a question.' };
+  async function askQuestion(question, history = []) {
+    const trimmed = String(question || '').trim();
+    if (!trimmed) return { answer: 'Please type a question.' };
 
-        const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-        const products = window.getInventorySnapshot?.() || [];
+    const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+    const products = window.getInventorySnapshot?.() || [];
 
-        const recent = orders.slice(0, 50).map(o => ({
-            id: o.id,
-            date: o.createdAt,
-            customer: o.customerName || 'Walk-in',
-            total: o.total,
-            items: (o.items || []).map(i => ({ name: i.name, qty: i.quantity, price: i.price }))
-        }));
+    const recent = orders.slice(0, 50).map(o => ({
+        id: o.id,
+        date: o.createdAt,
+        customer: o.customerName || 'Walk-in',
+        total: o.total,
+        items: (o.items || []).map(i => ({ name: i.name, qty: i.quantity, price: i.price }))
+    }));
 
-        const catalog = products.slice(0, 100).map(p => ({
-            name: p.name,
-            category: p.category,
-            stock: p.quantity,
-            price: p.price
-        }));
+    const catalog = products.slice(0, 100).map(p => ({
+        name: p.name,
+        category: p.category,
+        stock: p.quantity,
+        price: p.price
+    }));
 
-        const prompt = `You are answering questions about a small hardware store POS system.
+    // ---- Conversation memory ----
+    // Keep the last N turns so the model can resolve follow-ups like
+    // "and last week?" or "what about Tuesday?" without the user having
+    // to re-state context. Each entry is { role: 'user' | 'ai', text, ts }.
+    const HISTORY_TURNS = 8;
+    const trimmedHistory = Array.isArray(history)
+        ? history
+            .filter(m => m && typeof m.text === 'string' && m.text.trim())
+            .slice(-HISTORY_TURNS)
+        : [];
+
+    const historyBlock = trimmedHistory.length
+        ? trimmedHistory
+            .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
+            .join('\n')
+        : '(no previous turns — this is the first question)';
+
+    const prompt = `You are answering questions about a small hardware store POS system.
 
 Context:
 - Today's date: ${new Date().toISOString().split('T')[0]}
@@ -253,9 +270,14 @@ ${JSON.stringify(recent)}
 Product catalog (first 100):
 ${JSON.stringify(catalog)}
 
-Question: ${trimmed}
+Previous conversation (oldest → newest):
+${historyBlock}
+
+User's new question: ${trimmed}
 
 Instructions:
+- If the new question is a follow-up (e.g. "and last week?", "what about Tuesday?", "why?", "show me more"), resolve it using the Previous conversation before answering.
+- Otherwise answer the new question directly.
 - Answer in 1-2 sentences, plain English, no markdown.
 - Use ONLY the data above. Do NOT invent numbers.
 - If the data is insufficient, say: "I don't have enough data to answer that."
@@ -264,11 +286,11 @@ Instructions:
 Return ONLY valid JSON (no markdown):
 { "answer": "<your answer>" }`;
 
-        const { parsed } = await callProxy(prompt, 'query');
-        return parsed && parsed.answer
-            ? parsed
-            : { answer: 'AI returned an unexpected response.' };
-    }
+    const { parsed } = await callProxy(prompt, 'query');
+    return parsed && parsed.answer
+        ? parsed
+        : { answer: 'AI returned an unexpected response.' };
+}
 
     window.POS_AI = {
         forecastSales,

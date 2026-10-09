@@ -7956,3 +7956,633 @@ body.ai-panel-open .ai-fab {
     .ai-fab { right: 16px; bottom: 16px; width: 52px; height: 52px; }
     .ai-panel { width: 100vw; }
 }
+
+/* ============================================
+   OVERVIEW REDESIGN
+   Header + quick actions, attention strip,
+   tabbed analytics, tabbed AI insights.
+   Uses existing --glass-* / --text-* tokens
+   so both themes adapt automatically.
+   ============================================ */
+
+/* ---------- Header + Quick Actions ---------- */
+.ov-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.ov-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.ov-header-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.ov-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ov-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font: 600 13.5px 'Inter', sans-serif;
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    background: var(--glass-soft, rgba(255,255,255,0.06));
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: transform 0.15s, background 0.2s, border-color 0.2s, color 0.2s;
+    backdrop-filter: blur(12px);
+    white-space: nowrap;
+}
+
+.ov-action-btn:hover {
+    border-color: rgba(22, 163, 74, 0.5);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.ov-action-btn i { color: #16a34a; }
+
+.ov-action-btn.primary {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #ffffff;
+    border-color: #16a34a;
+}
+
+.ov-action-btn.primary i { color: #ffffff; }
+
+.ov-action-btn.primary:hover {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    border-color: #22c55e;
+    box-shadow: 0 8px 24px rgba(22, 163, 74, 0.28);
+}
+
+/* Yellow-brand override (dark mode) */
+html:not([data-theme="light"]) .ov-action-btn i { color: #FACC15; }
+
+html:not([data-theme="light"]) .ov-action-btn.primary {
+    background: #FACC15;
+    color: #141210;
+    border-color: #FACC15;
+}
+
+html:not([data-theme="light"]) .ov-action-btn.primary i { color: #141210; }
+
+html:not([data-theme="light"]) .ov-action-btn.primary:hover {
+    background: #EAB308;
+    border-color: #EAB308;
+    box-shadow: 0 8px 24px rgba(250, 204, 21, 0.3);
+}
+
+[data-theme="light"] .ov-action-btn.primary {
+    background: #E0A300;
+    border-color: #E0A300;
+    color: #100e0a;
+}
+
+[data-theme="light"] .ov-action-btn.primary i { color: #100e0a; }
+
+/* ---------- Needs Attention Strip ---------- */
+.ov-attention {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-radius: 14px;
+    background: linear-gradient(90deg, rgba(239,68,68,0.10), rgba(251,146,60,0.08) 60%, transparent);
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    border-left: 4px solid #ef4444;
+    margin-bottom: 22px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.ov-attention[hidden] { display: none; }
+
+.ov-attention:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.ov-attention:focus-visible {
+    outline: 2px solid #4ade80;
+    outline-offset: 3px;
+}
+
+.ov-attention-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.ov-attention-body { flex: 1; min-width: 0; }
+
+.ov-attention-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+}
+
+.ov-attention-meta {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.ov-attention-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.ov-attention-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #16a34a;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+html:not([data-theme="light"]) .ov-attention-cta { color: #FACC15; }
+[data-theme="light"] .ov-attention-cta { color: #8a5a00; }
+
+[data-theme="light"] .ov-attention {
+    background: linear-gradient(90deg, rgba(239,68,68,0.08), rgba(251,146,60,0.06) 60%, transparent);
+}
+
+/* ---------- Analytics Card ---------- */
+.ov-analytics { margin-bottom: 24px; }
+
+.ov-analytics-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.ov-analytics-head-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 200px;
+    flex: 1 1 auto;
+}
+
+.ov-analytics-head-left h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.ov-analytics-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Tabs ---------- */
+.ov-tabs {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 10px;
+    background: var(--glass-soft, rgba(255,255,255,0.06));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+}
+
+.ov-tab {
+    padding: 7px 13px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font: 600 12.5px 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ov-tab i { font-size: 11px; opacity: 0.85; }
+
+.ov-tab:hover { color: var(--text-primary); }
+
+.ov-tab.active {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(22, 163, 74, 0.25);
+}
+
+html:not([data-theme="light"]) .ov-tab.active {
+    background: #FACC15;
+    color: #141210;
+    box-shadow: 0 3px 10px rgba(250, 204, 21, 0.25);
+}
+
+[data-theme="light"] .ov-tab.active {
+    background: #E0A300;
+    color: #100e0a;
+    box-shadow: 0 3px 10px rgba(224, 163, 0, 0.25);
+}
+
+/* ---------- Panes ---------- */
+.ov-pane { display: none; }
+.ov-pane.active { display: block; }
+
+.ov-pane-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.ov-chart-wrap {
+    position: relative;
+    height: 320px;
+    width: 100%;
+}
+
+/* ---------- AI Card ---------- */
+.ov-ai-card .ov-ai-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.ov-ai-card h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+}
+
+.ov-ai-pane { display: none; }
+.ov-ai-pane.active { display: block; }
+
+/* ---------- Refresh button (used to be missing) ---------- */
+.ai-refresh-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    background: var(--glass-soft, rgba(255,255,255,0.06));
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    transition: color 0.18s, border-color 0.18s, transform 0.15s;
+    flex-shrink: 0;
+}
+
+.ai-refresh-btn:hover {
+    color: #16a34a;
+    border-color: rgba(22, 163, 74, 0.5);
+}
+
+.ai-refresh-btn:active { transform: scale(0.92); }
+
+.ai-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+html:not([data-theme="light"]) .ai-refresh-btn:hover {
+    color: #FACC15;
+    border-color: rgba(250, 204, 21, 0.5);
+}
+
+/* ---------- AI content primitives (were missing) ---------- */
+.ai-card-content { color: var(--text-secondary); }
+
+.ai-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.ai-loading i { color: #16a34a; }
+html:not([data-theme="light"]) .ai-loading i { color: #FACC15; }
+
+/* Forecast */
+.ai-forecast-summary {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    padding: 10px 13px;
+    border-radius: 9px;
+    background: var(--glass-soft, rgba(255,255,255,0.06));
+    border-left: 3px solid #16a34a;
+}
+
+html:not([data-theme="light"]) .ai-forecast-summary { border-left-color: #FACC15; }
+
+.ai-forecast-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 120px;
+    padding: 0 2px;
+    margin-bottom: 8px;
+}
+
+.ai-forecast-bar {
+    flex: 1;
+    min-width: 6px;
+    border-radius: 4px 4px 0 0;
+    background: linear-gradient(180deg, #22c55e, #16a34a);
+    opacity: 0.85;
+    transition: opacity 0.15s;
+    cursor: default;
+}
+
+.ai-forecast-bar:hover { opacity: 1; }
+
+html:not([data-theme="light"]) .ai-forecast-bar {
+    background: linear-gradient(180deg, #FACC15, #EAB308);
+}
+
+[data-theme="light"] .ai-forecast-bar {
+    background: linear-gradient(180deg, #E0A300, #B8860B);
+}
+
+.ai-forecast-xaxis {
+    display: flex;
+    gap: 4px;
+    padding: 0 2px;
+    margin-bottom: 14px;
+}
+
+.ai-forecast-xaxis span {
+    flex: 1;
+    text-align: center;
+    font-size: 9.5px;
+    color: var(--text-muted, #8a8275);
+}
+
+.ai-forecast-totals {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    padding-top: 12px;
+    border-top: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    flex-wrap: wrap;
+}
+
+.ai-forecast-totals strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+/* Restock */
+.ai-restock-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+    border-radius: 10px;
+    transition: background 0.15s;
+}
+
+.ai-restock-item:hover {
+    background: var(--glass-soft, rgba(255,255,255,0.06));
+}
+
+.ai-restock-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.ai-restock-icon.critical { background: rgba(239, 68, 68, 0.15);    color: #f87171; }
+.ai-restock-icon.high     { background: rgba(251, 146, 60, 0.15);   color: #fb923c; }
+.ai-restock-icon.medium   { background: rgba(59, 130, 246, 0.15);   color: #60a5fa; }
+.ai-restock-icon.low      { background: rgba(34, 197, 94, 0.15);    color: #4ade80; }
+
+.ai-restock-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ai-restock-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-restock-reason {
+    font-size: 11.5px;
+    color: var(--text-muted, #8a8275);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-restock-action {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(22, 163, 74, 0.15);
+    color: #16a34a;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+html:not([data-theme="light"]) .ai-restock-action {
+    background: rgba(250, 204, 21, 0.15);
+    color: #FACC15;
+}
+
+/* ---------- Low Stock sub-section inside Restock pane ---------- */
+.ov-low-stock {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+}
+
+.ov-low-stock-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.ov-low-stock-sub {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted, #8a8275);
+}
+
+/* ---------- Utilities ---------- */
+.hide-sm { display: inline; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .ov-analytics-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ov-analytics-controls {
+        justify-content: space-between;
+        width: 100%;
+    }
+    .ov-tabs { overflow-x: auto; max-width: 100%; }
+    .ov-chart-wrap { height: 280px; }
+}
+
+@media (max-width: 700px) {
+    .ov-header h1 { font-size: 22px; }
+    .ov-header-actions { width: 100%; }
+    .ov-action-btn { flex: 1; justify-content: center; padding: 10px 12px; font-size: 12.5px; }
+    .hide-sm { display: none; }
+    .ov-attention { padding: 12px 14px; gap: 10px; }
+    .ov-attention-cta span { display: none; }
+    .ov-analytics-controls { flex-direction: column; align-items: stretch; }
+    .ov-analytics-controls .filter-select,
+    .ov-analytics-controls .compare-toggle { width: 100%; }
+    .ov-chart-wrap { height: 240px; }
+    .ov-ai-card .ov-ai-head { flex-direction: column; align-items: stretch; }
+}
+
+/* ============================================
+   AI PANEL — QUICK-PROMPT CHIPS
+   Sits between the thread and the input row.
+   Horizontal scroll on narrow panels.
+   ============================================ */
+.ai-quick-prompts {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    border-top: 1px solid rgba(250, 204, 21, 0.08);
+    background: rgba(20, 18, 16, 0.35);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex-shrink: 0;
+}
+
+.ai-quick-prompts::-webkit-scrollbar { display: none; }
+
+.ai-chip {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(250, 204, 21, 0.22);
+    background: rgba(250, 204, 21, 0.06);
+    color: #d6cfc0;
+    font: 500 12px 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
+    white-space: nowrap;
+}
+
+.ai-chip:hover:not(:disabled) {
+    background: rgba(250, 204, 21, 0.14);
+    border-color: rgba(250, 204, 21, 0.5);
+    color: #FACC15;
+}
+
+.ai-chip:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.ai-chip:focus-visible {
+    outline: 2px solid rgba(250, 204, 21, 0.65);
+    outline-offset: 2px;
+}
+
+.ai-chip:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.ai-chip i {
+    font-size: 10px;
+    opacity: 0.85;
+}
+
+/* Light mode */
+[data-theme="light"] .ai-quick-prompts {
+    background: #f5efe0;
+    border-top-color: rgba(120, 95, 55, 0.2);
+}
+
+[data-theme="light"] .ai-chip {
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(180, 165, 130, 0.4);
+    color: #57534e;
+}
+
+[data-theme="light"] .ai-chip:hover:not(:disabled) {
+    background: rgba(234, 179, 8, 0.16);
+    border-color: rgba(234, 179, 8, 0.55);
+    color: #854d0e;
+}
+
+[data-theme="light"] .ai-chip:focus-visible {
+    outline-color: rgba(224, 163, 0, 0.7);
+}
+
+@media (max-width: 480px) {
+    .ai-quick-prompts { padding: 8px 10px; gap: 6px; }
+    .ai-chip { padding: 6px 10px; font-size: 11.5px; }
+}

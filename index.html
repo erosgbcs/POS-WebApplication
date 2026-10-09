@@ -319,235 +319,235 @@
             <!-- Main Content -->
             <main class="dashboard-content">
                 <!-- Overview Page -->
-                <div class="page-content active" id="page-overview">
-                    <div class="page-header">
-                        <h1>Dashboard Overview</h1>
-                        <p>Welcome back, <span id="dashboardUserName">User</span>!</p>
-                    </div>
+                <!-- Overview Page -->
+<div class="page-content active" id="page-overview">
 
-                   <div class="stats-grid">
-    <div class="stat-card kpi-card kpi-sales kpi-clickable" data-kpi-target="reports" data-kpi-filter="sales" role="button" tabindex="0" aria-label="View sales report">
-        <div class="stat-icon green">
-            <i class="fas fa-dollar-sign"></i>
+    <!-- ===== HEADER + QUICK ACTIONS (moved up) ===== -->
+    <div class="ov-header">
+        <div>
+            <h1>Dashboard Overview</h1>
+            <p class="ov-header-sub">Welcome back, <span id="dashboardUserName">User</span>!</p>
         </div>
-        <div class="stat-info">
-            <h3 id="ovTodaySales">₱0.00</h3>
-            <p>Today's Sales</p>
-            <span class="stat-change" id="ovTodaySalesDelta">—</span>
-        </div>
-    </div>
-    <div class="stat-card kpi-card kpi-orders kpi-clickable" data-kpi-target="orders" data-kpi-filter="today" role="button" tabindex="0" aria-label="View today's orders">
-        <div class="stat-icon blue">
-            <i class="fas fa-shopping-bag"></i>
-        </div>
-        <div class="stat-info">
-            <h3 id="ovOrdersToday">0</h3>
-            <p>Orders Today</p>
-            <span class="stat-change" id="ovOrdersTodayDelta">—</span>
-        </div>
-    </div>
-    <div class="stat-card kpi-card kpi-products kpi-clickable" data-kpi-target="inventory" role="button" tabindex="0" aria-label="View inventory">
-        <div class="stat-icon amber">
-            <i class="fas fa-box"></i>
-        </div>
-        <div class="stat-info">
-            <h3 id="ovProductsInStock">0</h3>
-            <p>Products in Stock</p>
-            <span class="stat-change" id="ovProductsDelta">—</span>
-        </div>
-    </div>
-    <div class="stat-card kpi-card kpi-customers kpi-clickable" data-kpi-target="customers" role="button" tabindex="0" aria-label="View customers">
-        <div class="stat-icon purple">
-            <i class="fas fa-users"></i>
-        </div>
-        <div class="stat-info">
-            <h3 id="ovActiveCustomers">0</h3>
-            <p>Active Customers</p>
-            <span class="stat-change" id="ovCustomersDelta">—</span>
-        </div>
-    </div>
-</div>
-
-
-
-
-<!-- Sales Chart — Configurable Period (FULL WIDTH) -->
-<div class="recent-activity" style="margin-bottom: 2rem;">
-    <div class="activity-header sales-header">
-        <div class="sales-header-left">
-            <h2>Sales Overview</h2>
-            <span class="sales-summary" id="ovSalesChartSummary">Loading…</span>
-        </div>
-        <div class="sales-header-right">
-            <label class="compare-toggle" title="Overlay the previous period">
-                <input type="checkbox" id="ovSalesCompare">
-                <span class="checkmark"></span>
-                <span>Compare</span>
-            </label>
-            <select class="filter-select" id="ovSalesPeriod" aria-label="Select sales period">
-                <option value="7d" selected>Last 7 days</option>
-                <option value="30d">Last 30 days</option>
-                <option value="90d">Last 90 days</option>
-                <option value="this-month">This Month</option>
-                <option value="last-month">Last Month</option>
-                <option value="this-year">This Year</option>
-                <option value="last-year">Last Year</option>
-            </select>
-        </div>
-    </div>
-    <div style="position: relative; height: 320px; width: 100%;">
-        <canvas id="ovSalesChart"></canvas>
-    </div>
-</div>
-
-<!-- AI Forecast + Priority Restock -->
-<div class="ov-grid-2">
-    <div class="recent-activity">
-        <div class="activity-header">
-            <h2><i class="fas fa-chart-line" style="color: #a78bfa; margin-right: 8px;"></i>14-Day Sales Forecast</h2>
-            <button type="button" class="ai-refresh-btn" id="aiForecastRefresh" title="Refresh forecast">
-                <i class="fas fa-sync"></i>
+        <div class="ov-header-actions">
+            <button class="ov-action-btn primary" type="button" onclick="navigateToPage('pos')">
+                <i class="fas fa-plus-circle"></i> <span class="hide-sm">New Order</span>
+            </button>
+            <button class="ov-action-btn" type="button" onclick="navigateToPage('inventory')">
+                <i class="fas fa-plus"></i> <span class="hide-sm">Add Product</span>
+            </button>
+            <button class="ov-action-btn" type="button" onclick="navigateToPage('reports')">
+                <i class="fas fa-file-invoice"></i> <span class="hide-sm">Report</span>
+            </button>
+            <button class="ov-action-btn" type="button" onclick="navigateToPage('users')" title="Manage Users">
+                <i class="fas fa-users-cog"></i>
             </button>
         </div>
-        <span class="sales-summary" id="aiForecastSubtitle">Analyzing…</span>
-        <div id="aiForecastContent" class="ai-card-content">
-            <div class="ai-loading"><i class="fas fa-spinner fa-spin"></i> Analyzing sales patterns…</div>
+    </div>
+
+    <!-- ===== NEEDS ATTENTION STRIP (new, populated by JS) ===== -->
+    <div class="ov-attention" id="ovAttentionStrip" role="button" tabindex="0" hidden>
+        <div class="ov-attention-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="ov-attention-body">
+            <div class="ov-attention-title" id="ovAttentionTitle">Things need your attention</div>
+            <div class="ov-attention-meta" id="ovAttentionMeta"></div>
+        </div>
+        <div class="ov-attention-cta">Review <i class="fas fa-arrow-right"></i></div>
+    </div>
+
+    <!-- ===== KPI CARDS (unchanged structure) ===== -->
+    <div class="stats-grid">
+        <div class="stat-card kpi-card kpi-sales kpi-clickable" data-kpi-target="reports" data-kpi-filter="sales" role="button" tabindex="0" aria-label="View sales report">
+            <div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div>
+            <div class="stat-info">
+                <h3 id="ovTodaySales">₱0.00</h3>
+                <p>Today's Sales</p>
+                <span class="stat-change" id="ovTodaySalesDelta">—</span>
+            </div>
+        </div>
+        <div class="stat-card kpi-card kpi-orders kpi-clickable" data-kpi-target="orders" data-kpi-filter="today" role="button" tabindex="0" aria-label="View today's orders">
+            <div class="stat-icon blue"><i class="fas fa-shopping-bag"></i></div>
+            <div class="stat-info">
+                <h3 id="ovOrdersToday">0</h3>
+                <p>Orders Today</p>
+                <span class="stat-change" id="ovOrdersTodayDelta">—</span>
+            </div>
+        </div>
+        <div class="stat-card kpi-card kpi-products kpi-clickable" data-kpi-target="inventory" role="button" tabindex="0" aria-label="View inventory">
+            <div class="stat-icon amber"><i class="fas fa-box"></i></div>
+            <div class="stat-info">
+                <h3 id="ovProductsInStock">0</h3>
+                <p>Products in Stock</p>
+                <span class="stat-change" id="ovProductsDelta">—</span>
+            </div>
+        </div>
+        <div class="stat-card kpi-card kpi-customers kpi-clickable" data-kpi-target="customers" role="button" tabindex="0" aria-label="View customers">
+            <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+            <div class="stat-info">
+                <h3 id="ovActiveCustomers">0</h3>
+                <p>Active Customers</p>
+                <span class="stat-change" id="ovCustomersDelta">—</span>
+            </div>
         </div>
     </div>
 
-    <div class="recent-activity">
-        <div class="activity-header">
-            <h2><i class="fas fa-boxes-stacked" style="color: #fbbf24; margin-right: 8px;"></i>Priority Restock</h2>
-            <button type="button" class="ai-refresh-btn" id="aiRestockRefresh" title="Refresh restock list">
-                <i class="fas fa-sync"></i>
-            </button>
+    <!-- ===== ANALYTICS (4 charts merged into one tabbed card) ===== -->
+    <div class="recent-activity ov-analytics">
+        <div class="ov-analytics-head">
+            <div class="ov-analytics-head-left">
+                <h2>Analytics</h2>
+                <span class="sales-summary" id="ovSalesChartSummary">Loading…</span>
+            </div>
+            <div class="ov-analytics-controls">
+                <div class="ov-tabs" role="tablist" aria-label="Analytics view">
+                    <button class="ov-tab active" type="button" data-ov-pane="trend" role="tab" aria-selected="true">
+                        <i class="fas fa-chart-line"></i> Trend
+                    </button>
+                    <button class="ov-tab" type="button" data-ov-pane="products" role="tab" aria-selected="false">
+                        <i class="fas fa-ranking-star"></i> Products
+                    </button>
+                    <button class="ov-tab" type="button" data-ov-pane="categories" role="tab" aria-selected="false">
+                        <i class="fas fa-chart-pie"></i> Categories
+                    </button>
+                    <button class="ov-tab" type="button" data-ov-pane="hours" role="tab" aria-selected="false">
+                        <i class="fas fa-clock"></i> Hours
+                    </button>
+                </div>
+                <select class="filter-select" id="ovAnalyticsPeriod" aria-label="Analytics period">
+                    <option value="7d" selected>Last 7 days</option>
+                    <option value="30d">Last 30 days</option>
+                    <option value="90d">Last 90 days</option>
+                    <option value="this-month">This Month</option>
+                    <option value="last-month">Last Month</option>
+                    <option value="this-year">This Year</option>
+                    <option value="last-year">Last Year</option>
+                </select>
+                <label class="compare-toggle" title="Overlay the previous period">
+                    <input type="checkbox" id="ovAnalyticsCompare">
+                    <span class="checkmark"></span>
+                    <span>Compare</span>
+                </label>
+            </div>
         </div>
-        <span class="sales-summary" id="aiRestockSubtitle">Analyzing…</span>
-        <div id="aiRestockContent" class="ai-card-content">
-            <div class="ai-loading"><i class="fas fa-spinner fa-spin"></i> Ranking products by urgency…</div>
-        </div>
-    </div>
-</div>
 
-<div class="ov-grid-2">
-    <div class="recent-activity">
-        <div class="activity-header sales-header">
-            <div class="sales-header-left">
-                <h2>Top 5 Products</h2>
+        <!-- Hidden legacy selects so script.js keeps driving each chart -->
+        <select id="ovSalesPeriod" style="display:none" aria-hidden="true">
+            <option value="7d">7d</option><option value="30d">30d</option><option value="90d">90d</option>
+            <option value="this-month">This Month</option><option value="last-month">Last Month</option>
+            <option value="this-year">This Year</option><option value="last-year">Last Year</option>
+        </select>
+        <input type="checkbox" id="ovSalesCompare" style="display:none" aria-hidden="true">
+        <select id="ovTopProductsPeriod" style="display:none" aria-hidden="true">
+            <option value="7d">7d</option><option value="30d">30d</option><option value="90d">90d</option>
+            <option value="this-month">This Month</option><option value="last-month">Last Month</option>
+            <option value="this-year">This Year</option><option value="last-year">Last Year</option>
+        </select>
+        <input type="checkbox" id="ovTopProductsCompare" style="display:none" aria-hidden="true">
+        <select id="ovCategoryPeriod" style="display:none" aria-hidden="true">
+            <option value="7d">7d</option><option value="30d">30d</option><option value="90d">90d</option>
+            <option value="this-month">This Month</option><option value="last-month">Last Month</option>
+            <option value="this-year">This Year</option><option value="last-year">Last Year</option>
+        </select>
+        <input type="checkbox" id="ovCategoryCompare" style="display:none" aria-hidden="true">
+
+        <!-- Trend -->
+        <div class="ov-pane active" data-ov-pane="trend">
+            <div class="ov-chart-wrap"><canvas id="ovSalesChart"></canvas></div>
+        </div>
+
+        <!-- Products -->
+        <div class="ov-pane" data-ov-pane="products">
+            <div class="ov-pane-meta">
                 <span class="sales-summary" id="ovTopProductsSubtitle">Loading…</span>
             </div>
-            <div class="sales-header-right">
-                <label class="compare-toggle" title="Overlay the previous period">
-                    <input type="checkbox" id="ovTopProductsCompare">
-                    <span class="checkmark"></span>
-                    <span>Compare</span>
-                </label>
-                <select class="filter-select" id="ovTopProductsPeriod" aria-label="Select top products period">
-                    <option value="7d">Last 7 days</option>
-                    <option value="30d" selected>Last 30 days</option>
-                    <option value="90d">Last 90 days</option>
-                    <option value="this-month">This Month</option>
-                    <option value="last-month">Last Month</option>
-                    <option value="this-year">This Year</option>
-                    <option value="last-year">Last Year</option>
-                </select>
-            </div>
+            <div class="ov-chart-wrap"><canvas id="ovTopProductsChart"></canvas></div>
         </div>
-        <div style="position: relative; height: 320px; width: 100%;">
-            <canvas id="ovTopProductsChart"></canvas>
-        </div>
-    </div>
-    
-    <div class="recent-activity">
-        <div class="activity-header sales-header">
-            <div class="sales-header-left">
-                <h2>Sales by Category</h2>
+
+        <!-- Categories -->
+        <div class="ov-pane" data-ov-pane="categories">
+            <div class="ov-pane-meta">
                 <span class="sales-summary" id="ovCategorySubtitle">Loading…</span>
             </div>
-            <div class="sales-header-right">
-                <label class="compare-toggle" title="Compare against the previous period">
-                    <input type="checkbox" id="ovCategoryCompare">
-                    <span class="checkmark"></span>
-                    <span>Compare</span>
-                </label>
-                <select class="filter-select" id="ovCategoryPeriod" aria-label="Select category period">
-                    <option value="7d">Last 7 days</option>
-                    <option value="30d" selected>Last 30 days</option>
-                    <option value="90d">Last 90 days</option>
-                    <option value="this-month">This Month</option>
-                    <option value="last-month">Last Month</option>
-                    <option value="this-year">This Year</option>
-                    <option value="last-year">Last Year</option>
-                </select>
-            </div>
+            <div class="ov-chart-wrap"><canvas id="ovCategoryChart"></canvas></div>
         </div>
-        <div style="position: relative; height: 320px; width: 100%;">
-            <canvas id="ovCategoryChart"></canvas>
-        </div>
-    </div>
-</div>
-<!-- Hourly Sales Heatmap (FULL WIDTH) -->
-<div class="recent-activity" style="margin-bottom: 2rem;">
-    <div class="activity-header">
-        <h2>Hourly Sales Heatmap</h2>
-        <span style="font-size: 13px; color: var(--text-secondary);" id="ovHourlySubtitle">—</span>
-    </div>
-    <div id="ovHourlyHeatmap">
-        <div style="text-align: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
-            <span>Loading sales patterns...</span>
-        </div>
-    </div>
-</div>
 
-<!-- ROW: Low Stock Alerts | Recent Activity -->
-<div class="ov-grid-2">
-    <div class="recent-activity">
-        <div class="activity-header">
-            <h2>Low Stock Alerts</h2>
-            <span style="font-size: 12px; color: var(--text-secondary);" id="ovLowStockSubtitle">—</span>
-        </div>
-        <div class="activity-list" id="ovLowStockList">
-            <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
-                <span>Loading stock levels...</span>
+        <!-- Hours -->
+        <div class="ov-pane" data-ov-pane="hours">
+            <div class="ov-pane-meta">
+                <span class="sales-summary" id="ovHourlySubtitle">—</span>
             </div>
+            <div id="ovHourlyHeatmap"></div>
         </div>
     </div>
 
-                   <!-- Recent Activity -->
-<div class="recent-activity">
-    <div class="activity-header">
-        <h2>Recent Activity</h2>
-    </div>
-    <div class="activity-list" id="ovActivityList">
-        <div class="activity-item" style="justify-content: center; color: var(--text-secondary); font-size: 14px; padding: 1.5rem 0;">
-            <span>Loading activity...</span>
-        </div>
-    </div>
-</div>
-</div>
-                    <!-- Quick Actions -->
-                    <div class="quick-actions">
-                        <h2>Quick Actions</h2>
-                        <div class="actions-grid">
-                            <button class="action-btn" onclick="navigateToPage('pos')">
-                                <i class="fas fa-plus-circle"></i>
-                                New Order
-                            </button>
-                            <button class="action-btn" onclick="navigateToPage('inventory')">
-                                <i class="fas fa-plus"></i>
-                                Add Product
-                            </button>
-                            <button class="action-btn" onclick="navigateToPage('reports')">
-                                <i class="fas fa-file-invoice"></i>
-                                Generate Report
-                            </button>
-                            <button class="action-btn" onclick="navigateToPage('users')">
-                                <i class="fas fa-users-cog"></i>
-                                Manage Users
-                            </button>
+    <!-- ===== ROW: AI INSIGHTS | RECENT ACTIVITY ===== -->
+    <div class="ov-grid-2">
+
+        <!-- AI Insights (Forecast + Restock merged) -->
+        <div class="recent-activity ov-ai-card">
+            <div class="ov-ai-head">
+                <div>
+                    <h2><i class="fas fa-wand-magic-sparkles" style="color: #a78bfa; margin-right: 8px;"></i>AI Insights</h2>
+                </div>
+                <div class="ov-tabs" role="tablist" aria-label="AI insights view">
+                    <button class="ov-tab active" type="button" data-ai-pane="forecast" role="tab" aria-selected="true">Forecast</button>
+                    <button class="ov-tab" type="button" data-ai-pane="restock" role="tab" aria-selected="false">Restock</button>
+                </div>
+            </div>
+
+            <!-- Forecast pane -->
+            <div class="ov-ai-pane active" data-ai-pane="forecast">
+                <div class="ov-pane-meta">
+                    <span class="sales-summary" id="aiForecastSubtitle">Analyzing…</span>
+                    <button type="button" class="ai-refresh-btn" id="aiForecastRefresh" title="Refresh forecast">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                </div>
+                <div id="aiForecastContent" class="ai-card-content">
+                    <div class="ai-loading"><i class="fas fa-spinner fa-spin"></i> Analyzing sales patterns…</div>
+                </div>
+            </div>
+
+            <!-- Restock pane -->
+            <div class="ov-ai-pane" data-ai-pane="restock">
+                <div class="ov-pane-meta">
+                    <span class="sales-summary" id="aiRestockSubtitle">Analyzing…</span>
+                    <button type="button" class="ai-refresh-btn" id="aiRestockRefresh" title="Refresh restock list">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                </div>
+                <div id="aiRestockContent" class="ai-card-content">
+                    <div class="ai-loading"><i class="fas fa-spinner fa-spin"></i> Ranking products by urgency…</div>
+                </div>
+
+                <!-- Manual low-stock list still renders here as a fallback -->
+                <div class="ov-low-stock">
+                    <div class="ov-low-stock-head">
+                        <span>Low stock alerts</span>
+                        <span class="ov-low-stock-sub" id="ovLowStockSubtitle">—</span>
+                    </div>
+                    <div class="activity-list" id="ovLowStockList">
+                        <div class="activity-item" style="justify-content:center;color:var(--text-secondary);font-size:14px;padding:1.5rem 0;">
+                            <span>Loading stock levels...</span>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="recent-activity">
+            <div class="activity-header">
+                <h2>Recent Activity</h2>
+            </div>
+            <div class="activity-list" id="ovActivityList">
+                <div class="activity-item" style="justify-content:center;color:var(--text-secondary);font-size:14px;padding:1.5rem 0;">
+                    <span>Loading activity...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
 
                       <!-- POS Page Content -->
 <div class="page-content" id="page-pos">
@@ -1458,37 +1458,6 @@
         </form>
     </div>
 </div>
-  
-<!-- Firebase Config (regular script - runs synchronously) -->
-<script>
-    window.FIREBASE_CONFIG = {
-        apiKey: "AIzaSyBMt2AwW3cq8Og1gqV3MfPaUGearhnAWcU",
-        authDomain: "basedpos-inventory.firebaseapp.com",
-        projectId: "basedpos-inventory",
-        storageBucket: "basedpos-inventory.firebasestorage.app",
-        messagingSenderId: "563342767045",
-        appId: "1:563342767045:web:b4b4d839bfbe6fe94911ac",
-        measurementId: "G-FPG96DEDQS"
-    };
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="firebase.js"></script>
-<script src="inventory.js"></script>
-<script src="audit.js"></script>
-<script src="auth.js"></script>
-<script src="ai.js"></script>
-<script src="script.js"></script>
-<script src="pos.js"></script>
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('✅ Service worker registered:', reg.scope))
-                .catch(err => console.warn('⚠️ Service worker failed:', err));
-        });
-    }
-</script>
 
 <!-- AI Assistant — floating button + slide-out panel -->
 <button class="ai-fab" id="aiFab" type="button" aria-label="Open AI assistant" aria-expanded="false">
@@ -1518,6 +1487,24 @@
         </div>
     </div>
 
+    <div class="ai-quick-prompts" id="aiQuickPrompts" aria-label="Suggested questions">
+        <button type="button" class="ai-chip" data-prompt="What sold best today?">
+            <i class="fas fa-fire"></i> What sold best today?
+        </button>
+        <button type="button" class="ai-chip" data-prompt="What should I restock?">
+            <i class="fas fa-boxes-stacked"></i> What should I restock?
+        </button>
+        <button type="button" class="ai-chip" data-prompt="How are we doing this week?">
+            <i class="fas fa-chart-line"></i> How are we doing this week?
+        </button>
+        <button type="button" class="ai-chip" data-prompt="Who are my top customers?">
+            <i class="fas fa-users"></i> Top customers?
+        </button>
+        <button type="button" class="ai-chip" data-prompt="What is my total revenue this month?">
+            <i class="fas fa-peso-sign"></i> Revenue this month?
+        </button>
+    </div>
+
     <form class="ai-panel-input" id="aiPanelForm" autocomplete="off">
         <input type="text" id="aiPanelInput" placeholder="Type a message…" aria-label="Ask AI">
         <button type="submit" id="aiPanelSend" aria-label="Send">
@@ -1525,5 +1512,39 @@
         </button>
     </form>
 </aside>
+  
+<!-- Firebase Config (regular script - runs synchronously) -->
+<script>
+    window.FIREBASE_CONFIG = {
+        apiKey: "AIzaSyBMt2AwW3cq8Og1gqV3MfPaUGearhnAWcU",
+        authDomain: "basedpos-inventory.firebaseapp.com",
+        projectId: "basedpos-inventory",
+        storageBucket: "basedpos-inventory.firebasestorage.app",
+        messagingSenderId: "563342767045",
+        appId: "1:563342767045:web:b4b4d839bfbe6fe94911ac",
+        measurementId: "G-FPG96DEDQS"
+    };
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="firebase.js"></script>
+<script src="inventory.js"></script>
+<script src="audit.js"></script>
+<script src="auth.js"></script>
+<script src="ai.js"></script>
+<script src="script.js"></script>
+<script src="pos.js"></script>
+<script src="overview-enhancements.js"></script> 
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('✅ Service worker registered:', reg.scope))
+                .catch(err => console.warn('⚠️ Service worker failed:', err));
+        });
+    }
+</script>
+
+
 </body>
 </html>
