@@ -1920,10 +1920,26 @@ function setupAiFeatures() {
         form?.requestSubmit();
     });
 
+    // Minimum gap between chat messages. Protects Groq's token-per-minute
+    // budget — a rapid burst of 4-5 messages can blow past 8k TPM in one
+    // 60s window even with a trimmed payload.
+    const CHAT_COOLDOWN_MS = 4000;
+    let __lastChatAt = 0;
+
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const question = (input?.value || '').trim();
         if (!question) return;
+
+        // Enforce the cooldown — refuse silently rather than spamming
+        // the user with an error, since they just sent a message.
+        const since = Date.now() - __lastChatAt;
+        if (since < CHAT_COOLDOWN_MS) {
+            const waitSec = Math.ceil((CHAT_COOLDOWN_MS - since) / 1000);
+            appendAiBubble('ai', `Please wait ${waitSec}s between messages.`, 'error');
+            return;
+        }
+        __lastChatAt = Date.now();
 
         // Capture history BEFORE appending the new bubble, so the current
         // question is not duplicated inside the prompt's history block.
@@ -2282,7 +2298,10 @@ applyRoleAccess(user);
         window.initInventory?.();
     }
     if (page === 'pos') {
-        window.reloadPosCatalog?.(); // ← ADD
+        window.reloadPosCatalog?.();
+    }
+    if (page === 'overview') {
+        refreshAiCards();
     }
     if (page === 'users') {
         window.AUTH?.renderUsers?.().catch(() => {});
@@ -2987,24 +3006,16 @@ setupAiFeatures();
     })();
 
     
-    // Debounced AI refresh — coalesce bursts into one call
-let __aiRefreshTimer = null;
-function scheduleAiRefresh() {
-    clearTimeout(__aiRefreshTimer);
-    __aiRefreshTimer = setTimeout(() => refreshAiCards(), 4000);
-}
-
-// Refresh overview when data changes
+// Refresh overview when data changes.
+// refreshOverview() already gates on Overview visibility, so AI calls
+// only fire when the user is actually looking at the AI cards. The old
+// scheduleAiRefresh() path bypassed that gate and fired unconditionally
+// at 4s, doubling the AI proxy calls during normal use.
 window.addEventListener('pos-order-created', () => {
-    // AI cache is no longer busted on every sale. A single sale barely
-    // moves a 90-day forecast; the 6h TTL is fine, and the ↻ button
-    // exists for users who want a forced refresh.
     scheduleOverviewRefresh();
-    scheduleAiRefresh();
 });
 window.addEventListener('inventory-products-loaded', () => {
     scheduleOverviewRefresh();
-    scheduleAiRefresh();
 });
     
         // ---------- NOTIFICATIONS BELL + PANEL ----------
