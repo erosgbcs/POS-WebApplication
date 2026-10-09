@@ -17,10 +17,14 @@ export const config = { maxDuration: 30 };
 // upstream quotas, and the client has in-flight dedup. No proxy-level
 // limiter needed.
 
-// ---------- Retry tuning ----------
-const MAX_ATTEMPTS = 1; // Single attempt per provider
-const ABORT_MS = 8000; 
-const RETRYABLE_STATUSES = new Set([429, 500, 503, 504]);
+// ---------- Timeout budget ----------
+// Vercel Hobby caps functions at 10s. Gemini + Groq run sequentially,
+// so their combined abort windows must stay under that.
+//   Gemini: 3500ms (it fails fast on a bad model ID anyway)
+//   Groq:   4500ms (usually responds in 200-500ms, this is generous)
+//   Total:  8000ms worst case, plus fetch overhead → safely under 10s
+const GEMINI_ABORT_MS = 3500;
+const GROQ_ABORT_MS = 4500;
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -68,7 +72,7 @@ export default async function handler(req, res) {
             });
 
             const controller = new AbortController();
-            const abortTimer = setTimeout(() => controller.abort(), ABORT_MS);
+            const abortTimer = setTimeout(() => controller.abort(), GEMINI_ABORT_MS);
             let response;
             try {
                 response = await fetch(`${GEMINI_URL}?key=${geminiApiKey}`, {
@@ -119,7 +123,7 @@ export default async function handler(req, res) {
         });
 
         const controller = new AbortController();
-        const abortTimer = setTimeout(() => controller.abort(), ABORT_MS);
+        const abortTimer = setTimeout(() => controller.abort(), GROQ_ABORT_MS);
         let response;
         try {
             response = await fetch(GROQ_API_URL, {
