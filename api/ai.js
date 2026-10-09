@@ -1,15 +1,18 @@
-// api/ai.js — Vercel serverless function: Gemini API proxy
-// The API key lives only in Vercel env vars, never reaches the browser.
+// api/ai.js — Vercel serverless function: AI proxy with Gemini + Groq fallback
 
-const GEMINI_MODEL = 'gemini-3.8-flash'; // <-- KEPT as requested
+// --- Gemini Config ---
+const GEMINI_MODEL = 'gemini-2.5-flash'; 
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// Vercel config — Hobby caps at 10s regardless; Pro honors this.
+// --- Groq Config ---
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
 export const config = { maxDuration: 30 };
 
 // ---------- Rate limiting (best-effort per instance) ----------
 const rateState = { count: 0, windowStart: Date.now() };
-const RATE_LIMIT = 60;
+const RATE_LIMIT = 12; // Lowered to protect Gemini's 15 RPM limit
 const RATE_WINDOW_MS = 60 * 1000;
 
 function rateLimitOk() {
@@ -23,14 +26,9 @@ function rateLimitOk() {
 }
 
 // ---------- Retry tuning ----------
-// Single-attempt timeout. Higher = fewer false 504s when Gemini is slow,
-// but retries stack and must stay under Vercel's 10s hard cap on Hobby.
-//   2 attempts × 8s abort = 16s worst case → WILL hit the platform cap.
-// To keep 8s AND stay under 10s, set MAX_ATTEMPTS = 1.
-const MAX_ATTEMPTS = 1;
-const BASE_DELAY_MS = 400;
-const ABORT_MS = 8000;
-const RETRYABLE_STATUSES = new Set([503, 429, 500, 504]);
+const MAX_ATTEMPTS = 1; // Single attempt per provider
+const ABORT_MS = 8000; 
+const RETRYABLE_STATUSES = new Set([429, 500, 503, 504]);
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -56,83 +54,110 @@ export default async function handler(req, res) {
         return;
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.error('GEMINI_API_KEY not set in environment');
-        res.status(500).json({ error: 'AI service not configured' });
-        return;
-    }
+    // =================================================================
+    // ATTEMPT 1: Gemini
+    // =================================================================
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (geminiApiKey) {
+        try {
+            const geminiBody = JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    temperature: 0.35,
+                    maxOutputTokens: 2048,
+                    responseMimeType: 'application/json'
+                },
+                safetySettings: [
+                    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+                    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+                    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+                    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
+                ]
+            });
 
-    const requestBody = JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-            temperature: 0.35,
-            maxOutputTokens: 2048,
-            responseMimeType: 'application/json'
-        },
-        safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
-        ]
-    });
-
-    try {
-        let upstream = null;
-        let lastStatus = 0;
-        let lastBody = '';
-
-        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             const controller = new AbortController();
             const abortTimer = setTimeout(() => controller.abort(), ABORT_MS);
-
+            let response;
             try {
-                upstream = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+                response = await fetch(`${GEMINI_URL}?key=${geminiApiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     signal: controller.signal,
-                    body: requestBody
+                    body: geminiBody
                 });
             } finally {
                 clearTimeout(abortTimer);
             }
 
-            if (upstream.ok) break;
+            if (response.ok) {
+                const data = await response.json();
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                return res.status(200).json({ ok: true, task: task || 'generic', provider: 'gemini', text });
+            }
+            
+            const errBody = await response.text();
+            console.warn(`Gemini failed with status ${response.status}. Body: ${errBody.slice(0, 200)}. Falling back to Groq.`);
 
-            lastStatus = upstream.status;
-            lastBody = await upstream.text();
+        } catch (error) {
+            console.warn(`Gemini fetch error: ${error.message}. Falling back to Groq.`);
+        }
+    } else {
+        console.warn('GEMINI_API_KEY not set. Skipping Gemini, trying Groq.');
+    }
 
-            const retryable = RETRYABLE_STATUSES.has(lastStatus);
-            if (!retryable || attempt === MAX_ATTEMPTS) break;
+    // =================================================================
+    // ATTEMPT 2: Groq (Fallback)
+    // =================================================================
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+        console.error('GROQ_API_KEY not set. Cannot fall back.');
+        return res.status(500).json({ error: 'AI service not configured (no fallback available)' });
+    }
 
-            const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.random() * 250;
-            console.warn(`Gemini ${lastStatus} on attempt ${attempt}/${MAX_ATTEMPTS} — retrying in ${Math.round(delay)}ms`);
-            await new Promise(r => setTimeout(r, delay));
+    try {
+        const groqBody = JSON.stringify({
+            model: GROQ_MODEL,
+            messages: [
+                { role: 'system', content: 'You must respond with valid JSON only. Do not wrap the JSON in markdown.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.35,
+            max_tokens: 2048,
+            response_format: { type: 'json_object' }
+        });
+
+        const controller = new AbortController();
+        const abortTimer = setTimeout(() => controller.abort(), ABORT_MS);
+        let response;
+        try {
+            response = await fetch(GROQ_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${groqApiKey}`
+                },
+                signal: controller.signal,
+                body: groqBody
+            });
+        } finally {
+            clearTimeout(abortTimer);
         }
 
-        if (!upstream || !upstream.ok) {
-            console.error('Gemini upstream error after retries', lastStatus, lastBody.slice(0, 400));
-            const friendly = lastStatus === 503
-                ? 'AI is busy right now — please try again in a few seconds.'
-                : lastStatus === 429
-                    ? 'AI rate limit reached — try again in a minute.'
-                    : `AI upstream error (${lastStatus})`;
-            res.status(503).json({ error: friendly });
-            return;
+        if (!response.ok) {
+            const errBody = await response.text();
+            console.error(`Groq failed with status ${response.status}. Body: ${errBody.slice(0, 400)}`);
+            return res.status(502).json({ error: `AI fallback error (${response.status})` });
         }
 
-        const data = await upstream.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        res.status(200).json({ ok: true, task: task || 'generic', text });
+        const data = await response.json();
+        const text = data?.choices?.[0]?.message?.content || '';
+        return res.status(200).json({ ok: true, task: task || 'generic', provider: 'groq', text });
 
-    } catch (err) {
-        if (err?.name === 'AbortError') {
-            console.error('Gemini call aborted after', ABORT_MS, 'ms');
-            res.status(504).json({ error: 'AI took too long to respond. Try again.' });
-            return;
+    } catch (error) {
+        console.error('Groq proxy error:', error);
+        if (error.name === 'AbortError') {
+            return res.status(504).json({ error: 'AI fallback timed out. Please try again.' });
         }
-        console.error('Proxy error', err);
-        res.status(500).json({ error: err.message || 'Unknown error' });
+        return res.status(500).json({ error: error.message || 'Unknown AI fallback error' });
     }
 }
