@@ -1648,7 +1648,21 @@ function renderHourlyHeatmap() {
 }
 
 
+// Coalesces rapid refreshOverview() calls into a single trailing render.
+// Firestore's onSnapshot fires its initial snapshot immediately on subscribe,
+// so a single login produces one refresh per subscription (orders, customers,
+// inventory) plus one chained from the inventory-products-loaded event.
+// Without debouncing that's 4-5 full chart-destroying rebuilds in ~300ms,
+// which also fires 8-10 AI proxy calls and trips Gemini's 15 RPM limit.
+let __ovRefreshTimer = null;
 
+function scheduleOverviewRefresh(delayMs = 250) {
+    if (__ovRefreshTimer) clearTimeout(__ovRefreshTimer);
+    __ovRefreshTimer = setTimeout(() => {
+        __ovRefreshTimer = null;
+        refreshOverview();
+    }, delayMs);
+}
 
 function refreshOverview() {
     refreshOverviewStats();
@@ -2007,16 +2021,16 @@ applyRoleAccess(user);
     window._posUnsubscribers = [
         window.POS_SUPABASE.subscribeOrders(orders => {
             renderOrders(orders);
-            refreshOverview();
+            scheduleOverviewRefresh();
         }),
         window.POS_SUPABASE.subscribeCustomers(customers => {
             renderCustomers(customerSearch?.value || '', customers);
-            refreshOverview();
+            scheduleOverviewRefresh();
         }),
         window.POS_SUPABASE.subscribeInventory(products => {
             window.renderPosCatalog?.(products);
             window.setInventoryProducts?.(products);
-            refreshOverview();
+            scheduleOverviewRefresh();
         }),
         window.POS_SUPABASE.subscribeAuditLogs(logs => {
     window.renderAuditLogs?.(logs);
@@ -2971,11 +2985,11 @@ function scheduleAiRefresh() {
 // Refresh overview when data changes
 window.addEventListener('pos-order-created', () => {
     window.POS_AI?.clearCache?.();   // invalidate AI cache on new sale
-    refreshOverview();
+    scheduleOverviewRefresh();
     scheduleAiRefresh();
 });
 window.addEventListener('inventory-products-loaded', () => {
-    refreshOverview();
+    scheduleOverviewRefresh();
     scheduleAiRefresh();
 });
     
