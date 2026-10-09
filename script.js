@@ -667,8 +667,9 @@ function refreshOverviewStats() {
     });
 }
 
-// ---------- OVERVIEW: SALES BY CATEGORY CHART ----------
+
 let ovCategoryChartInstance = null;
+const CATEGORY_PERIOD_KEY = 'pos_category_period';
 
 const CATEGORY_COLORS = {
     tools:       '#3b82f6',
@@ -696,28 +697,52 @@ function getCategoryColor(category, index) {
     return FALLBACK_CATEGORY_COLORS[index % FALLBACK_CATEGORY_COLORS.length];
 }
 
+function getCategoryPeriod() {
+    const select = document.getElementById('ovCategoryPeriod');
+    if (select?.value) return select.value;
+    try {
+        const saved = localStorage.getItem(CATEGORY_PERIOD_KEY);
+        if (saved) return saved;
+    } catch (e) {}
+    return '30d';
+}
+
+function aggregateCategoryRevenue(orders, nameToCategory) {
+    const revenueByCategory = {};
+    orders.forEach(order => {
+        (order.items || []).forEach(item => {
+            // Priority: baked-in category → name lookup → uncategorized
+            const cat =
+                item.category ||
+                nameToCategory[String(item.name || '').toLowerCase()] ||
+                'uncategorized';
+            const revenue = (Number(item.price) || 0) * (Number(item.quantity) || 0);
+            revenueByCategory[cat] = (revenueByCategory[cat] || 0) + revenue;
+        });
+    });
+    return revenueByCategory;
+}
+
 function renderSalesByCategoryChart() {
     const canvas = document.getElementById('ovCategoryChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
-    const orders = readOrdersFromStorage();
+    const period = getCategoryPeriod();
+    const compareEnabled = !!document.getElementById('ovCategoryCompare')?.checked;
+
+    const allOrders = readOrdersFromStorage();
     const products = window.getInventorySnapshot?.() || [];
 
-    // Build name → category lookup from current inventory
+    // Build name → category lookup from current inventory (fallback for old orders)
     const nameToCategory = {};
     products.forEach(p => {
         if (p.name) nameToCategory[String(p.name).toLowerCase()] = p.category || 'uncategorized';
     });
 
-    // Aggregate revenue per category from all historical orders
-    const revenueByCategory = {};
-    orders.forEach(order => {
-        (order.items || []).forEach(item => {
-            const cat = nameToCategory[String(item.name || '').toLowerCase()] || 'uncategorized';
-            const revenue = (Number(item.price) || 0) * (Number(item.quantity) || 0);
-            revenueByCategory[cat] = (revenueByCategory[cat] || 0) + revenue;
-        });
-    });
+    // Current-period orders
+    const range = getSalesPeriodRange(period);
+    const currentOrders = filterOrdersInRange(allOrders, range.start, range.end);
+    const revenueByCategory = aggregateCategoryRevenue(currentOrders, nameToCategory);
 
     const sorted = Object.entries(revenueByCategory)
         .filter(([, v]) => v > 0)
@@ -728,11 +753,30 @@ function renderSalesByCategoryChart() {
     const colors = sorted.map(([cat], i) => getCategoryColor(cat, i));
     const total = data.reduce((s, v) => s + v, 0);
 
+    // Previous period (for compare)
+    let previousTotal = 0;
+    if (compareEnabled) {
+        const prev = getPreviousPeriodRange(period);
+        const prevOrders = filterOrdersInRange(allOrders, prev.start, prev.end);
+        const prevRevenue = aggregateCategoryRevenue(prevOrders, nameToCategory);
+        previousTotal = Object.values(prevRevenue).reduce((s, v) => s + v, 0);
+    }
+
+    // Subtitle
     const subtitleEl = document.getElementById('ovCategorySubtitle');
     if (subtitleEl) {
-        subtitleEl.textContent = total > 0
-            ? `${sorted.length} categor${sorted.length === 1 ? 'y' : 'ies'} · ${formatAppCurrency(total)} total`
-            : 'No sales recorded yet';
+        if (total === 0) {
+            subtitleEl.textContent = `No sales in the ${getTopProductsPeriodLabel(period).toLowerCase()}`;
+        } else {
+            let text = `${sorted.length} categor${sorted.length === 1 ? 'y' : 'ies'} · ${formatAppCurrency(total)} total`;
+            if (compareEnabled && previousTotal > 0) {
+                const delta = ((total - previousTotal) / previousTotal) * 100;
+                const sign = delta >= 0 ? '+' : '';
+                const color = delta >= 0 ? '#4ade80' : '#f87171';
+                text += ` · <strong style="color:${color}">${sign}${delta.toFixed(1)}%</strong> vs prev`;
+            }
+            subtitleEl.innerHTML = text;
+        }
     }
 
     if (ovCategoryChartInstance) ovCategoryChartInstance.destroy();
@@ -787,6 +831,27 @@ function renderSalesByCategoryChart() {
     });
 }
 
+function setupCategoryPeriodControls() {
+    const periodSelect = document.getElementById('ovCategoryPeriod');
+    const compareToggle = document.getElementById('ovCategoryCompare');
+
+    if (periodSelect) {
+        try {
+            const saved = localStorage.getItem(CATEGORY_PERIOD_KEY);
+            if (saved && periodSelect.querySelector(`option[value="${saved}"]`)) {
+                periodSelect.value = saved;
+            }
+        } catch (e) {}
+        periodSelect.addEventListener('change', () => {
+            try { localStorage.setItem(CATEGORY_PERIOD_KEY, periodSelect.value); } catch (e) {}
+            renderSalesByCategoryChart();
+        });
+    }
+
+    if (compareToggle) {
+        compareToggle.addEventListener('change', renderSalesByCategoryChart);
+    }
+}
 // ---------- OVERVIEW: TOP PRODUCTS CHART (CONFIGURABLE PERIOD) ----------
 let ovTopProductsChartInstance = null;
 const TOP_PRODUCTS_PERIOD_KEY = 'pos_top_products_period';
@@ -1593,6 +1658,170 @@ function refreshOverview() {
     renderLowStockWidget();
     renderHourlyHeatmap();
     renderRecentActivity();
+    refreshAiCards();
+}
+
+// ---------- AI FEATURES ----------
+async function refreshAiCards() {
+    if (!window.POS_AI) return;
+
+    const forecastEl = document.getElementById('aiForecastContent');
+    const forecastSub = document.getElementById('aiForecastSubtitle');
+    const restockEl = document.getElementById('aiRestockContent');
+    const restockSub = document.getElementById('aiRestockSubtitle');
+
+    if (forecastEl) {
+        try {
+            const data = await window.POS_AI.forecastSales();
+            renderAiForecast(forecastEl, forecastSub, data);
+        } catch (err) {
+            forecastEl.innerHTML = `<div class="ai-loading" style="color:#f87171;">⚠️ ${escapeCustomerText(err.message || 'Forecast failed')}</div>`;
+            if (forecastSub) forecastSub.textContent = 'Unavailable';
+        }
+    }
+
+    if (restockEl) {
+        try {
+            const data = await window.POS_AI.restockPriority();
+            renderAiRestock(restockEl, restockSub, data);
+        } catch (err) {
+            restockEl.innerHTML = `<div class="ai-loading" style="color:#f87171;">⚠️ ${escapeCustomerText(err.message || 'Restock ranking failed')}</div>`;
+            if (restockSub) restockSub.textContent = 'Unavailable';
+        }
+    }
+}
+
+function renderAiForecast(container, subtitleEl, data) {
+    const list = Array.isArray(data.forecast) ? data.forecast : [];
+
+    if (!list.length) {
+        container.innerHTML = `<div class="ai-loading">${escapeCustomerText(data.summary || 'No forecast available yet.')}</div>`;
+        if (subtitleEl) subtitleEl.textContent = 'Not enough data';
+        return;
+    }
+
+    const total = list.reduce((s, d) => s + (Number(d.revenue) || 0), 0);
+    const avg = total / list.length;
+    const max = Math.max(...list.map(d => Number(d.revenue) || 0), 1);
+
+    if (subtitleEl) {
+        const arrow = data.trend === 'up' ? '↗' : data.trend === 'down' ? '↘' : '→';
+        subtitleEl.textContent = `${arrow} Expected: ₱${total.toLocaleString('en-PH', { maximumFractionDigits: 0 })} over 14 days`;
+    }
+
+    const fmt = v => '₱' + Number(v).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+
+    const bars = list.map(d => {
+        const v = Number(d.revenue) || 0;
+        const h = Math.max(4, (v / max) * 100);
+        return `<div class="ai-forecast-bar" style="height:${h}%" title="${escapeCustomerText(d.date)}: ${fmt(v)} (${escapeCustomerText(d.confidence || 'medium')} confidence)"></div>`;
+    }).join('');
+
+    const labels = list.map(d => `<span>${new Date(d.date).getDate()}</span>`).join('');
+
+    container.innerHTML = `
+        <div class="ai-forecast-summary">${escapeCustomerText(data.summary || '')}</div>
+        <div class="ai-forecast-chart">${bars}</div>
+        <div class="ai-forecast-xaxis">${labels}</div>
+        <div class="ai-forecast-totals">
+            <span>Avg/day: <strong>${fmt(avg)}</strong></span>
+            <span>Total: <strong>${fmt(total)}</strong></span>
+        </div>
+    `;
+}
+
+function renderAiRestock(container, subtitleEl, data) {
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    if (!items.length) {
+        container.innerHTML = `<div class="ai-loading">All stock levels look healthy.</div>`;
+        if (subtitleEl) subtitleEl.textContent = '';
+        return;
+    }
+
+    const critical = items.filter(i => i.urgency === 'critical').length;
+    if (subtitleEl) {
+        subtitleEl.textContent = `${items.length} item${items.length === 1 ? '' : 's'}` + (critical > 0 ? ` · ${critical} critical` : '');
+    }
+
+    const iconFor = u => ({
+        critical: 'fa-fire',
+        high: 'fa-exclamation-triangle',
+        medium: 'fa-info-circle',
+        low: 'fa-check-circle'
+    }[u] || 'fa-info-circle');
+
+    container.innerHTML = items.map(item => {
+        const urgency = ['critical', 'high', 'medium', 'low'].includes(item.urgency) ? item.urgency : 'low';
+        const days = (item.daysLeft != null && isFinite(item.daysLeft) && item.daysLeft < 999)
+            ? ` · ${Number(item.daysLeft).toFixed(1)} days left`
+            : '';
+        return `
+            <div class="ai-restock-item">
+                <div class="ai-restock-icon ${urgency}"><i class="fas ${iconFor(urgency)}"></i></div>
+                <div class="ai-restock-body">
+                    <span class="ai-restock-name">${escapeCustomerText(item.name)}</span>
+                    <span class="ai-restock-reason">${escapeCustomerText(item.reason || '')}${days}</span>
+                </div>
+                <div class="ai-restock-action">Order ${escapeCustomerText(item.recommendedOrder ?? '?')}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function setupAiFeatures() {
+    if (!window.POS_AI) {
+        console.warn('[AI] POS_AI not loaded — check that ai.js is included before script.js');
+        return;
+    }
+
+    const queryInput = document.getElementById('aiQueryInput');
+    const queryBtn = document.getElementById('aiQueryBtn');
+    const queryAnswer = document.getElementById('aiQueryAnswer');
+
+    if (queryBtn && queryInput) {
+        const ask = async () => {
+            const q = queryInput.value.trim();
+            if (!q) return;
+
+            const originalHtml = queryBtn.innerHTML;
+            queryBtn.disabled = true;
+            queryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking…';
+            if (queryAnswer) {
+                queryAnswer.style.display = 'block';
+                queryAnswer.textContent = 'Analyzing your store data…';
+            }
+
+            try {
+                const { answer } = await window.POS_AI.askQuestion(q);
+                if (queryAnswer) queryAnswer.textContent = answer;
+            } catch (err) {
+                if (queryAnswer) queryAnswer.textContent = '⚠️ ' + (err.message || 'AI request failed.');
+            } finally {
+                queryBtn.disabled = false;
+                queryBtn.innerHTML = originalHtml;
+            }
+        };
+
+        queryBtn.addEventListener('click', ask);
+        queryInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); ask(); }
+        });
+    }
+
+    document.getElementById('aiForecastRefresh')?.addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        window.POS_AI.clearCache();
+        await refreshAiCards();
+        e.currentTarget.disabled = false;
+    });
+
+    document.getElementById('aiRestockRefresh')?.addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        window.POS_AI.clearCache();
+        await refreshAiCards();
+        e.currentTarget.disabled = false;
+    });
 }
 
 
@@ -1761,12 +1990,77 @@ applyRoleAccess(user);
         if (userDropdownMenu) userDropdownMenu.classList.remove('show');
     });
 
-    // ---------- MOBILE SIDEBAR TOGGLE ----------
-    if (mobileToggle) {
-        mobileToggle.addEventListener('click', () => {
-            if (sidebar) sidebar.classList.toggle('open');
+    // ---------- SIDEBAR TOGGLE (mobile drawer + desktop collapse) ----------
+    (function setupSidebarToggle() {
+        if (!mobileToggle || !sidebar) return;
+
+        const COLLAPSE_KEY = 'pos_sidebar_collapsed';
+        const isDesktop = () => window.innerWidth > 768;
+
+        // Native tooltips on each nav item (visible when collapsed)
+        sidebar.querySelectorAll('.sidebar-link').forEach(link => {
+            const label = link.querySelector('span')?.textContent?.trim();
+            if (label) link.setAttribute('title', label);
         });
-    }
+
+        function saveCollapse(collapsed) {
+            try { localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0'); } catch (e) {}
+        }
+
+        function readCollapse() {
+            try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch (e) { return false; }
+        }
+
+        function setToggleA11y(collapsed) {
+            mobileToggle.setAttribute('aria-expanded', String(!collapsed));
+            mobileToggle.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        }
+
+        // Restore saved state on load (desktop only)
+        if (isDesktop() && readCollapse()) {
+            document.body.classList.add('sidebar-collapsed');
+            setToggleA11y(true);
+        } else {
+            setToggleA11y(false);
+        }
+
+        mobileToggle.addEventListener('click', () => {
+            if (isDesktop()) {
+                const collapsed = document.body.classList.toggle('sidebar-collapsed');
+                saveCollapse(collapsed);
+                setToggleA11y(collapsed);
+            } else {
+                sidebar.classList.toggle('open');
+                mobileToggle.setAttribute('aria-expanded',
+                    String(sidebar.classList.contains('open')));
+            }
+        });
+
+        // Esc closes mobile drawer
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !isDesktop() && sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                mobileToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // Cleanup / restore when crossing the breakpoint
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (!isDesktop()) {
+                    document.body.classList.remove('sidebar-collapsed');
+                    sidebar.classList.remove('open');
+                    mobileToggle.setAttribute('aria-expanded', 'false');
+                } else {
+                    const saved = readCollapse();
+                    document.body.classList.toggle('sidebar-collapsed', saved);
+                    setToggleA11y(saved);
+                }
+            }, 150);
+        });
+    })();
 
     // ---------- SIDEBAR NAVIGATION ----------
     document.querySelectorAll('.sidebar-link[data-page]').forEach(link => {
@@ -2403,6 +2697,8 @@ applyRoleAccess(user);
 window.setupAuditFeatures?.();
 setupSalesPeriodControls();
 setupTopProductsPeriodControls();
+setupCategoryPeriodControls();
+setupAiFeatures();
 
     // Auth boot (signin/forgot/logout + checkAuth) lives in auth.js
     window.AUTH?.initAuth?.();
@@ -2526,8 +2822,11 @@ setupTopProductsPeriodControls();
 
     
     // Refresh overview when data changes
-    window.addEventListener('pos-order-created', refreshOverview);
-    window.addEventListener('inventory-products-loaded', refreshOverview);
+window.addEventListener('pos-order-created', () => {
+    window.POS_AI?.clearCache?.();   // invalidate AI cache on new sale
+    refreshOverview();
+});
+window.addEventListener('inventory-products-loaded', refreshOverview);
     
         // ---------- NOTIFICATIONS BELL + PANEL ----------
     (function setupNotificationsBell() {

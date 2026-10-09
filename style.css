@@ -3896,27 +3896,33 @@ body {
 /* ============================================
    KPI CARD VISUAL HIERARCHY
    ============================================ */
+/* Left accent border — replaces the top strip */
 .kpi-card {
     position: relative;
     overflow: hidden;
-    padding-top: 28px;
+    padding: 24px 24px 24px 28px; /* extra left padding for the accent */
 }
 
-/* Colored top strip */
 .kpi-card::before {
     content: '';
     position: absolute;
-    top: 0;
+    top: 14px;
+    bottom: 14px;
     left: 0;
-    right: 0;
-    height: 4px;
-    border-radius: 16px 16px 0 0;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
 }
 
-.kpi-sales::before     { background: linear-gradient(90deg, #16a34a, #22c55e); }
-.kpi-orders::before    { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-.kpi-products::before  { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-.kpi-customers::before { background: linear-gradient(90deg, #a855f7, #c084fc); }
+.kpi-sales::before     { background: #16a34a; }
+.kpi-orders::before    { background: #3b82f6; }
+.kpi-products::before  { background: #f59e0b; }
+.kpi-customers::before { background: #a855f7; }
+
+/* Slightly stronger icon tint so the color still reads clearly */
+.kpi-sales .stat-icon.green   { background: rgba(34, 197, 94, 0.2); }
+.kpi-orders .stat-icon.blue   { background: rgba(59, 130, 246, 0.2); }
+.kpi-products .stat-icon.amber { background: rgba(251, 146, 60, 0.2); }
+.kpi-customers .stat-icon.purple { background: rgba(168, 85, 247, 0.2); }
 
 /* Bigger KPI numbers */
 .kpi-card .stat-info h3 {
@@ -5696,13 +5702,11 @@ html, body {
     z-index: 10001;
 }
 
-/* Hide the login toggle when the dashboard is open.
-   Primary: JS adds .is-logged-in to <body>.
-   Fallback: CSS :has() for browsers that support it. */
-body.is-logged-in .theme-toggle-login,
-body:has(#dashboardContainer[style*="display: flex"]) .theme-toggle-login,
-body:has(#dashboardContainer[style*="display:flex"]) .theme-toggle-login {
-    display: none;
+/* Hide the login toggle once the dashboard is open.
+   JS adds .is-logged-in to <body> in loadDashboard().
+   !important guards against any later rule un-hiding it. */
+body.is-logged-in .theme-toggle-login {
+    display: none !important;
 }
 
 @media (max-width: 480px) {
@@ -6010,4 +6014,1922 @@ body:has(#dashboardContainer[style*="display:flex"]) .theme-toggle-login {
     will-change: transform, opacity;
     transform: translateZ(0);
     contain: layout paint;
+}
+
+/* ============================================
+   BRAND PALETTE — KIRBY'S YELLOW DARK MODE
+   Scoped to dark mode only via :not([data-theme="light"]).
+   Appended at end of file to win on cascade order.
+   Light mode is untouched.
+   ============================================ */
+
+/* ---------- Warm charcoal canvas ---------- */
+html:not([data-theme="light"]) body {
+    background-color: #141210;
+    background-image: url('bg.jpg');
+    --glass-surface: rgba(30, 27, 23, 0.75);
+    --glass-deep: rgba(20, 18, 16, 0.72);
+    --glass-soft: rgba(250, 204, 21, 0.05);
+    --glass-border: rgba(250, 204, 21, 0.1);
+    --text-primary: #fef9e7;
+    --text-secondary: #d6cfc0;
+    --text-muted: #8a8275;
+}
+
+html:not([data-theme="light"]) #dashboardContainer {
+    background-color: #141210;
+    background-image: none;
+}
+
+html:not([data-theme="light"]) .dashboard-nav {
+    background: rgba(20, 18, 16, 0.95);
+    border-bottom-color: rgba(250, 204, 21, 0.08);
+}
+
+html:not([data-theme="light"]) .sidebar {
+    background: rgba(20, 18, 16, 0.92);
+    border-right-color: rgba(250, 204, 21, 0.08);
+}
+
+html:not([data-theme="light"]) .bg-overlay {
+    background: rgba(20, 18, 16, 0.76);
+}
+
+html:not([data-theme="light"]) .bg-gradient {
+    background:
+        radial-gradient(ellipse at 15% 50%, rgba(250, 204, 21, 0.14) 0%, transparent 60%),
+        radial-gradient(ellipse at 85% 50%, rgba(234, 179, 8, 0.1) 0%, transparent 60%),
+        url('bg.jpg') center/cover no-repeat;
+}
+
+html:not([data-theme="light"]) .bg-glow-1 { background: #FACC15; }
+html:not([data-theme="light"]) .bg-glow-2 { background: #EAB308; }
+
+html:not([data-theme="light"]) .main-container {
+    background: rgba(30, 27, 23, 0.7);
+    border-color: rgba(250, 204, 21, 0.12);
+}
+
+html:not([data-theme="light"]) .left-panel {
+    background: rgba(20, 18, 16, 0.6);
+    border-right-color: rgba(250, 204, 21, 0.08);
+}
+
+html:not([data-theme="light"]) .divider-line {
+    background: linear-gradient(90deg, transparent, #FACC15, transparent);
+}
+
+/* ---------- Surfaces (cards, tables, panels) ---------- */
+html:not([data-theme="light"]) :where(
+    .stat-card,
+    .recent-activity,
+    .quick-actions,
+    .settings-section,
+    .report-card,
+    .product-catalog,
+    .cart-section,
+    .orders-table-container,
+    .customers-table-container,
+    .audit-table-container,
+    .inventory-table-container,
+    .inventory-tools,
+    .pos-products,
+    .pos-cart,
+    .activity-item:hover
+) {
+    background: rgba(30, 27, 23, 0.65);
+    border-color: rgba(250, 204, 21, 0.08);
+}
+
+html:not([data-theme="light"]) .inventory-stats .stat-card {
+    background: rgba(30, 27, 23, 0.65);
+    border-color: rgba(250, 204, 21, 0.08);
+}
+
+html:not([data-theme="light"]) .stat-card:hover,
+html:not([data-theme="light"]) .report-card:hover {
+    border-color: rgba(250, 204, 21, 0.28);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Modals, dropdowns, toasts ---------- */
+html:not([data-theme="light"]) :where(
+    .modal-card,
+    .modal-content,
+    .dropdown-menu,
+    .notifications-panel,
+    .toast
+) {
+    background: #1e1b17;
+    border-color: rgba(250, 204, 21, 0.12);
+}
+
+html:not([data-theme="light"]) .modal {
+    background: rgba(20, 18, 16, 0.78);
+}
+
+html:not([data-theme="light"]) .modal-overlay {
+    background: rgba(20, 18, 16, 0.82);
+}
+
+/* ---------- Sidebar nav ---------- */
+html:not([data-theme="light"]) .sidebar-link {
+    color: #8a8275;
+}
+
+html:not([data-theme="light"]) .sidebar-link:hover {
+    background: rgba(250, 204, 21, 0.06);
+    color: #fef9e7;
+}
+
+html:not([data-theme="light"]) .sidebar-link.active {
+    background: rgba(250, 204, 21, 0.15);
+    color: #FACC15;
+}
+
+html:not([data-theme="light"]) .sidebar-nav hr {
+    border-top-color: rgba(250, 204, 21, 0.08);
+}
+
+html:not([data-theme="light"]) .sidebar-link.logout-link {
+    color: #ef4444;
+}
+
+html:not([data-theme="light"]) .sidebar.open {
+    background: #141210;
+}
+
+/* ---------- Primary buttons → yellow / black text ---------- */
+html:not([data-theme="light"]) :where(
+    .submit-btn,
+    .checkout-btn,
+    .add-to-cart-btn,
+    .primary-btn,
+    .form-submit
+) {
+    background: #FACC15;
+    color: #141210;
+    border-color: #FACC15;
+    background-image: none;
+}
+
+html:not([data-theme="light"]) :where(
+    .submit-btn,
+    .checkout-btn,
+    .add-to-cart-btn,
+    .primary-btn,
+    .form-submit
+):hover {
+    background: #EAB308;
+    border-color: #EAB308;
+    box-shadow: 0 8px 30px rgba(250, 204, 21, 0.3);
+}
+
+html:not([data-theme="light"]) .link-btn,
+html:not([data-theme="light"]) .view-all-btn,
+html:not([data-theme="light"]) .notifications-view-all {
+    color: #FACC15;
+}
+
+html:not([data-theme="light"]) .link-btn:hover,
+html:not([data-theme="light"]) .view-all-btn:hover,
+html:not([data-theme="light"]) .notifications-view-all:hover {
+    color: #FDE047;
+}
+
+/* ---------- Form controls — yellow accent ---------- */
+html:not([data-theme="light"]) input:focus,
+html:not([data-theme="light"]) select:focus,
+html:not([data-theme="light"]) textarea:focus,
+html:not([data-theme="light"]) .nav-search:focus-within,
+html:not([data-theme="light"]) .search-products:focus-within,
+html:not([data-theme="light"]) .pos-search:focus-within,
+html:not([data-theme="light"]) .user-btn:focus {
+    border-color: #FACC15;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.16);
+    outline-color: #FACC15;
+}
+
+html:not([data-theme="light"]) .checkbox-wrapper input:checked + .checkmark,
+html:not([data-theme="light"]) .radio-wrapper input:checked + .radio-mark,
+html:not([data-theme="light"]) .compare-toggle input:checked + .checkmark,
+html:not([data-theme="light"]) .gcash-confirm input:checked + .checkmark {
+    background: #FACC15;
+    border-color: #FACC15;
+}
+
+html:not([data-theme="light"]) .checkbox-wrapper input:checked + .checkmark::after,
+html:not([data-theme="light"]) .compare-toggle input:checked + .checkmark::after,
+html:not([data-theme="light"]) .gcash-confirm input:checked + .checkmark::after {
+    color: #141210;
+}
+
+html:not([data-theme="light"]) .radio-wrapper input:checked + .radio-mark::after {
+    background: #141210;
+}
+
+html:not([data-theme="light"]) .radio-wrapper:hover .radio-mark,
+html:not([data-theme="light"]) .compare-toggle:hover {
+    border-color: rgba(250, 204, 21, 0.5);
+}
+
+html:not([data-theme="light"]) .filter-select {
+    background: rgba(30, 27, 23, 0.8);
+    border-color: rgba(250, 204, 21, 0.1);
+}
+
+html:not([data-theme="light"]) .filter-select:focus {
+    border-color: #FACC15;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.15);
+}
+
+html:not([data-theme="light"]) .filter-select option,
+html:not([data-theme="light"]) .form-group select option,
+html:not([data-theme="light"]) .input-wrapper select option {
+    background: #1e1b17;
+    color: #fef9e7;
+}
+
+/* ---------- Data display ---------- */
+html:not([data-theme="light"]) .inventory-table thead {
+    background: rgba(20, 18, 16, 0.6);
+}
+
+html:not([data-theme="light"]) .inventory-table th {
+    color: #8a8275;
+    border-bottom-color: rgba(250, 204, 21, 0.08);
+}
+
+html:not([data-theme="light"]) .inventory-table td {
+    color: #d6cfc0;
+    border-bottom-color: rgba(250, 204, 21, 0.04);
+}
+
+html:not([data-theme="light"]) .inventory-table tbody tr:hover {
+    background: rgba(250, 204, 21, 0.03);
+}
+
+html:not([data-theme="light"]) .product-card:hover {
+    background: rgba(250, 204, 21, 0.04);
+    border-color: rgba(250, 204, 21, 0.45);
+    box-shadow: 0 8px 20px rgba(250, 204, 21, 0.12);
+}
+
+html:not([data-theme="light"]) .product-card-price,
+html:not([data-theme="light"]) .product-card-stock.in-stock {
+    color: #FACC15;
+}
+
+html:not([data-theme="light"]) .product-card-stock.in-stock {
+    background: rgba(250, 204, 21, 0.12);
+}
+
+/* Success semantics — shift green → lime to avoid clashing with brand yellow */
+html:not([data-theme="light"]) :where(
+    .stock-badge.in-stock,
+    .audit-badge-success,
+    .kpi-card .stat-change.positive,
+    .severity-badge.success,
+    .action-badge.create
+) {
+    color: #a3e635;
+    border-color: rgba(132, 204, 22, 0.25);
+}
+
+html:not([data-theme="light"]) .stock-badge.in-stock,
+html:not([data-theme="light"]) .audit-badge-success {
+    background: rgba(132, 204, 22, 0.12);
+}
+
+html:not([data-theme="light"]) .kpi-card .stat-change.positive {
+    background: rgba(132, 204, 22, 0.12);
+}
+
+html:not([data-theme="light"]) .audit-amount {
+    color: #a3e635;
+}
+
+/* KPI accent bars (keep per-card identity) */
+html:not([data-theme="light"]) .kpi-sales::before     { background: #FACC15; }
+html:not([data-theme="light"]) .kpi-orders::before    { background: #38bdf8; }
+html:not([data-theme="light"]) .kpi-products::before  { background: #fb923c; }
+html:not([data-theme="light"]) .kpi-customers::before { background: #a855f7; }
+
+/* ---------- POS / Payment / Receipt ---------- */
+html:not([data-theme="light"]) .pos-size-selector {
+    background: #1e1b17;
+    border-color: rgba(250, 204, 21, 0.5);
+}
+
+html:not([data-theme="light"]) .payment-method:hover {
+    border-color: rgba(250, 204, 21, 0.4);
+    background: rgba(250, 204, 21, 0.05);
+}
+
+html:not([data-theme="light"]) .payment-method.selected {
+    border-color: #FACC15;
+    background: rgba(250, 204, 21, 0.15);
+    box-shadow: 0 5px 15px rgba(250, 204, 21, 0.2);
+}
+
+html:not([data-theme="light"]) .gcash-qr-row.gcash-qr-amount strong,
+html:not([data-theme="light"]) #changeAmount {
+    color: #FACC15;
+}
+
+html:not([data-theme="light"]) .gcash-confirm {
+    border-color: rgba(250, 204, 21, 0.3);
+    background: rgba(250, 204, 21, 0.06);
+    color: #FACC15;
+}
+
+html:not([data-theme="light"]) .gcash-confirm:hover {
+    background: rgba(250, 204, 21, 0.12);
+    border-color: rgba(250, 204, 21, 0.5);
+}
+
+html:not([data-theme="light"]) .receipt-modal-icon {
+    background: rgba(250, 204, 21, 0.14);
+    color: #FACC15;
+}
+
+html:not([data-theme="light"]) .receipt-grand-total {
+    color: #FACC15;
+}
+
+/* ---------- Misc accents ---------- */
+html:not([data-theme="light"]) .toast {
+    border-left-color: #FACC15;
+}
+
+html:not([data-theme="light"]) .toast.success {
+    border-left-color: #a3e635;
+}
+
+html:not([data-theme="light"]) .theme-toggle:hover,
+html:not([data-theme="light"]) .theme-toggle:focus-visible {
+    border-color: rgba(250, 204, 21, 0.7);
+}
+
+html:not([data-theme="light"]) .kpi-clickable:hover {
+    border-color: rgba(250, 204, 21, 0.5);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+html:not([data-theme="light"]) .kpi-clickable:hover::after {
+    color: #FACC15;
+}
+
+html:not([data-theme="light"]) .inv-filter-card.active {
+    border-color: #FACC15;
+    background: rgba(250, 204, 21, 0.12);
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.25);
+}
+
+html:not([data-theme="light"]) .inv-filter-card:hover {
+    border-color: rgba(250, 204, 21, 0.5);
+}
+
+html:not([data-theme="light"]) .offline-banner {
+    background: linear-gradient(90deg, #EAB308, #FACC15);
+    color: #141210;
+}
+
+/* ============================================
+   AUTOFILL OVERRIDE — dark mode
+   Chrome/Edge/Safari autofill was painting the
+   input white + black text. This keeps every
+   input on-brand in dark mode.
+   ============================================ */
+html:not([data-theme="light"]) input:-webkit-autofill,
+html:not([data-theme="light"]) input:-webkit-autofill:hover,
+html:not([data-theme="light"]) input:-webkit-autofill:focus,
+html:not([data-theme="light"]) input:-webkit-autofill:active,
+html:not([data-theme="light"]) select:-webkit-autofill,
+html:not([data-theme="light"]) textarea:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px #1e1b17 inset !important;
+    -webkit-text-fill-color: #fef9e7 !important;
+    caret-color: #FACC15;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Safety net — force all dark-mode inputs to stay transparent
+   even if a browser applies its own background. */
+html:not([data-theme="light"]) .nav-search input,
+html:not([data-theme="light"]) .search-products input,
+html:not([data-theme="light"]) .pos-search input,
+html:not([data-theme="light"]) .input-wrapper input,
+html:not([data-theme="light"]) .input-wrapper select,
+html:not([data-theme="light"]) .form-group input,
+html:not([data-theme="light"]) .form-group select,
+html:not([data-theme="light"]) .form-group textarea,
+html:not([data-theme="light"]) .settings-input {
+    background-color: transparent !important;
+    color: #fef9e7;
+}
+
+html:not([data-theme="light"]) .input-wrapper input,
+html:not([data-theme="light"]) .input-wrapper select,
+html:not([data-theme="light"]) .form-group input,
+html:not([data-theme="light"]) .form-group select,
+html:not([data-theme="light"]) .form-group textarea {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Light mode autofill — neutralize the yellow tint too */
+[data-theme="light"] input:-webkit-autofill,
+[data-theme="light"] input:-webkit-autofill:hover,
+[data-theme="light"] input:-webkit-autofill:focus,
+[data-theme="light"] input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+    -webkit-text-fill-color: #1f2937 !important;
+    caret-color: #16a34a;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ============================================
+   LIGHT MODE — WARM IVORY + YELLOW (Option E)
+   Warm ivory backgrounds, warm-gray borders,
+   yellow accent. Twin of the yellow dark mode.
+   Appended at end of file to win on cascade order.
+   ============================================ */
+
+[data-theme="light"] body {
+    background-color: #faf7f0;
+    --glass-surface: rgba(255, 255, 255, 0.75);
+    --glass-deep: rgba(255, 253, 247, 0.85);
+    --glass-soft: rgba(255, 255, 255, 0.6);
+    --glass-border: rgba(180, 165, 130, 0.28);
+    --text-primary: #1c1813;
+    --text-secondary: #57534e;
+    --text-muted: #a8a29e;
+}
+
+[data-theme="light"] #dashboardContainer {
+    background-color: #faf7f0;
+    background-image: none;
+}
+
+[data-theme="light"] .dashboard-nav {
+    background: rgba(255, 253, 247, 0.95);
+    border-bottom-color: rgba(180, 165, 130, 0.25);
+}
+
+[data-theme="light"] .sidebar {
+    background: rgba(255, 253, 247, 0.9);
+    border-right-color: rgba(180, 165, 130, 0.25);
+}
+
+[data-theme="light"] .bg-overlay {
+    background: rgba(250, 247, 240, 0.72);
+}
+
+[data-theme="light"] .bg-gradient {
+    background:
+        radial-gradient(ellipse at 15% 50%, rgba(234, 179, 8, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 85% 50%, rgba(234, 179, 8, 0.06) 0%, transparent 60%),
+        url('bg.jpg') center/cover no-repeat;
+}
+
+[data-theme="light"] .bg-glow-1 { background: #fde68a; opacity: 0.25; }
+[data-theme="light"] .bg-glow-2 { background: #fbbf24; opacity: 0.18; }
+
+[data-theme="light"] .main-container {
+    background: rgba(255, 253, 247, 0.8);
+    border-color: rgba(180, 165, 130, 0.3);
+    box-shadow: 0 30px 80px rgba(120, 100, 60, 0.12);
+}
+
+[data-theme="light"] .left-panel {
+    background: rgba(255, 253, 247, 0.65);
+    border-right-color: rgba(180, 165, 130, 0.25);
+}
+
+[data-theme="light"] .divider-line {
+    background: linear-gradient(90deg, transparent, #EAB308, transparent);
+}
+
+/* ---------- Surfaces ---------- */
+[data-theme="light"] :where(
+    .stat-card,
+    .recent-activity,
+    .quick-actions,
+    .settings-section,
+    .report-card,
+    .product-catalog,
+    .cart-section,
+    .orders-table-container,
+    .customers-table-container,
+    .audit-table-container,
+    .inventory-table-container,
+    .inventory-tools,
+    .pos-products,
+    .pos-cart,
+    .inventory-stats .stat-card
+) {
+    background: rgba(255, 255, 255, 0.75);
+    border-color: rgba(180, 165, 130, 0.28);
+    box-shadow: 0 4px 18px rgba(120, 100, 60, 0.05);
+}
+
+[data-theme="light"] .stat-card:hover,
+[data-theme="light"] .report-card:hover {
+    border-color: rgba(234, 179, 8, 0.4);
+    box-shadow: 0 12px 40px rgba(120, 100, 60, 0.12);
+}
+
+/* ---------- Modals, dropdowns, toasts ---------- */
+[data-theme="light"] :where(
+    .modal-card,
+    .modal-content,
+    .dropdown-menu,
+    .notifications-panel,
+    .toast
+) {
+    background: #fffdf7;
+    border-color: rgba(180, 165, 130, 0.3);
+    box-shadow: 0 20px 60px rgba(120, 100, 60, 0.15);
+}
+
+[data-theme="light"] .modal {
+    background: rgba(80, 70, 50, 0.45);
+}
+
+/* ---------- Sidebar nav ---------- */
+[data-theme="light"] .sidebar-link {
+    color: #78716c;
+}
+
+[data-theme="light"] .sidebar-link:hover {
+    background: rgba(234, 179, 8, 0.08);
+    color: #1c1813;
+}
+
+[data-theme="light"] .sidebar-link.active {
+    background: rgba(234, 179, 8, 0.18);
+    color: #854d0e;
+}
+
+[data-theme="light"] .sidebar-nav hr {
+    border-top-color: rgba(180, 165, 130, 0.25);
+}
+
+/* ---------- Primary buttons → yellow with dark text ---------- */
+[data-theme="light"] :where(
+    .submit-btn,
+    .checkout-btn,
+    .add-to-cart-btn,
+    .primary-btn,
+    .form-submit
+) {
+    background: #EAB308;
+    color: #141210;
+    border-color: #EAB308;
+    background-image: none;
+}
+
+[data-theme="light"] :where(
+    .submit-btn,
+    .checkout-btn,
+    .add-to-cart-btn,
+    .primary-btn,
+    .form-submit
+):hover {
+    background: #CA8A04;
+    border-color: #CA8A04;
+    box-shadow: 0 8px 30px rgba(234, 179, 8, 0.25);
+}
+
+[data-theme="light"] .link-btn,
+[data-theme="light"] .view-all-btn,
+[data-theme="light"] .notifications-view-all {
+    color: #A16207;
+}
+
+[data-theme="light"] .link-btn:hover,
+[data-theme="light"] .view-all-btn:hover,
+[data-theme="light"] .notifications-view-all:hover {
+    color: #854d0e;
+}
+
+/* ---------- Focus rings ---------- */
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus,
+[data-theme="light"] .nav-search:focus-within,
+[data-theme="light"] .search-products:focus-within,
+[data-theme="light"] .pos-search:focus-within {
+    border-color: #EAB308;
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.18);
+    outline-color: #EAB308;
+}
+
+/* ---------- Checkboxes, radios ---------- */
+[data-theme="light"] .checkbox-wrapper input:checked + .checkmark,
+[data-theme="light"] .radio-wrapper input:checked + .radio-mark,
+[data-theme="light"] .compare-toggle input:checked + .checkmark,
+[data-theme="light"] .gcash-confirm input:checked + .checkmark {
+    background: #EAB308;
+    border-color: #EAB308;
+}
+
+[data-theme="light"] .checkbox-wrapper input:checked + .checkmark::after,
+[data-theme="light"] .compare-toggle input:checked + .checkmark::after,
+[data-theme="light"] .gcash-confirm input:checked + .checkmark::after {
+    color: #141210;
+}
+
+[data-theme="light"] .radio-wrapper input:checked + .radio-mark::after {
+    background: #141210;
+}
+
+[data-theme="light"] .radio-wrapper:hover .radio-mark,
+[data-theme="light"] .compare-toggle:hover {
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+[data-theme="light"] .radio-mark {
+    border-color: #a8a29e;
+}
+
+/* ---------- Filters ---------- */
+[data-theme="light"] .filter-select {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(180, 165, 130, 0.35);
+    color: #1c1813;
+}
+
+[data-theme="light"] .filter-select:focus {
+    border-color: #EAB308;
+    box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.18);
+}
+
+[data-theme="light"] .filter-select option {
+    background: #fffdf7;
+    color: #1c1813;
+}
+
+/* ---------- Tables ---------- */
+[data-theme="light"] .inventory-table thead {
+    background: rgba(180, 165, 130, 0.12);
+}
+
+[data-theme="light"] .inventory-table th {
+    color: #78716c;
+    border-bottom-color: rgba(180, 165, 130, 0.25);
+}
+
+[data-theme="light"] .inventory-table td {
+    color: #57534e;
+    border-bottom-color: rgba(180, 165, 130, 0.15);
+}
+
+[data-theme="light"] .inventory-table tbody tr:hover {
+    background: rgba(234, 179, 8, 0.05);
+}
+
+[data-theme="light"] .inventory-table .product-name {
+    color: #1c1813;
+}
+
+[data-theme="light"] .inventory-table .product-sku {
+    color: #78716c;
+}
+
+[data-theme="light"] .quantity-input {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(180, 165, 130, 0.4);
+    color: #1c1813;
+}
+
+[data-theme="light"] .quantity-input:focus {
+    background: #ffffff;
+    border-color: #EAB308;
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.18);
+}
+
+/* ---------- Inputs ---------- */
+[data-theme="light"] .input-wrapper input,
+[data-theme="light"] .input-wrapper select,
+[data-theme="light"] .form-group input,
+[data-theme="light"] .form-group select,
+[data-theme="light"] .form-group textarea,
+[data-theme="light"] .settings-input,
+[data-theme="light"] .nav-search,
+[data-theme="light"] .user-btn,
+[data-theme="light"] .action-btn,
+[data-theme="light"] .payment-method {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(180, 165, 130, 0.3);
+    color: #1c1813;
+}
+
+[data-theme="light"] .input-wrapper input::placeholder,
+[data-theme="light"] .form-group input::placeholder,
+[data-theme="light"] .form-group textarea::placeholder,
+[data-theme="light"] .nav-search input::placeholder,
+[data-theme="light"] .search-products input::placeholder,
+[data-theme="light"] .settings-input::placeholder {
+    color: #a8a29e;
+}
+
+[data-theme="light"] .form-group select option,
+[data-theme="light"] .input-wrapper select option,
+[data-theme="light"] .settings-input option {
+    background: #fffdf7;
+    color: #1c1813;
+}
+
+/* ---------- Product cards ---------- */
+[data-theme="light"] .product-card {
+    background: rgba(255, 255, 255, 0.82);
+    border-color: rgba(180, 165, 130, 0.3);
+}
+
+[data-theme="light"] .product-card:hover {
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+[data-theme="light"] .product-card-name {
+    color: #1c1813;
+}
+
+[data-theme="light"] .product-card-meta {
+    color: #78716c;
+}
+
+[data-theme="light"] .product-card-price {
+    color: #A16207;
+}
+
+[data-theme="light"] .product-card-stock.in-stock {
+    color: #A16207;
+    background: rgba(234, 179, 8, 0.15);
+}
+
+[data-theme="light"] .size-chip {
+    color: #57534e;
+    background: rgba(255, 253, 247, 0.8);
+    border-color: rgba(180, 165, 130, 0.3);
+}
+
+[data-theme="light"] .pos-size-selector {
+    background: #fffdf7;
+    color: #1c1813;
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+/* ---------- Status badges (lime to stay distinct from yellow) ---------- */
+[data-theme="light"] :where(
+    .stock-badge.in-stock,
+    .audit-badge-success,
+    .kpi-card .stat-change.positive
+) {
+    color: #4d7c0f;
+}
+
+[data-theme="light"] .stock-badge.in-stock,
+[data-theme="light"] .audit-badge-success {
+    background: rgba(132, 204, 22, 0.15);
+    border-color: rgba(132, 204, 22, 0.3);
+}
+
+[data-theme="light"] .kpi-card .stat-change.positive {
+    background: rgba(132, 204, 22, 0.15);
+}
+
+[data-theme="light"] .audit-amount {
+    color: #4d7c0f;
+}
+
+/* ---------- KPI accent bars ---------- */
+[data-theme="light"] .kpi-sales::before { background: #EAB308; }
+[data-theme="light"] .kpi-orders::before { background: #3b82f6; }
+[data-theme="light"] .kpi-products::before { background: #fb923c; }
+[data-theme="light"] .kpi-customers::before { background: #a855f7; }
+
+[data-theme="light"] .kpi-clickable:hover {
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+[data-theme="light"] .kpi-clickable:hover::after {
+    color: #A16207;
+}
+
+[data-theme="light"] .inv-filter-card.active {
+    border-color: #EAB308;
+    background: rgba(234, 179, 8, 0.15);
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.25);
+}
+
+[data-theme="light"] .inv-filter-card:hover {
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+/* ---------- Payment / GCash ---------- */
+[data-theme="light"] .payment-method:hover {
+    border-color: rgba(234, 179, 8, 0.4);
+    background: rgba(234, 179, 8, 0.06);
+}
+
+[data-theme="light"] .payment-method.selected {
+    border-color: #EAB308;
+    background: rgba(234, 179, 8, 0.15);
+    box-shadow: 0 5px 15px rgba(234, 179, 8, 0.2);
+}
+
+[data-theme="light"] .payment-method i {
+    color: #A16207;
+}
+
+[data-theme="light"] #changeAmount,
+[data-theme="light"] .gcash-qr-row.gcash-qr-amount strong {
+    color: #A16207;
+}
+
+[data-theme="light"] .gcash-qr-group {
+    background: #fffdf7;
+    border-color: rgba(180, 165, 130, 0.3);
+}
+
+[data-theme="light"] .gcash-qr-details {
+    background: #ffffff;
+    border-color: rgba(180, 165, 130, 0.25);
+}
+
+[data-theme="light"] .gcash-confirm {
+    background: rgba(234, 179, 8, 0.1);
+    color: #854d0e;
+    border-color: rgba(234, 179, 8, 0.4);
+}
+
+[data-theme="light"] .gcash-confirm:hover {
+    background: rgba(234, 179, 8, 0.16);
+}
+
+/* ---------- Receipt ---------- */
+[data-theme="light"] .receipt-content {
+    background: rgba(255, 253, 247, 0.8);
+    border-color: rgba(180, 165, 130, 0.35);
+}
+
+[data-theme="light"] .receipt-grand-total {
+    color: #A16207;
+}
+
+[data-theme="light"] .receipt-modal-icon {
+    background: rgba(234, 179, 8, 0.14);
+    color: #A16207;
+}
+
+/* ---------- Toasts ---------- */
+[data-theme="light"] .toast {
+    border-left-color: #EAB308;
+}
+
+[data-theme="light"] .toast.success {
+    border-left-color: #84cc16;
+}
+
+[data-theme="light"] .toast.error {
+    border-left-color: #ef4444;
+}
+
+/* ---------- Theme toggle ---------- */
+[data-theme="light"] .theme-toggle {
+    background: rgba(255, 253, 247, 0.9);
+    border-color: rgba(180, 165, 130, 0.4);
+    color: #57534e;
+}
+
+[data-theme="light"] .theme-toggle:hover,
+[data-theme="light"] .theme-toggle:focus-visible {
+    border-color: rgba(234, 179, 8, 0.7);
+}
+
+[data-theme="light"] .theme-toggle .theme-icon-moon {
+    color: #A16207;
+}
+
+/* ---------- Headings ---------- */
+[data-theme="light"] .client-company-name,
+[data-theme="light"] .auth-header h2,
+[data-theme="light"] .system-info strong,
+[data-theme="light"] .page-header h1,
+[data-theme="light"] .stat-info h3,
+[data-theme="light"] .activity-content p,
+[data-theme="light"] .activity-content p strong,
+[data-theme="light"] .quick-actions h2,
+[data-theme="light"] .product-catalog-header h3,
+[data-theme="light"] .cart-section h3,
+[data-theme="light"] .cart-total strong,
+[data-theme="light"] .modal-card h2,
+[data-theme="light"] .modal-card p,
+[data-theme="light"] .modal-email,
+[data-theme="light"] .settings-section h3,
+[data-theme="light"] .report-card h3,
+[data-theme="light"] .inventory-header h1,
+[data-theme="light"] .modal-header h2 {
+    color: #1c1813 !important;
+}
+
+[data-theme="light"] .client-company-tag,
+[data-theme="light"] .system-info p,
+[data-theme="light"] .account-status,
+[data-theme="light"] .auth-header p,
+[data-theme="light"] .form-group label,
+[data-theme="light"] .checkbox-wrapper,
+[data-theme="light"] .helper-text,
+[data-theme="light"] .help-note,
+[data-theme="light"] .security-badge,
+[data-theme="light"] .activity-time,
+[data-theme="light"] .page-header p,
+[data-theme="light"] .stat-info p,
+[data-theme="light"] .cart-item-qty,
+[data-theme="light"] .total-row,
+[data-theme="light"] .report-card p,
+[data-theme="light"] .inventory-header p,
+[data-theme="light"] .settings-section label {
+    color: #57534e;
+}
+
+/* ---------- Modal secondary buttons ---------- */
+[data-theme="light"] .modal-actions .secondary-btn {
+    background: rgba(255, 255, 255, 0.75);
+    border-color: rgba(180, 165, 130, 0.4);
+    color: #57534e;
+}
+
+[data-theme="light"] .modal-actions .secondary-btn:hover {
+    background: #ffffff;
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+[data-theme="light"] #deleteModal p {
+    color: #57534e !important;
+}
+
+[data-theme="light"] #deleteProductName {
+    color: #1c1813 !important;
+}
+
+/* ---------- Order details modal ---------- */
+[data-theme="light"] .order-details-meta,
+[data-theme="light"] .order-details-items {
+    border-color: rgba(180, 165, 130, 0.25);
+}
+
+[data-theme="light"] .order-details-row {
+    color: #57534e;
+}
+
+[data-theme="light"] .order-details-row strong {
+    color: #1c1813;
+}
+
+[data-theme="light"] .order-details-item-name {
+    color: #1c1813;
+}
+
+[data-theme="light"] .order-details-item strong {
+    color: #A16207;
+}
+
+[data-theme="light"] .order-details-grand span,
+[data-theme="light"] .order-details-grand strong {
+    color: #1c1813;
+}
+
+[data-theme="light"] .order-details-grand {
+    border-top-color: rgba(180, 165, 130, 0.3);
+}
+
+/* ---------- Offline banner ---------- */
+[data-theme="light"] .offline-banner {
+    background: linear-gradient(90deg, #EAB308, #FACC15);
+    color: #141210;
+    border-bottom-color: rgba(180, 165, 130, 0.3);
+}
+
+/* ---------- Quick action buttons ---------- */
+[data-theme="light"] .action-btn {
+    color: #1c1813;
+    background: rgba(255, 255, 255, 0.7);
+    border-color: rgba(180, 165, 130, 0.35);
+}
+
+[data-theme="light"] .action-btn:hover {
+    background: #ffffff;
+    border-color: rgba(234, 179, 8, 0.5);
+    color: #854d0e;
+}
+
+[data-theme="light"] .action-btn i {
+    color: #A16207;
+}
+
+/* ---------- Misc ---------- */
+[data-theme="light"] .order-items-badge {
+    background: rgba(234, 179, 8, 0.15);
+    color: #854d0e;
+}
+
+[data-theme="light"] .notifications-count {
+    background: rgba(239, 68, 68, 0.14);
+    color: #b91c1c;
+}
+
+[data-theme="light"] .notifications-view-all {
+    color: #A16207;
+}
+
+[data-theme="light"] .notifications-view-all:hover {
+    background: rgba(234, 179, 8, 0.1);
+}
+
+/* ============================================
+   LIGHT MODE — MISSING OVERRIDES
+   Fills gaps left by older cool-slate rules
+   that the Option E block didn't cover.
+   ============================================ */
+
+[data-theme="light"] .dropdown-item,
+[data-theme="light"] .nav-search input,
+[data-theme="light"] .user-btn,
+[data-theme="light"] .payment-method,
+[data-theme="light"] .pos-search input,
+[data-theme="light"] .search-products input,
+[data-theme="light"] .cart-total,
+[data-theme="light"] .cart-item-name,
+[data-theme="light"] .cart-item-qty,
+[data-theme="light"] .total-row,
+[data-theme="light"] .total-row strong,
+[data-theme="light"] .activity-content p,
+[data-theme="light"] .activity-content p strong,
+[data-theme="light"] .activity-time,
+[data-theme="light"] .product-catalog-header h3,
+[data-theme="light"] .cart-section h3,
+[data-theme="light"] .modal-header h2,
+[data-theme="light"] .modal-close-btn,
+[data-theme="light"] .sidebar-link,
+[data-theme="light"] .stat-info p,
+[data-theme="light"] .page-header p,
+[data-theme="light"] .inventory-header p,
+[data-theme="light"] .report-card p,
+[data-theme="light"] .settings-section h3,
+[data-theme="light"] .settings-section label,
+[data-theme="light"] .settings-input {
+    color: #1c1813;
+}
+
+[data-theme="light"] .dropdown-item:hover,
+[data-theme="light"] .sidebar-link:hover {
+    background: rgba(234, 179, 8, 0.08);
+    color: #1c1813;
+}
+
+[data-theme="light"] .sidebar-link.active {
+    background: rgba(234, 179, 8, 0.18);
+    color: #854d0e;
+}
+
+[data-theme="light"] .nav-icon,
+[data-theme="light"] .user-btn i,
+[data-theme="light"] .search-products {
+    color: #78716c;
+}
+
+[data-theme="light"] .nav-search input::placeholder,
+[data-theme="light"] .search-products input::placeholder,
+[data-theme="light"] .pos-search input::placeholder {
+    color: #a8a29e;
+}
+
+[data-theme="light"] .dropdown-item.logout {
+    color: #dc2626;
+}
+
+[data-theme="light"] .modal-close-btn:hover {
+    color: #1c1813;
+    background: rgba(180, 165, 130, 0.15);
+}
+
+/* ============================================
+   LIGHT MODE — HIGH CONTRAST REFINEMENT
+   Deeper warm background, solid white surfaces,
+   stronger borders + shadows. Appended last to
+   win cascade order over the Option E block.
+   ============================================ */
+
+/* ---------- Palette shift ---------- */
+[data-theme="light"] body {
+    background-color: #ebe2cd;                    /* deeper warm cream (was #faf7f0) */
+    --glass-surface: #ffffff;                     /* solid white cards */
+    --glass-deep: #f5efe0;                        /* sidebar / nav shell */
+    --glass-soft: #faf6ea;                        /* soft inset surfaces */
+    --glass-border: rgba(120, 95, 55, 0.22);      /* stronger warm-brown borders */
+    --text-primary: #100e0a;                      /* near-black warm */
+    --text-secondary: #3d3831;                    /* darker body text */
+    --text-muted: #756c5e;                        /* deeper muted (was #a8a29e) */
+}
+
+[data-theme="light"] #dashboardContainer {
+    background-color: #ebe2cd;
+}
+
+[data-theme="light"] .dashboard-nav {
+    background: #fffdf7;
+    border-bottom-color: rgba(120, 95, 55, 0.2);
+    box-shadow: 0 2px 8px rgba(70, 50, 20, 0.06);
+}
+
+[data-theme="light"] .sidebar {
+    background: #f5efe0;
+    border-right-color: rgba(120, 95, 55, 0.2);
+}
+
+/* ---------- Surfaces → solid white + stronger shadow ---------- */
+[data-theme="light"] :where(
+    .stat-card,
+    .recent-activity,
+    .quick-actions,
+    .settings-section,
+    .report-card,
+    .product-catalog,
+    .cart-section,
+    .orders-table-container,
+    .customers-table-container,
+    .audit-table-container,
+    .inventory-table-container,
+    .inventory-tools,
+    .pos-products,
+    .pos-cart,
+    .inventory-stats .stat-card,
+    .modal-content,
+    .modal-card,
+    .dropdown-menu,
+    .notifications-panel
+) {
+    background: #ffffff;
+    border-color: rgba(120, 95, 55, 0.22);
+    box-shadow: 0 4px 16px rgba(70, 50, 20, 0.08);
+}
+
+[data-theme="light"] .stat-card:hover,
+[data-theme="light"] .report-card:hover {
+    border-color: rgba(234, 179, 8, 0.55);
+    box-shadow: 0 12px 32px rgba(70, 50, 20, 0.14);
+}
+
+/* ---------- Inputs / controls — stronger borders ---------- */
+[data-theme="light"] :where(
+    .input-wrapper input,
+    .input-wrapper select,
+    .form-group input,
+    .form-group select,
+    .form-group textarea,
+    .settings-input,
+    .nav-search,
+    .user-btn,
+    .action-btn,
+    .payment-method,
+    .filter-select,
+    .quantity-input
+) {
+    border-color: rgba(120, 95, 55, 0.28);
+}
+
+[data-theme="light"] .product-card {
+    background: #ffffff;
+    border-color: rgba(120, 95, 55, 0.22);
+    box-shadow: 0 2px 8px rgba(70, 50, 20, 0.06);
+}
+
+[data-theme="light"] .product-card:hover {
+    box-shadow: 0 8px 20px rgba(234, 179, 8, 0.2);
+}
+
+/* ---------- Table contrast ---------- */
+[data-theme="light"] .inventory-table thead {
+    background: #f5efe0;
+}
+
+[data-theme="light"] .inventory-table th {
+    color: #3d3831;
+    border-bottom-color: rgba(120, 95, 55, 0.25);
+}
+
+[data-theme="light"] .inventory-table td {
+    color: #3d3831;
+    border-bottom-color: rgba(120, 95, 55, 0.12);
+}
+
+[data-theme="light"] .inventory-table .product-name {
+    color: #100e0a;
+}
+
+[data-theme="light"] .inventory-table .product-sku {
+    color: #756c5e;
+}
+
+[data-theme="light"] .inventory-table tbody tr:hover {
+    background: #faf6ea;
+}
+
+/* ---------- Sidebar — punchier active state ---------- */
+[data-theme="light"] .sidebar-link {
+    color: #57534e;
+}
+
+[data-theme="light"] .sidebar-link:hover {
+    background: rgba(120, 95, 55, 0.08);
+    color: #100e0a;
+}
+
+[data-theme="light"] .sidebar-link.active {
+    background: #EAB308;
+    color: #100e0a;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3);
+}
+
+[data-theme="light"] .sidebar-nav hr {
+    border-top-color: rgba(120, 95, 55, 0.2);
+}
+
+/* ---------- Text contrast ---------- */
+[data-theme="light"] :where(
+    .page-header p,
+    .stat-info p,
+    .activity-time,
+    .cart-item-qty,
+    .total-row,
+    .inventory-header p,
+    .report-card p,
+    .settings-section label,
+    .client-company-tag,
+    .system-info p,
+    .account-status,
+    .auth-header p,
+    .form-group label,
+    .helper-text,
+    .security-badge,
+    .dropdown-item,
+    .nav-search input,
+    .user-btn,
+    .cart-total,
+    .cart-item-name,
+    .modal-close-btn
+) {
+    color: #3d3831;
+}
+
+[data-theme="light"] :where(
+    .nav-search input::placeholder,
+    .search-products input::placeholder,
+    .pos-search input::placeholder,
+    .input-wrapper input::placeholder,
+    .form-group input::placeholder,
+    .form-group textarea::placeholder,
+    .settings-input::placeholder
+) {
+    color: #756c5e;
+}
+
+/* ---------- Buttons — deeper yellow + stronger shadow ---------- */
+[data-theme="light"] :where(
+    .submit-btn,
+    .checkout-btn,
+    .add-to-cart-btn,
+    .primary-btn,
+    .form-submit
+) {
+    background: #E0A300;
+    border-color: #E0A300;
+    color: #100e0a;
+    box-shadow: 0 2px 8px rgba(224, 163, 0, 0.28);
+}
+
+[data-theme="light"] :where(
+    .submit-btn,
+    .checkout-btn,
+    .add-to-cart-btn,
+    .primary-btn,
+    .form-submit
+):hover {
+    background: #B8860B;
+    border-color: #B8860B;
+    box-shadow: 0 8px 24px rgba(224, 163, 0, 0.38);
+}
+
+[data-theme="light"] .link-btn,
+[data-theme="light"] .view-all-btn,
+[data-theme="light"] .notifications-view-all {
+    color: #8a5a00;
+}
+
+[data-theme="light"] .link-btn:hover,
+[data-theme="light"] .view-all-btn:hover,
+[data-theme="light"] .notifications-view-all:hover {
+    color: #6b4500;
+}
+
+/* ---------- Accent text — deeper amber ---------- */
+[data-theme="light"] .product-card-price,
+[data-theme="light"] .order-details-item strong,
+[data-theme="light"] #changeAmount,
+[data-theme="light"] .gcash-qr-row.gcash-qr-amount strong,
+[data-theme="light"] .receipt-grand-total {
+    color: #8a5a00;
+}
+
+/* ---------- Status badges — stronger tints ---------- */
+[data-theme="light"] .kpi-card .stat-change.positive {
+    color: #365314;
+    background: rgba(132, 204, 22, 0.2);
+}
+
+[data-theme="light"] .kpi-card .stat-change.negative {
+    color: #991b1b;
+    background: rgba(239, 68, 68, 0.14);
+}
+
+[data-theme="light"] .stock-badge.in-stock,
+[data-theme="light"] .audit-badge-success {
+    color: #365314;
+    background: rgba(132, 204, 22, 0.22);
+    border-color: rgba(132, 204, 22, 0.45);
+}
+
+[data-theme="light"] .stock-badge.low-stock {
+    color: #9a3412;
+    background: rgba(251, 146, 60, 0.18);
+    border-color: rgba(251, 146, 60, 0.4);
+}
+
+[data-theme="light"] .stock-badge.out-of-stock {
+    color: #991b1b;
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* ---------- Login container + modals ---------- */
+[data-theme="light"] .main-container {
+    background: rgba(255, 253, 247, 0.95);
+    border-color: rgba(120, 95, 55, 0.25);
+    box-shadow: 0 30px 80px rgba(70, 50, 20, 0.18);
+}
+
+[data-theme="light"] .left-panel {
+    background: #f5efe0;
+    border-right-color: rgba(120, 95, 55, 0.2);
+}
+
+[data-theme="light"] .modal,
+[data-theme="light"] .modal-overlay {
+    background: rgba(60, 45, 20, 0.55);
+}
+
+[data-theme="light"] .modal-actions {
+    border-top-color: rgba(120, 95, 55, 0.2);
+}
+
+[data-theme="light"] .modal-actions .secondary-btn {
+    background: #f5efe0;
+    border-color: rgba(120, 95, 55, 0.3);
+    color: #3d3831;
+}
+
+[data-theme="light"] .modal-actions .secondary-btn:hover {
+    background: #ebe2cd;
+    border-color: rgba(120, 95, 55, 0.45);
+    color: #100e0a;
+}
+
+/* ---------- KPI / filter active states ---------- */
+[data-theme="light"] .kpi-clickable:hover {
+    border-color: rgba(224, 163, 0, 0.55);
+}
+
+[data-theme="light"] .inv-filter-card.active {
+    border-color: #E0A300;
+    background: rgba(224, 163, 0, 0.15);
+    box-shadow: 0 0 0 2px rgba(224, 163, 0, 0.35);
+}
+
+/* ---------- Offline banner ---------- */
+[data-theme="light"] .offline-banner {
+    background: linear-gradient(90deg, #D9A800, #EAB308);
+    color: #100e0a;
+    box-shadow: 0 2px 8px rgba(70, 50, 20, 0.12);
+}
+
+/* ============================================
+   AUDIT BADGES — RESTORE ORIGINAL GREEN
+   Applies to "Sale", "Signed in", and other
+   success-type audit log entries.
+   ============================================ */
+
+/* Light mode — original green */
+[data-theme="light"] .audit-badge-success {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Light mode — the "+N items" order badge used the same lime tint */
+[data-theme="light"] .order-items-badge {
+    background: rgba(22, 163, 74, 0.12);
+    color: #166534;
+}
+
+/* Light mode — success toast left border */
+[data-theme="light"] .toast.success {
+    border-left-color: #22c55e;
+}
+
+/* Dark mode — original green (was #a3e635 lime) */
+html:not([data-theme="light"]) .audit-badge-success {
+    background: rgba(34, 197, 94, 0.12);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+/* Dark mode — toast success border */
+html:not([data-theme="light"]) .toast.success {
+    border-left-color: #22c55e;
+}
+
+/* ============================================
+   REVERT SUCCESS COLORS — BACK TO ORIGINAL GREEN
+   Everything that was switched to lime (dark) or
+   yellow (POS in-stock) returns to the standard
+   green palette. Appended last to win cascade.
+   ============================================ */
+
+/* ---------- DARK MODE ---------- */
+
+/* Stock badge — inventory tables, "Active" status pill, etc. */
+html:not([data-theme="light"]) .stock-badge.in-stock {
+    background: rgba(34, 197, 94, 0.1);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+/* Activity log — "Sale", "Signed in", etc. */
+html:not([data-theme="light"]) .audit-badge-success {
+    background: rgba(34, 197, 94, 0.12);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+/* KPI delta — positive change chip */
+html:not([data-theme="light"]) .kpi-card .stat-change.positive {
+    color: #4ade80;
+    background: rgba(34, 197, 94, 0.1);
+}
+
+/* Activity log — money column */
+html:not([data-theme="light"]) .audit-amount {
+    color: #4ade80;
+}
+
+/* Audit severity / action badges */
+html:not([data-theme="light"]) .severity-badge.success {
+    background: rgba(34, 197, 94, 0.1);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+html:not([data-theme="light"]) .action-badge.create {
+    background: rgba(34, 197, 94, 0.1);
+    color: #4ade80;
+}
+html:not([data-theme="light"]) .action-badge.login {
+    background: rgba(74, 222, 128, 0.1);
+    color: #86efac;
+}
+
+/* POS product card in-stock pill (was yellow) */
+html:not([data-theme="light"]) .product-card-stock.in-stock {
+    color: #4ade80;
+    background: rgba(34, 197, 94, 0.12);
+}
+
+/* Toast success — left border */
+html:not([data-theme="light"]) .toast.success {
+    border-left-color: #22c55e;
+}
+
+/* ---------- LIGHT MODE ---------- */
+
+/* Stock badge — inventory tables, "Active" status pill, etc. */
+[data-theme="light"] .stock-badge.in-stock {
+    background: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+/* Activity log — "Sale", "Signed in", etc. */
+[data-theme="light"] .audit-badge-success {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* KPI delta — positive change chip */
+[data-theme="light"] .kpi-card .stat-change.positive {
+    color: #15803d;
+    background: rgba(34, 197, 94, 0.15);
+}
+
+/* Activity log — money column */
+[data-theme="light"] .audit-amount {
+    color: #15803d;
+}
+
+/* Audit severity / action badges */
+[data-theme="light"] .severity-badge.success {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+[data-theme="light"] .action-badge.create {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+}
+[data-theme="light"] .action-badge.login {
+    background: rgba(74, 222, 128, 0.15);
+    color: #166534;
+}
+
+/* POS product card in-stock pill */
+[data-theme="light"] .product-card-stock.in-stock {
+    color: #15803d;
+    background: rgba(34, 197, 94, 0.15);
+}
+
+/* "+N items" order badge */
+[data-theme="light"] .order-items-badge {
+    background: rgba(22, 163, 74, 0.12);
+    color: #166534;
+}
+
+/* Toast success — left border */
+[data-theme="light"] .toast.success {
+    border-left-color: #22c55e;
+}
+
+/* ============================================
+   SIDEBAR COLLAPSE — DESKTOP ICONS-ONLY MODE
+   Reuses #mobileToggle button:
+   - Mobile (≤768px): slides drawer in/out (unchanged)
+   - Desktop (>768px): collapses sidebar to 72px, icons only
+   State persists in localStorage via script.js.
+   ============================================ */
+
+/* Toggle button — now visible on all screen sizes */
+.dashboard-nav .mobile-toggle {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #94a3b8;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.dashboard-nav .mobile-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.dashboard-nav .mobile-toggle:active {
+    transform: scale(0.94);
+}
+
+.dashboard-nav .mobile-toggle:focus-visible {
+    outline: 2px solid #4ade80;
+    outline-offset: 2px;
+}
+
+/* Smooth sidebar resize */
+.sidebar {
+    transition: width 0.25s ease, padding 0.25s ease;
+}
+
+.sidebar-link {
+    transition: background 0.2s, color 0.2s, padding 0.25s ease, justify-content 0.25s ease;
+}
+
+.sidebar-link span {
+    transition: opacity 0.18s ease;
+    white-space: nowrap;
+}
+
+/* ---------- COLLAPSED STATE (desktop only) ---------- */
+@media (min-width: 769px) {
+
+    body.sidebar-collapsed .sidebar {
+        width: 72px;
+        padding: 20px 8px;
+    }
+
+    body.sidebar-collapsed .sidebar-link {
+        justify-content: center;
+        padding: 12px;
+        gap: 0;
+    }
+
+    body.sidebar-collapsed .sidebar-link span {
+        opacity: 0;
+        width: 0;
+        overflow: hidden;
+        display: inline-block;
+    }
+
+    body.sidebar-collapsed .sidebar-link i {
+        font-size: 18px;
+        width: auto;
+        margin: 0;
+    }
+
+    body.sidebar-collapsed .sidebar-nav hr {
+        margin: 12px 6px;
+    }
+
+    /* Keep the active indicator visible when collapsed */
+    body.sidebar-collapsed .sidebar-link.active {
+        background: rgba(250, 204, 21, 0.15);
+    }
+
+    /* Hide sidebar scrollbar when collapsed (no room for it) */
+    body.sidebar-collapsed .sidebar::-webkit-scrollbar {
+        width: 0;
+    }
+}
+
+/* Light mode adjustments for the toggle button */
+[data-theme="light"] .dashboard-nav .mobile-toggle {
+    background: rgba(255, 255, 255, 0.7);
+    border-color: rgba(120, 95, 55, 0.28);
+    color: #57534e;
+}
+
+[data-theme="light"] .dashboard-nav .mobile-toggle:hover {
+    background: #ffffff;
+    color: #1c1813;
+    border-color: rgba(224, 163, 0, 0.55);
+}
+
+[data-theme="light"] body.sidebar-collapsed .sidebar-link.active {
+    background: rgba(224, 163, 0, 0.18);
+}
+
+/* Small mobile fallback — button is still the drawer trigger */
+@media (max-width: 768px) {
+    .dashboard-nav .mobile-toggle {
+        display: grid;
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* ============================================
+   AI FEATURES — QUERY BAR, FORECAST, RESTOCK
+   ============================================ */
+
+.ai-query-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: 14px;
+    padding: 12px 18px;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.ai-query-bar:focus-within {
+    border-color: rgba(139, 92, 246, 0.6);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+    background: rgba(139, 92, 246, 0.12);
+}
+
+.ai-query-icon { color: #a78bfa; font-size: 16px; flex-shrink: 0; }
+
+.ai-query-bar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.ai-query-bar input::placeholder { color: var(--text-muted); }
+
+.ai-query-btn {
+    padding: 8px 16px;
+    background: #8b5cf6;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s, transform 0.15s;
+    font-family: inherit;
+    flex-shrink: 0;
+}
+
+.ai-query-btn:hover { background: #7c3aed; }
+.ai-query-btn:active { transform: scale(0.96); }
+.ai-query-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.ai-query-answer {
+    background: rgba(139, 92, 246, 0.07);
+    border-left: 3px solid #8b5cf6;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 1.5rem;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    animation: slideIn 0.25s ease;
+}
+
+.ai-card-content {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.ai-loading {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 2rem 0;
+}
+
+.ai-loading i { margin-right: 8px; color: #a78bfa; }
+
+.ai-refresh-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.ai-refresh-btn:hover {
+    background: rgba(139, 92, 246, 0.12);
+    color: #a78bfa;
+}
+
+.ai-refresh-btn:active { transform: rotate(180deg); }
+.ai-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ai-forecast-summary {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--glass-border);
+    line-height: 1.5;
+}
+
+.ai-forecast-chart {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    align-items: end;
+    gap: 4px;
+    height: 110px;
+    margin-bottom: 6px;
+}
+
+.ai-forecast-bar {
+    background: linear-gradient(180deg, rgba(139, 92, 246, 0.95), rgba(139, 92, 246, 0.35));
+    border-radius: 3px 3px 0 0;
+    min-height: 4px;
+    transition: opacity 0.15s;
+    cursor: help;
+}
+
+.ai-forecast-bar:hover { opacity: 0.75; }
+
+.ai-forecast-xaxis {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: 4px;
+    font-size: 9px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.ai-forecast-totals {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding-top: 10px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.ai-forecast-totals strong { color: var(--text-primary); font-weight: 700; }
+
+.ai-restock-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 13px;
+}
+
+.ai-restock-item:last-child { border-bottom: none; }
+
+.ai-restock-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.ai-restock-icon.critical { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.ai-restock-icon.high     { background: rgba(251, 146, 60, 0.15); color: #fb923c; }
+.ai-restock-icon.medium   { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.ai-restock-icon.low      { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+.ai-restock-body { flex: 1; min-width: 0; }
+
+.ai-restock-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-restock-reason {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    display: block;
+}
+
+.ai-restock-action {
+    font-size: 11px;
+    color: #a78bfa;
+    font-weight: 700;
+    white-space: nowrap;
+    padding: 4px 8px;
+    background: rgba(139, 92, 246, 0.1);
+    border-radius: 6px;
+}
+
+[data-theme="light"] .ai-query-bar {
+    background: rgba(139, 92, 246, 0.07);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="light"] .ai-query-answer {
+    background: rgba(139, 92, 246, 0.08);
+    color: #1c1813;
+}
+
+[data-theme="light"] .ai-restock-action {
+    color: #6d28d9;
+    background: rgba(139, 92, 246, 0.14);
+}
+
+@media (max-width: 640px) {
+    .ai-query-bar { flex-wrap: wrap; padding: 10px 14px; }
+    .ai-query-bar input { width: 100%; order: 3; padding: 8px 0 0 0; }
+    .ai-query-btn { margin-left: auto; }
+    .ai-forecast-chart { height: 90px; }
 }

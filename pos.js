@@ -407,7 +407,7 @@ function renderProductCatalog(products) {
 
         function updateQuantity(cartKey, delta) {
         if (!cart[cartKey]) return;
-        
+
         // Guard the increase case — cap at available stock
         if (delta > 0) {
             const { name, size } = parseCartKey(cartKey);
@@ -417,12 +417,36 @@ function renderProductCatalog(products) {
                 return;
             }
         }
-        
-        cart[cartKey] += delta;
-        if (cart[cartKey] <= 0) {
+
+        const newQty = cart[cartKey] + delta;
+
+        // Rare path — row being removed → full re-render
+        if (newQty <= 0) {
             delete cart[cartKey];
+            updateCartDisplay();
+            return;
         }
-        updateCartDisplay();
+
+        cart[cartKey] = newQty;
+
+        // Fast path — update only this row + totals
+        const row = cartItems.querySelector(`.cart-item-qty-input[data-cart-key="${CSS.escape(cartKey)}"]`)?.closest('.cart-item');
+        if (row) {
+            const { name, size } = parseCartKey(cartKey);
+            const price = getProductPriceByName(name);
+            const qtyInput = row.querySelector('.cart-item-qty-input');
+            const lineTotalEl = row.querySelector('strong');
+
+            if (qtyInput) {
+                qtyInput.value = newQty;
+                qtyInput.max = getCartMax(name, size, cartKey);
+            }
+            if (lineTotalEl) lineTotalEl.textContent = formatCurrency(price * newQty);
+
+            updateCartTotals();
+        } else {
+            updateCartDisplay();
+        }
     }
     // --- Phone number formatter (11 digits, auto-spaces: 0917 123 4567) ---
     function formatPhoneInput(rawValue) {
@@ -573,8 +597,11 @@ function commitCartQuantity(cartKey, rawValue) {
 }
 
 function getProductPriceByName(name) {
-    // Find the product card with that name and get its data-price
-    const card = document.querySelector(`.product-card[data-name="${name}"]`);
+    // O(1) cache lookup — was a DOM query per cart item per render.
+    const cached = productCache[name];
+    if (cached && cached.price != null) return Number(cached.price) || 0;
+    // Fallback (cache miss — shouldn't normally happen)
+    const card = productGrid?.querySelector(`.product-card[data-name="${CSS.escape(name)}"]`);
     return card ? parseFloat(card.dataset.price) : 0;
 }
 
@@ -619,7 +646,20 @@ function getProductPriceByName(name) {
     }
 
 // Allow the inventory snapshot to populate POS without another Firestore read.
-window.renderPosCatalog = renderProductCatalog;
+// Coalesce rapid calls into one render per animation frame.
+let __pendingCatalogProducts = null;
+let __catalogRenderScheduled = false;
+function scheduleRenderProductCatalog(products) {
+    __pendingCatalogProducts = products;
+    if (__catalogRenderScheduled) return;
+    __catalogRenderScheduled = true;
+    requestAnimationFrame(() => {
+        __catalogRenderScheduled = false;
+        if (__pendingCatalogProducts) renderProductCatalog(__pendingCatalogProducts);
+        __pendingCatalogProducts = null;
+    });
+}
+window.renderPosCatalog = scheduleRenderProductCatalog;
 window.reloadPosCatalog = () => {
     if (productCatalogLoaded) return Promise.resolve();
     if (!productCatalogLoadPromise) {
@@ -630,19 +670,23 @@ window.reloadPosCatalog = () => {
     return productCatalogLoadPromise;
 };
 
-    // --- Product search filter ---
+    // --- Product search filter (debounced + diff-aware) ---
     if (productSearch) {
+        let __posSearchTimer = null;
         productSearch.addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            document.querySelectorAll('.product-card').forEach(card => {
-                const name = card.dataset.name.toLowerCase();
-                const category = card.dataset.category.toLowerCase();
-                if (name.includes(searchTerm) || category.includes(searchTerm)) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
+            clearTimeout(__posSearchTimer);
+            const searchTerm = e.target.value.trim().toLowerCase();
+            __posSearchTimer = setTimeout(() => {
+                const cards = productGrid.querySelectorAll('.product-card');
+                for (const card of cards) {
+                    const name = card.dataset.name.toLowerCase();
+                    const category = card.dataset.category.toLowerCase();
+                    const match = !searchTerm || name.includes(searchTerm) || category.includes(searchTerm);
+                    const next = match ? '' : 'none';
+                    // Only touch style if it actually changed — avoids layout thrash
+                    if (card.style.display !== next) card.style.display = next;
                 }
-            });
+            }, 120);
         });
     }
 
@@ -966,15 +1010,17 @@ if (confirmPaymentBtn) {
         
         
         const items = Object.entries(cart).map(([cartKey, quantity]) => {
-            const { name: itemName, size } = parseCartKey(cartKey);
-            return {
-                name: itemName,
-                productId: productCache[itemName]?.id || '',
-                size,
-                quantity,
-                price: getProductPriceByName(itemName)
-            };
-        });
+    const { name: itemName, size } = parseCartKey(cartKey);
+    const product = productCache[itemName];
+    return {
+        name: itemName,
+        productId: product?.id || '',
+        category: product?.category || '',   // ← NEW: bake category in
+        size,
+        quantity,
+        price: getProductPriceByName(itemName)
+    };
+});
         const requestedStock = new Map();
         for (const item of items) {
             const product = productCache[item.name];

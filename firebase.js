@@ -143,33 +143,42 @@ return state.fb;
     }
 
     async function signInUser({ email, password }) {
-        const fb = await getFirebase();
-        if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
 
-        try {
-            const { signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
-            const userCredential = await signInWithEmailAndPassword(fb.auth, email, password);
-            const user = userCredential.user;
+    try {
+        const { signInWithEmailAndPassword, signOut: fbSignOut } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+        const userCredential = await signInWithEmailAndPassword(fb.auth, email, password);
+        const user = userCredential.user;
 
-            const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-            const profileDoc = await getDoc(doc(fb.db, 'profiles', user.uid));
-            const profile = profileDoc.exists() ? profileDoc.data() : null;
+        const { doc, getDoc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const profileDoc = await getDoc(doc(fb.db, 'profiles', user.uid));
+        const profile = profileDoc.exists() ? profileDoc.data() : null;
 
-            if (profile) {
-                user.role = profile.role;
-                user.user_metadata = {
-                    ...(user.user_metadata || {}),
-                    full_name: profile.full_name,
-                    role: profile.role
-                };
-            }
-
-            state.currentUser = user;
-            return { data: { user }, error: null };
-        } catch (error) {
-            return { data: null, error };
+        // Block deactivated accounts
+        if (profile && profile.active === false) {
+            await fbSignOut(fb.auth);
+            return { data: null, error: new Error('This account has been deactivated. Contact an administrator.') };
         }
+
+        if (profile) {
+            user.role = profile.role;
+            user.user_metadata = {
+                ...(user.user_metadata || {}),
+                full_name: profile.full_name,
+                role: profile.role
+            };
+            updateDoc(doc(fb.db, 'profiles', user.uid), {
+                lastLoginAt: new Date().toISOString()
+            }).catch(() => {});
+        }
+
+        state.currentUser = user;
+        return { data: { user }, error: null };
+    } catch (error) {
+        return { data: null, error };
     }
+}
 
     async function signOutUser() {
         const fb = await getFirebase();
@@ -907,6 +916,49 @@ function subscribeInventory(callback) {
         unsubscribe();
     };
 }
+// ---------- USER PROFILE MANAGEMENT ----------
+async function updateUserProfile(uid, updates) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        const payload = { ...updates, updatedAt: new Date().toISOString() };
+        await updateDoc(doc(fb.db, 'profiles', String(uid)), payload);
+        return { data: [{ id: uid, ...updates }], error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function deleteUserProfile(uid) {
+    const fb = await getFirebase();
+    if (!fb) return { data: null, error: new Error('Firebase is not configured.') };
+    try {
+        const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await deleteDoc(doc(fb.db, 'profiles', String(uid)));
+        return { data: null, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
+}
+
+async function setUserActive(uid, active) {
+    return updateUserProfile(uid, { active: !!active });
+}
+
+async function updateLastLogin(uid) {
+    const fb = await getFirebase();
+    if (!fb) return;
+    try {
+        const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        await updateDoc(doc(fb.db, 'profiles', String(uid)), {
+            lastLoginAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.warn('Unable to update last login:', error);
+    }
+}
+
     // ---------- EXPORT ----------
     window.POS_FIREBASE = {
         DEFAULT_CONFIG,
@@ -922,6 +974,11 @@ function subscribeInventory(callback) {
         resetPassword,
         getUsers,
         upsertProfile,
+        // User Profiles
+        updateUserProfile,
+        deleteUserProfile,
+        setUserActive,
+        updateLastLogin,
         // Inventory
         getInventoryProducts,
         getInventoryProduct,

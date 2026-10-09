@@ -254,17 +254,18 @@ function syncFilterCards() {
     const emptyState = document.getElementById('inventoryEmpty');
     const loading = document.getElementById('inventoryLoading');
     if (!tbody) return;
-    if (loading) loading.style.display = 'block';
-    if (table) table.style.display = 'none';
-    setTimeout(() => {
-        if (loading) loading.style.display = 'none';
+    if (loading) loading.style.display = 'none';
+    if (table) table.style.display = 'table';
+
+    {
         const products = inventoryState.filteredProducts;
         if (!products.length) {
             if (emptyState) emptyState.style.display = 'block';
+            if (table) table.style.display = 'none';
+            tbody.innerHTML = '';
             return;
         }
         if (emptyState) emptyState.style.display = 'none';
-        if (table) table.style.display = 'table';
         const start = (inventoryState.currentPage - 1) * inventoryState.itemsPerPage;
         const pageProducts = products.slice(start, start + inventoryState.itemsPerPage);
         tbody.innerHTML = pageProducts.map(product => {
@@ -296,7 +297,7 @@ function syncFilterCards() {
                 </td>
             </tr>`;
         }).join('');
-    }, 300);
+    }
 }
 
     function renderPagination() {
@@ -559,7 +560,16 @@ function setupInventoryEventListeners() {
     document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
 
     document.getElementById('exportInventoryBtn')?.addEventListener('click', exportInventory);
-    document.getElementById('inventorySearch')?.addEventListener('input', event => { inventoryState.searchTerm = event.target.value; filterProducts(); });
+    (() => {
+        const searchEl = document.getElementById('inventorySearch');
+        if (!searchEl) return;
+        let __invSearchTimer = null;
+        searchEl.addEventListener('input', (event) => {
+            inventoryState.searchTerm = event.target.value;
+            clearTimeout(__invSearchTimer);
+            __invSearchTimer = setTimeout(() => filterProducts(), 150);
+        });
+    })();
     document.getElementById('categoryFilter')?.addEventListener('change', event => { inventoryState.categoryFilter = event.target.value; filterProducts(); });
     document.getElementById('stockFilter')?.addEventListener('change', event => {
     inventoryState.stockFilter = event.target.value;
