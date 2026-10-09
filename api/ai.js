@@ -7,7 +7,7 @@ const GEMINI_ABORT_MS = 3500;
 
 // --- Groq (fallback) ---
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'openai/gpt-oss-20b';
+const GROQ_MODEL = 'llama-3.1-8b-instant';
 const GROQ_ABORT_MS = 4500;
 
 // Vercel function config. Hobby caps at 10s regardless; Pro honors this.
