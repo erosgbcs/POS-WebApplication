@@ -65,6 +65,12 @@
     let cart = {}; // { productName: quantity }
     let selectedPaymentMethod = 'cash';
     let receiptClearTimer = null; // fix: cancellable timer for receipt cleanup
+
+    // POS catalog filter state — keeps the grid from rendering
+    // the entire product list at once.
+    let posCategoryFilter = '';
+    let posAllProducts = [];
+    let posCategoryInitialized = false;
     
     
     
@@ -352,19 +358,73 @@ function buildStockUpdates(items) {
         };
     });
 }
+
+/* ============================================================
+   POS CATEGORY FILTER
+   Renders only the selected category's products to reduce
+   DOM node count. productCache is still built from the FULL
+   list so cart/stock lookups keep working across categories.
+   ============================================================ */
+function titleCasePos(value) {
+    return String(value || '')
+        .split(/[\s_]+/).filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+}
+
+function populatePosCategoryFilter(products) {
+    const select = document.getElementById('posCategoryFilter');
+    if (!select) return;
+
+    const categories = [...new Set(
+        (products || []).map(p => p.category).filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+
+    // If the selected category disappeared (deleted / renamed), reset to "All"
+    if (posCategoryFilter && !categories.includes(posCategoryFilter)) {
+        posCategoryFilter = '';
+    }
+
+    // First load — auto-select the first category so we never
+    // paint the whole catalog at once. Users can still pick "All".
+    if (!posCategoryInitialized && !posCategoryFilter && categories.length > 0) {
+        posCategoryFilter = categories[0];
+        posCategoryInitialized = true;
+    }
+
+    const current = posCategoryFilter;
+    select.innerHTML = '<option value="">All Categories</option>' +
+        categories.map(c =>
+            `<option value="${escapeHtml(c)}">${escapeHtml(titleCasePos(c))}</option>`
+        ).join('');
+    select.value = current;
+}
+
 function renderProductCatalog(products) {
     if (!productGrid) return;
     productCatalogLoaded = true;
-    
-    // Build name -> product lookup for inventory decrement
+
+    // Keep the full list around — every filter re-render reads from here
+    posAllProducts = Array.isArray(products) ? products : [];
+
+    // Build name -> product lookup from the FULL list (cart pricing,
+    // stock lookups, decrement logic all depend on this).
     productCache = {};
-    products.forEach(p => { if (p.name) productCache[p.name] = p; });
-    
-    productGrid.innerHTML = products.map(product => {
+    posAllProducts.forEach(p => { if (p.name) productCache[p.name] = p; });
+
+    // Sync the dropdown (populates once, preserves selection thereafter)
+    populatePosCategoryFilter(posAllProducts);
+
+    // Only render the selected slice
+    const visible = posCategoryFilter
+        ? posAllProducts.filter(p => (p.category || 'uncategorized') === posCategoryFilter)
+        : posAllProducts;
+
+    productGrid.innerHTML = visible.map(product => {
         const qty = getTotalStock(product);
         const sizes = String(product.size || '').split(',').map(s => s.trim()).filter(Boolean);
         const brands = String(product.brand || '').split(',').map(b => b.trim()).filter(Boolean);
-        
+
         // Stock badge
         let stockClass = 'in-stock';
         let stockLabel = `${qty} in stock`;
@@ -375,12 +435,12 @@ function renderProductCatalog(products) {
             stockClass = 'low-stock';
             stockLabel = `${qty} left`;
         }
-        
+
         // Meta line: category + SKU
         const category = product.category || 'uncategorized';
         const sku = product.sku || 'N/A';
         const meta = `${escapeHtml(category)} · ${escapeHtml(sku)}`;
-        
+
         // Size chips
         const sizesHtml = sizes.length ?
             `<div class="product-card-chips">${sizes.map(size => `<span class="size-chip">${escapeHtml(size)}${hasSizeStocks(product) ? ` · ${getAvailableStock(product, size)}` : ''}</span>`).join('')}</div>` :
@@ -390,7 +450,7 @@ function renderProductCatalog(products) {
         const brandsHtml = brands.length ?
             `<div class="product-card-chips">${brands.map(brand => `<span class="size-chip brand-chip"><i class="fas fa-tag"></i> ${escapeHtml(brand)}${hasBrandStocks(product) ? ` · ${getAvailableStock(product, '', brand)}` : ''}</span>`).join('')}</div>` :
             '';
-        
+
         const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
         const brandOptions = brands.length ? ` data-brand-options="${brands.map(escapeHtml).join(',')}"` : '';
         const variantPricesAttr = hasVariantMatrix(product)
@@ -410,7 +470,7 @@ function renderProductCatalog(products) {
                     : `${formatCurrency(min)} – ${formatCurrency(max)}`;
             }
         }
-        
+
         return `<div class="product-card${outClass}" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-category="${escapeHtml(category)}" data-stock="${qty}"${sizeOptions}${brandOptions}${variantPricesAttr}>
             <div class="product-card-header">
                 <h4 class="product-card-name">${escapeHtml(product.name)}</h4>
@@ -834,6 +894,17 @@ window.reloadPosCatalog = () => {
     }
     return productCatalogLoadPromise;
 };
+
+    // --- Category filter: re-render only the selected category ---
+    const posCategoryFilterEl = document.getElementById('posCategoryFilter');
+    if (posCategoryFilterEl) {
+        posCategoryFilterEl.addEventListener('change', () => {
+            posCategoryFilter = posCategoryFilterEl.value;
+            // Clear search so the new category shows all its items
+            if (productSearch) productSearch.value = '';
+            renderProductCatalog(posAllProducts);
+        });
+    }
 
     // --- Product search filter (debounced + diff-aware) ---
     if (productSearch) {

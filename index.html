@@ -560,9 +560,14 @@
         <div class="product-catalog">
             <div class="product-catalog-header">
                 <h3><i class="fas fa-box"></i> Product Catalog</h3>
-                <div class="search-products">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Search products..." id="productSearch">
+                <div class="pos-catalog-controls">
+                    <select class="filter-select" id="posCategoryFilter" aria-label="Filter products by category">
+                        <option value="">All Categories</option>
+                    </select>
+                    <div class="search-products">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search products..." id="productSearch">
+                    </div>
                 </div>
             </div>
             <div class="product-grid-wrapper">

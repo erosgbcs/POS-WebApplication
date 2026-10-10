@@ -9783,3 +9783,37 @@ html:not([data-theme="light"]) .matrix-table tbody th.matrix-row-label {
         font-size: 11px;
     }
 }
+
+/* ============================================
+   POS CATALOG CONTROLS — category filter + search
+   ============================================ */
+.pos-catalog-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.pos-catalog-controls .filter-select {
+    min-width: 160px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+.pos-catalog-controls .search-products {
+    min-width: 180px;
+}
+
+@media (max-width: 640px) {
+    .pos-catalog-controls {
+        width: 100%;
+        justify-content: stretch;
+    }
+    .pos-catalog-controls .filter-select,
+    .pos-catalog-controls .search-products {
+        flex: 1 1 140px;
+        min-width: 0;
+    }
+}
