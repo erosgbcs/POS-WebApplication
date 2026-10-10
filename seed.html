@@ -321,7 +321,7 @@
 
     <label class="seed-option">
         <input type="checkbox" id="seedImagesToggle" checked>
-        <span>Include product images (placeholder URLs, colored by category)</span>
+        <span>Include real product photos (from loremflickr.com, keyword-matched)</span>
     </label>
 
     <button id="seedBtn" disabled>Insert 300 Hardware Items</button>
@@ -384,26 +384,82 @@
         const BRAND_MULTIPLIERS = [1, 1.04, 1.08, 1.12, 1.16];
         const roundTo5 = n => Math.max(5, Math.round(n / 5) * 5);
 
-        // ---------- Product image placeholder ----------
-        // Category → background color for placehold.co
-        const CATEGORY_IMAGE_COLORS = {
-            tools:      'F59E0B',  // amber
-            hardware:   '78716C',  // stone
-            electrical: 'EAB308',  // yellow
-            plumbing:   '0EA5E9',  // sky
-            paint:      'EC4899',  // pink
-            garden:     '22C55E',  // green
-            building:   'A855F7',  // purple
-            fasteners:  '64748B',  // slate
-            safety:     'EF4444'   // red
+        // ---------- Product image — real photos via loremflickr ----------
+        // Serves actual Flickr photos matching a keyword.
+        // ?lock=<id> keeps the same photo on every reload for a given product.
+
+        // Fallback keyword when the product name yields nothing usable
+        const CATEGORY_IMAGE_KEYWORDS = {
+            tools:      'tools',
+            hardware:   'hardware',
+            electrical: 'electrical',
+            plumbing:   'plumbing',
+            paint:      'paint',
+            garden:     'garden',
+            building:   'construction',
+            fasteners:  'screws',
+            safety:     'helmet,safety'
         };
 
+        // Words too generic to be a useful search keyword
+        const IMAGE_STOP_WORDS = new Set([
+            'set', 'kit', 'pc', 'pcs', 'piece', 'pieces', 'pack', 'packs',
+            'pair', 'pairs', 'small', 'medium', 'large', 'heavy', 'light',
+            'standard', 'basic', 'pro', 'the', 'and', 'for', 'with',
+            'accessories', 'accessory', 'complete', 'precision'
+        ]);
+
+        // Overrides for names that don't parse well into keywords
+        const IMAGE_KEYWORD_OVERRIDES = {
+            'PTrap':              'pipe',
+            'T-Hinge':            'hinge',
+            'U-Bolt':             'bolt',
+            'C-Channel':          'steel',
+            'C-Clamp':            'clamp',
+            'F-Clamp':            'clamp',
+            'Trowel':             'trowel',
+            'Waterproofing':      'waterproof',
+            'Fire Extinguisher':  'fire-extinguisher',
+            'First Aid Kit':      'first-aid',
+            'Welding Mask':       'welding',
+            'Reflective Tape':    'reflective',
+            'Caution Sign':       'warning-sign',
+            'Safety Harness':     'harness'
+        };
+
+        function keywordForItem(item) {
+            if (IMAGE_KEYWORD_OVERRIDES[item.name]) {
+                return IMAGE_KEYWORD_OVERRIDES[item.name];
+            }
+
+            // Turn hyphens / slashes / underscores into spaces so "T-Hinge" → "T Hinge"
+            const raw = String(item.name || '').replace(/[-_\/]+/g, ' ');
+            const words = raw.split(/\s+/)
+                .map(w => w.replace(/[^a-zA-Z]/g, ''))
+                .filter(w => w.length >= 3 && !IMAGE_STOP_WORDS.has(w.toLowerCase()))
+                .slice(0, 3);
+
+            if (words.length === 0) {
+                return CATEGORY_IMAGE_KEYWORDS[item.category] || 'hardware';
+            }
+            return words.join(',').toLowerCase();
+        }
+
+        // Deterministic small int from a string — used for the ?lock= param
+        function hashString(str) {
+            let hash = 0;
+            const s = String(str || '');
+            for (let i = 0; i < s.length; i++) {
+                hash = ((hash << 5) - hash) + s.charCodeAt(i);
+                hash |= 0;  // force 32-bit
+            }
+            return Math.abs(hash) % 99991;  // prime-ish modulo for good spread
+        }
+
         function buildProductImageUrl(item) {
-            const bg = CATEGORY_IMAGE_COLORS[item.category] || 'FACC15';
-            // Trim to keep the URL short — placehold.co handles ~30 chars nicely
-            const label = String(item.name || 'Product').slice(0, 22);
-            const text = encodeURIComponent(label);
-            return `https://placehold.co/400x400/${bg}/ffffff?text=${text}&font=inter`;
+            const keyword = keywordForItem(item);
+            const lock = hashString(item.sku || item.name || 'product');
+            return `https://loremflickr.com/400/400/${encodeURIComponent(keyword)}?lock=${lock}`;
         }
 
         function log(msg, cls = '') {
@@ -836,7 +892,7 @@
                 <div class="row"><span>Items with <strong>size stocks only</strong></span><strong>${s.withSizeOnly}</strong></div>
                 <div class="row"><span>Total matrix variants generated</span><strong>${s.totalVariants.toLocaleString()}</strong></div>
                 <div class="row"><span>Total items</span><strong>${SEED_ITEMS.length}</strong></div>
-                <div class="row"><span>Product images</span><strong>${includeImages ? SEED_ITEMS.length + ' (placehold.co)' : 'off'}</strong></div>
+                <div class="row"><span>Product images</span><strong>${includeImages ? SEED_ITEMS.length + ' (loremflickr.com — real photos)' : 'off'}</strong></div>
             `;
         }
 
@@ -955,7 +1011,7 @@
             const includeImages = document.getElementById('seedImagesToggle')?.checked ?? true;
 
             log('Starting insert...', 'warn');
-            log(includeImages ? 'Product images: ON (placehold.co URLs)' : 'Product images: OFF', 'info');
+            log(includeImages ? 'Product images: ON (loremflickr.com — real photos)' : 'Product images: OFF', 'info');
 
             try {
                 const fb = await getFb();
@@ -1066,7 +1122,7 @@
                 log('  · ' + matrixCount + ' with size × brand matrix (' + totalVariants + ' total variants)', 'info');
                 log('  · ' + sizeOnlyCount + ' with size stocks only', 'info');
                 if (includeImages) {
-                    log('  · Product images attached: ' + total + ' (placehold.co URLs)', 'info');
+                    log('  · Product images attached: ' + total + ' (loremflickr.com)', 'info');
                 }
                 log('Open the app and reload to see the products.', 'ok');
 
