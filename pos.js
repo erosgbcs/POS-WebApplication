@@ -425,6 +425,11 @@ function renderProductCatalog(products) {
         const sizes = String(product.size || '').split(',').map(s => s.trim()).filter(Boolean);
         const brands = String(product.brand || '').split(',').map(b => b.trim()).filter(Boolean);
 
+        // Optional product image thumbnail
+        const imageHtml = product.image
+            ? `<div class="product-card-image"><img src="${product.image}" alt="${escapeHtml(product.name)}" loading="lazy"></div>`
+            : '';
+
         // Stock badge
         let stockClass = 'in-stock';
         let stockLabel = `${qty} in stock`;
@@ -472,6 +477,7 @@ function renderProductCatalog(products) {
         }
 
         return `<div class="product-card${outClass}" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-category="${escapeHtml(category)}" data-stock="${qty}"${sizeOptions}${brandOptions}${variantPricesAttr}>
+            ${imageHtml}
             <div class="product-card-header">
                 <h4 class="product-card-name">${escapeHtml(product.name)}</h4>
                 <span class="product-card-stock ${stockClass}">${stockLabel}</span>

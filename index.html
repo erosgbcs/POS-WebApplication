@@ -1153,6 +1153,26 @@
             </div>
             <form id="productForm">
                 <div class="form-grid">
+                    <div class="form-group product-image-group">
+                        <label for="productImageInput">Product Image</label>
+                        <div class="product-image-uploader">
+                            <div class="product-image-preview" id="productImagePreview">
+                                <i class="fas fa-image"></i>
+                                <span>No image</span>
+                            </div>
+                            <div class="product-image-controls">
+                                <label for="productImageInput" class="product-image-choose">
+                                    <i class="fas fa-upload"></i> Choose Image
+                                </label>
+                                <input type="file" id="productImageInput" accept="image/*" hidden>
+                                <button type="button" class="product-image-remove" id="productImageRemove" hidden>
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                                <small>JPG, PNG, or WebP — auto-resized to 400×400.</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label for="productName">Product Name *</label>
                         <input type="text" id="productName" required placeholder="Enter product name">

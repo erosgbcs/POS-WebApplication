@@ -272,6 +272,33 @@
         .warn { color: var(--warn); }
         .info { color: var(--info); }
 
+        .seed-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0 4px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface-soft);
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-2);
+            user-select: none;
+        }
+
+        .seed-option input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .seed-option:hover {
+            border-color: var(--border-strong);
+        }
+
         @media (max-width: 480px) {
             body { padding: 20px 14px 48px; }
             h1 { font-size: 19px; }
@@ -291,6 +318,11 @@
     <div class="preview-panel" id="seedPreview">
         <div class="row"><span>Analyzing…</span><span></span></div>
     </div>
+
+    <label class="seed-option">
+        <input type="checkbox" id="seedImagesToggle" checked>
+        <span>Include product images (placeholder URLs, colored by category)</span>
+    </label>
 
     <button id="seedBtn" disabled>Insert 300 Hardware Items</button>
 
@@ -351,6 +383,28 @@
         const SIZE_MULTIPLIERS  = [1, 1.15, 1.35, 1.6, 1.9, 2.3];
         const BRAND_MULTIPLIERS = [1, 1.04, 1.08, 1.12, 1.16];
         const roundTo5 = n => Math.max(5, Math.round(n / 5) * 5);
+
+        // ---------- Product image placeholder ----------
+        // Category → background color for placehold.co
+        const CATEGORY_IMAGE_COLORS = {
+            tools:      'F59E0B',  // amber
+            hardware:   '78716C',  // stone
+            electrical: 'EAB308',  // yellow
+            plumbing:   '0EA5E9',  // sky
+            paint:      'EC4899',  // pink
+            garden:     '22C55E',  // green
+            building:   'A855F7',  // purple
+            fasteners:  '64748B',  // slate
+            safety:     'EF4444'   // red
+        };
+
+        function buildProductImageUrl(item) {
+            const bg = CATEGORY_IMAGE_COLORS[item.category] || 'FACC15';
+            // Trim to keep the URL short — placehold.co handles ~30 chars nicely
+            const label = String(item.name || 'Product').slice(0, 22);
+            const text = encodeURIComponent(label);
+            return `https://placehold.co/400x400/${bg}/ffffff?text=${text}&font=inter`;
+        }
 
         function log(msg, cls = '') {
             const line = document.createElement('div');
@@ -776,14 +830,17 @@
         function renderPreview() {
             if (!seedPreviewEl) return;
             const s = analyzeSeed();
+            const includeImages = document.getElementById('seedImagesToggle')?.checked ?? true;
             seedPreviewEl.innerHTML = `
                 <div class="row"><span>Items with <strong>size × brand matrix</strong></span><strong>${s.withBrand}</strong></div>
                 <div class="row"><span>Items with <strong>size stocks only</strong></span><strong>${s.withSizeOnly}</strong></div>
                 <div class="row"><span>Total matrix variants generated</span><strong>${s.totalVariants.toLocaleString()}</strong></div>
                 <div class="row"><span>Total items</span><strong>${SEED_ITEMS.length}</strong></div>
+                <div class="row"><span>Product images</span><strong>${includeImages ? SEED_ITEMS.length + ' (placehold.co)' : 'off'}</strong></div>
             `;
         }
 
+        document.getElementById('seedImagesToggle')?.addEventListener('change', renderPreview);
         renderPreview();
 
         // ---- Firebase + auth bootstrap ----
@@ -894,7 +951,12 @@
         // ============================================================
         seedBtn.onclick = async () => {
             seedBtn.disabled = true;
+
+            const includeImages = document.getElementById('seedImagesToggle')?.checked ?? true;
+
             log('Starting insert...', 'warn');
+            log(includeImages ? 'Product images: ON (placehold.co URLs)' : 'Product images: OFF', 'info');
+
             try {
                 const fb = await getFb();
                 const { collection, doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
@@ -977,6 +1039,7 @@
                         brand,
                         brandMode,
                         description: item.description || '',
+                        image: includeImages ? buildProductImageUrl(item) : null,
                         sizeStocks: sizeStocks || null,
                         brandStocks: null,
                         variants: variants || null,
@@ -1002,6 +1065,9 @@
                 log('Done. Inserted ' + total + ' items.', 'ok');
                 log('  · ' + matrixCount + ' with size × brand matrix (' + totalVariants + ' total variants)', 'info');
                 log('  · ' + sizeOnlyCount + ' with size stocks only', 'info');
+                if (includeImages) {
+                    log('  · Product images attached: ' + total + ' (placehold.co URLs)', 'info');
+                }
                 log('Open the app and reload to see the products.', 'ok');
 
                 await refreshInventoryCount();

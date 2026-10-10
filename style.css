@@ -9817,3 +9817,201 @@ html:not([data-theme="light"]) .matrix-table tbody th.matrix-row-label {
         min-width: 0;
     }
 }
+
+/* ============================================
+   PRODUCT IMAGE — MODAL UPLOADER + CARD + TABLE
+   ============================================ */
+
+/* ---------- Modal uploader ---------- */
+.product-image-group {
+    grid-column: 1 / -1;
+}
+
+.product-image-uploader {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+    border-radius: 12px;
+    background: var(--glass-soft, rgba(255, 255, 255, 0.04));
+    flex-wrap: wrap;
+}
+
+.product-image-preview {
+    width: 110px;
+    height: 110px;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px dashed rgba(148, 163, 184, 0.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--text-muted, #8a8275);
+    font-size: 11px;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.product-image-preview i {
+    font-size: 22px;
+    opacity: 0.7;
+}
+
+.product-image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.product-image-preview.has-image i,
+.product-image-preview.has-image span {
+    display: none;
+}
+
+.product-image-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 180px;
+    padding-top: 4px;
+}
+
+.product-image-controls small {
+    font-size: 11px;
+    color: var(--text-muted, #8a8275);
+    line-height: 1.4;
+}
+
+.product-image-choose,
+.product-image-remove {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font: 600 12.5px 'Inter', sans-serif;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    width: fit-content;
+    border: 1px solid transparent;
+}
+
+.product-image-choose {
+    background: rgba(22, 163, 74, 0.12);
+    color: #16a34a;
+    border-color: rgba(22, 163, 74, 0.3);
+}
+
+.product-image-choose:hover {
+    background: rgba(22, 163, 74, 0.2);
+    border-color: rgba(22, 163, 74, 0.55);
+}
+
+.product-image-remove {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.28);
+}
+
+.product-image-remove:hover {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* ---------- POS product card image ---------- */
+.product-card-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(148, 163, 184, 0.1);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.product-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* ---------- Inventory table thumbnail ---------- */
+.inventory-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: rgba(148, 163, 184, 0.15);
+    display: block;
+}
+
+.inventory-thumb-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted, #8a8275);
+    font-size: 15px;
+    border: 1px dashed rgba(148, 163, 184, 0.35);
+}
+
+/* Dark mode brand tint for the empty thumb */
+html:not([data-theme="light"]) .inventory-thumb-empty {
+    background: rgba(250, 204, 21, 0.06);
+    border-color: rgba(250, 204, 21, 0.2);
+    color: #8a8275;
+}
+
+html:not([data-theme="light"]) .product-image-choose {
+    background: rgba(250, 204, 21, 0.1);
+    color: #FACC15;
+    border-color: rgba(250, 204, 21, 0.3);
+}
+
+html:not([data-theme="light"]) .product-image-choose:hover {
+    background: rgba(250, 204, 21, 0.18);
+    border-color: rgba(250, 204, 21, 0.55);
+}
+
+/* Light mode */
+[data-theme="light"] .product-image-uploader {
+    background: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+[data-theme="light"] .product-image-preview {
+    background: rgba(148, 163, 184, 0.1);
+    border-color: rgba(148, 163, 184, 0.5);
+    color: #64748b;
+}
+
+[data-theme="light"] .product-image-choose {
+    background: rgba(22, 163, 74, 0.1);
+    color: #15803d;
+    border-color: rgba(22, 163, 74, 0.4);
+}
+
+[data-theme="light"] .product-image-choose:hover {
+    background: rgba(22, 163, 74, 0.18);
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .product-image-uploader {
+        gap: 12px;
+        padding: 12px;
+    }
+    .product-image-preview {
+        width: 90px;
+        height: 90px;
+    }
+}

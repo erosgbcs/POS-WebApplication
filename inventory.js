@@ -15,7 +15,64 @@
 };
 let variantStockDraft = {};
 let brandStockDraft = {};
+let productImageDraft = null;   // data URL of the current product image
 let inventoryProductsLoadPromise = null;
+
+/* ============================================================
+   PRODUCT IMAGE — resize + encode as data URL
+   Keeps the base64 payload small enough for Firestore
+   (1 MB per document). Target ≈ 30–60 KB at 400×400 JPEG.
+   ============================================================ */
+function resizeImageFile(file, maxSize = 400, quality = 0.78) {
+    return new Promise((resolve, reject) => {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            reject(new Error('Please choose an image file (JPG, PNG, or WebP).'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Could not read the file.'));
+        reader.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('Could not load the image.'));
+            img.onload = () => {
+                try {
+                    const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+                    const w = Math.max(1, Math.round(img.width * ratio));
+                    const h = Math.max(1, Math.round(img.height * ratio));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    // Fill white first so transparent PNGs don't go black
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                } catch (e) {
+                    reject(new Error('Could not process the image.'));
+                }
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderProductImagePreview() {
+    const previewEl = document.getElementById('productImagePreview');
+    const removeBtn = document.getElementById('productImageRemove');
+    if (!previewEl || !removeBtn) return;
+
+    if (productImageDraft) {
+        previewEl.classList.add('has-image');
+        previewEl.innerHTML = `<img src="${productImageDraft}" alt="Product image preview">`;
+        removeBtn.hidden = false;
+    } else {
+        previewEl.classList.remove('has-image');
+        previewEl.innerHTML = '<i class="fas fa-image"></i><span>No image</span>';
+        removeBtn.hidden = true;
+    }
+}
 
 const supabaseApi = window.POS_SUPABASE; // ← ADD THIS LINE
 
@@ -334,6 +391,9 @@ function syncFilterCards() {
             const status = getProductStockStatus(product);
             const sizeLabel = product.size ? `<span class="product-sku"><i class="${specIconClass(product.size)}"></i> ${escapeHtml(product.size)}</span>` : '';
             const brandLabel = product.brand ? `<span class="product-sku"><i class="fas fa-tag"></i> ${escapeHtml(product.brand)}</span>` : '';
+            const thumbHtml = product.image
+                ? `<img class="inventory-thumb" src="${product.image}" alt="">`
+                : `<div class="inventory-thumb inventory-thumb-empty"><i class="fas fa-box"></i></div>`;
             const quantityCell = product.variants
                 ? `<div class="size-stock-summary"><div><span>${Object.keys(product.variants).length} variants</span><strong class="size-stock-total" style="border:none;padding:0;">Total: ${product.quantity}</strong></div></div>`
                 : product.sizeStocks
@@ -428,6 +488,10 @@ updateSizePreview();
                 updateBrandPreview();
                 renderVariantMatrix();
                 document.getElementById('productDescription').value = product.description || '';
+
+                // Product image
+                productImageDraft = product.image || null;
+                renderProductImagePreview();
             }
         } else {
     title.textContent = 'Add Product';
@@ -443,6 +507,8 @@ updateSizePreview();
     if (brandSingleRadio) brandSingleRadio.checked = true;
     brandStockDraft = {};
     matrixDraft = {};
+    productImageDraft = null;
+    renderProductImagePreview();
     updateBrandPreview();
     renderVariantMatrix();
 }
@@ -569,7 +635,8 @@ modal.classList.add('active');
             sizeMode: sizeMode,
             brand: normalizedBrand,
             brandMode: brandMode,
-            description: document.getElementById('productDescription').value.trim()
+            description: document.getElementById('productDescription').value.trim(),
+            image: productImageDraft || null
         };
 
         const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
@@ -611,6 +678,7 @@ modal.classList.add('active');
         }
         if (result.error) return;
         matrixDraft = {};
+        productImageDraft = null;
         updateInventoryStats(); filterProducts(); closeProductModal();
         window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
     }
@@ -1022,6 +1090,26 @@ function setupInventoryEventListeners() {
     });
 
     document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
+
+    // ---- Product image: choose / remove ----
+    document.getElementById('productImageInput')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            productImageDraft = await resizeImageFile(file);
+            renderProductImagePreview();
+        } catch (err) {
+            showToast(err.message || 'Could not load image', 'error');
+        } finally {
+            // Reset the input so choosing the same file twice re-fires change
+            e.target.value = '';
+        }
+    });
+
+    document.getElementById('productImageRemove')?.addEventListener('click', () => {
+        productImageDraft = null;
+        renderProductImagePreview();
+    });
 
     document.getElementById('exportInventoryBtn')?.addEventListener('click', exportInventory);
     (() => {
