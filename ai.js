@@ -269,6 +269,124 @@ Return ONLY valid JSON (no markdown):
 
 Sort by urgency (critical first), then by daysLeft ascending. Return at most 6 items.`;
     }
+    /* ============================================================
+       STORE SNAPSHOT — reads all relevant localStorage keys,
+       computes summary numbers once, and returns a compact
+       payload for the AI prompt. Keeps the chat prompt under
+       Groq's 8,000 TPM free-tier limit (~2,200 tokens).
+       ============================================================ */
+    function buildStoreSnapshot() {
+        const read = (key, fallback) => {
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return fallback;
+                const parsed = JSON.parse(raw);
+                return parsed ?? fallback;
+            } catch (e) {
+                return fallback;
+            }
+        };
+
+        const orders = read('pos_orders', []);
+        const customers = read('pos_customers', []);
+        const audit = read('pos_audit_logs', []);
+        const categories = read('pos_categories', []);
+        const settings = read('pos_settings', {});
+        const products = window.getInventorySnapshot?.() || [];
+
+        // Date keys — match the app's existing KPI logic (UTC-based)
+        // so the AI and the dashboard never disagree on "today".
+        const todayKey = new Date().toISOString().split('T')[0];
+        const monthKey = todayKey.slice(0, 7);
+        const yearKey  = todayKey.slice(0, 4);
+
+        const sumTotal = (list) =>
+            list.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+        const todayOrders = orders.filter(o => String(o.createdAt || '').startsWith(todayKey));
+        const monthOrders = orders.filter(o => String(o.createdAt || '').startsWith(monthKey));
+        const yearOrders  = orders.filter(o => String(o.createdAt || '').startsWith(yearKey));
+
+        const inStockCount = products.filter(p => (Number(p.quantity) || 0) > 0).length;
+        const lowStockCount = products.filter(p => {
+            const q = Number(p.quantity) || 0;
+            const m = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+            return q > 0 && q <= m;
+        }).length;
+        const outOfStockCount = products.filter(p => (Number(p.quantity) || 0) === 0).length;
+
+        // Top 10 customers by lifetime spend — answers "top customers?" questions
+        const topCustomers = [...customers]
+            .sort((a, b) => (Number(b.totalSpent) || 0) - (Number(a.totalSpent) || 0))
+            .slice(0, 10)
+            .map(c => ({
+                name: c.name || 'Unknown',
+                orders: Number(c.orders) || 0,
+                totalSpent: Number(c.totalSpent) || 0
+            }));
+
+        // 10 newest orders — enough context for "what sold recently?"
+        const recentOrders = orders.slice(0, 10).map(o => ({
+            id: o.id,
+            date: o.createdAt,
+            customer: o.customerName || 'Walk-in',
+            total: o.total,
+            payment: o.paymentMethod || 'cash',
+            itemCount: (o.items || []).length,
+            itemSummary: (o.items || []).slice(0, 3)
+                .map(i => `${i.name} x${i.quantity}`)
+                .join(', ')
+        }));
+
+        // 30 products with category, price, stock — enough for most catalog questions
+        const catalog = products.slice(0, 30).map(p => ({
+            name: p.name,
+            category: p.category,
+            stock: p.quantity,
+            price: p.price,
+            size: p.size || '',
+            brand: p.brand || ''
+        }));
+
+        // 8 newest audit entries — enough for "what happened today?"
+        const recentAudit = audit.slice(0, 8).map(l => ({
+            when: l.timestamp,
+            who: l.user,
+            action: l.action,
+            module: l.module,
+            description: l.description
+        }));
+
+        // Categories in use — from config or derived from products
+        const categoryList = Array.isArray(categories) && categories.length
+            ? categories
+            : [...new Set(products.map(p => p.category).filter(Boolean))];
+
+        return {
+            summary: {
+                today:     { date: todayKey, revenue: sumTotal(todayOrders), orders: todayOrders.length },
+                thisMonth: { month: monthKey, revenue: sumTotal(monthOrders), orders: monthOrders.length },
+                thisYear:  { year: yearKey,  revenue: sumTotal(yearOrders),  orders: yearOrders.length  },
+                allTime:   { revenue: sumTotal(orders), orders: orders.length },
+                inventory: {
+                    totalProducts: products.length,
+                    inStock: inStockCount,
+                    lowStock: lowStockCount,
+                    outOfStock: outOfStockCount
+                },
+                customers: { total: customers.length }
+            },
+            topCustomers,
+            recentOrders,
+            catalog,
+            recentAudit,
+            categories: categoryList,
+            settings: {
+                storeName: settings.storeName || "Kirby's Hardware",
+                currency: settings.currency || 'PHP'
+            }
+        };
+    }
 
     // =================================================================
     // CHAT — askQuestion
@@ -277,40 +395,11 @@ Sort by urgency (critical first), then by daysLeft ascending. Return at most 6 i
         const trimmed = String(question || '').trim();
         if (!trimmed) return { answer: 'Please type a question.' };
 
-        // Cache identical non-follow-up questions so asking the same thing
-        // twice doesn't cost two Groq calls. Follow-ups ("and last week?",
-        // "why?") skip the cache since their answer depends on context.
-        const isFollowUp = trimmed.length < 20 && /^(and|why|how|what|who|when|then)\b/i.test(trimmed);
-        const cacheKey = `qa_${trimmed.toLowerCase()}`;
-        if (!isFollowUp) {
-            const cached = readCache(cacheKey);
-            if (cached) return cached;
-        }
+        // Read everything the store knows from localStorage + in-memory snapshot
+        const snapshot = buildStoreSnapshot();
 
-        const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-        const products = window.getInventorySnapshot?.() || [];
-
-        // Compact CSV payload. JSON's verbose keys doubled every line;
-        // Groq free tier caps at 8,000 tokens per minute, so we send
-        // pipe-delimited rows instead.
-        //   Order format:   receipt|date|customer|total|itemCount|top items
-        //   Product format: name|category|stock|price
-        const recentLines = orders.slice(0, 10).map(o => {
-            const topItems = (o.items || []).slice(0, 3)
-                .map(i => `${i.name} x${i.quantity}`).join(', ');
-            const date = String(o.createdAt || '').slice(0, 10);
-            const customer = String(o.customerName || 'Walk-in').replace(/\|/g, '/');
-            return `${o.id}|${date}|${customer}|${o.total}|${(o.items || []).length}|${topItems}`;
-        }).join('\n');
-
-        const catalogLines = products.slice(0, 25).map(p => {
-            const name = String(p.name || '').replace(/\|/g, '/');
-            return `${name}|${p.category}|${p.quantity}|${p.price}`;
-        }).join('\n');
-
-        // Conversation memory — last 4 turns. Deeper history costs tokens
-        // and rarely improves the answer for this class of question.
-        const HISTORY_TURNS = 4;
+        // ---- Conversation memory ----
+        const HISTORY_TURNS = 8;
         const trimmedHistory = Array.isArray(history)
             ? history
                 .filter(m => m && typeof m.text === 'string' && m.text.trim())
@@ -325,16 +414,27 @@ Sort by urgency (critical first), then by daysLeft ascending. Return at most 6 i
 
         const prompt = `You are answering questions about a small hardware store POS system.
 
-Context:
-- Today's date: ${new Date().toISOString().split('T')[0]}
-- Total orders on record: ${orders.length}
-- Total products in inventory: ${products.length}
+Current time: ${new Date().toISOString()}
+Store: ${snapshot.settings.storeName}
+Currency: ${snapshot.settings.currency}
 
-Recent orders (last 10, newest first, format: receipt|date|customer|total|itemCount|top items):
-${recentLines}
+PRE-COMPUTED SUMMARY (authoritative — use these numbers directly, do NOT recompute):
+${JSON.stringify(snapshot.summary)}
 
-Product catalog (first 25, format: name|category|stock|price):
-${catalogLines}
+CATEGORIES IN USE:
+${snapshot.categories.join(', ') || '(none)'}
+
+TOP 10 CUSTOMERS BY LIFETIME SPEND:
+${JSON.stringify(snapshot.topCustomers)}
+
+10 MOST RECENT ORDERS:
+${JSON.stringify(snapshot.recentOrders)}
+
+PRODUCT CATALOG (first 30 products):
+${JSON.stringify(snapshot.catalog)}
+
+8 MOST RECENT ACTIVITY LOG ENTRIES:
+${JSON.stringify(snapshot.recentAudit)}
 
 Previous conversation (oldest → newest):
 ${historyBlock}
@@ -342,8 +442,12 @@ ${historyBlock}
 User's new question: ${trimmed}
 
 Instructions:
-- If the new question is a follow-up (e.g. "and last week?", "what about Tuesday?", "why?", "show me more"), resolve it using the Previous conversation before answering.
-- Otherwise answer the new question directly.
+- For revenue, sales, or order count questions about today / this month / this year / all time, USE the PRE-COMPUTED SUMMARY numbers. Do NOT sum the recentOrders list — it is a small slice.
+- For "top customers" questions, use the TOP 10 CUSTOMERS list.
+- For "what happened today" or "what did staff do", use the ACTIVITY LOG entries.
+- For "what do I sell" or category questions, use CATEGORIES IN USE.
+- For product questions (price, stock, brand), use the PRODUCT CATALOG.
+- If the question is a follow-up ("and last week?", "what about Tuesday?", "why?", "show me more"), resolve it using the Previous conversation before answering.
 - Answer in 1-2 sentences, plain English, no markdown.
 - Use ONLY the data above. Do NOT invent numbers.
 - If the data is insufficient, say: "I don't have enough data to answer that."
@@ -353,14 +457,9 @@ Return ONLY valid JSON (no markdown):
 { "answer": "<your answer>" }`;
 
         const { parsed } = await callProxy(prompt, 'query');
-        const result = parsed && parsed.answer
+        return parsed && parsed.answer
             ? parsed
             : { answer: 'AI returned an unexpected response.' };
-
-        if (!isFollowUp && result.answer) {
-            writeCache(cacheKey, result);
-        }
-        return result;
     }
 
     // =================================================================
