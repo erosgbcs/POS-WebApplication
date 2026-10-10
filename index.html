@@ -1245,6 +1245,23 @@
     </label>
     <div id="brandStockInputs" class="size-stock-inputs"></div>
 </div>
+
+<!-- MATRIX: shown when BOTH size and brand are variants -->
+<div class="form-group" id="variantMatrixGroup" style="display: none;">
+    <label>Size × Brand Matrix</label>
+    <p class="matrix-hint">Set price and stock per combination. Leave price blank to use the base price above. Leave the whole cell blank if the store doesn't carry that variant.</p>
+    <div class="matrix-wrap">
+        <table class="matrix-table" id="variantMatrixTable">
+            <thead id="variantMatrixHead"></thead>
+            <tbody id="variantMatrixBody"></tbody>
+        </table>
+    </div>
+    <div class="matrix-footer">
+        <span class="matrix-stat">Variants: <strong id="matrixVariantCount">0</strong></span>
+        <span class="matrix-stat">Total stock: <strong id="matrixTotalStock">0</strong></span>
+        <span class="matrix-stat">Price range: <strong id="matrixPriceRange">—</strong></span>
+    </div>
+</div>
                     <div class="form-group">
                         <label for="productDescription">Description</label>
                         <textarea id="productDescription" rows="3" placeholder="Product description..."></textarea>

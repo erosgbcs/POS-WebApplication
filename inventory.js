@@ -143,11 +143,9 @@ async function addCategoryPrompt() {
         }))
         : null;
 
-    // ---------- Brand variants (parallel to size) ----------
     const rawBrand = String(product.brand || '').trim();
     let brandMode = product.brandMode;
     if (!brandMode) {
-        // Legacy: comma present -> treat as variants; else single
         brandMode = rawBrand.includes(',') ? 'variants' : 'single';
     }
     const brandStocks = product.brandStocks && typeof product.brandStocks === 'object' && !Array.isArray(product.brandStocks)
@@ -157,12 +155,34 @@ async function addCategoryPrompt() {
         }))
         : null;
 
-    // Total quantity: prefer whichever dimension owns the stock
+    // NEW: Size × Brand matrix (per-variant price + stock)
+    let variants = null;
+    if (product.variants && typeof product.variants === 'object' && !Array.isArray(product.variants)) {
+        variants = {};
+        for (const [key, val] of Object.entries(product.variants)) {
+            if (!val || typeof val !== 'object') continue;
+            const stock = Number(val.stock);
+            if (!Number.isFinite(stock) || stock < 0) continue;
+            const rawPrice = val.price;
+            const price = rawPrice == null || rawPrice === ''
+                ? null                                // null = fall back to base price
+                : Number(rawPrice);
+            variants[key] = {
+                price: Number.isFinite(price) ? price : null,
+                stock: Math.floor(stock)
+            };
+        }
+        if (Object.keys(variants).length === 0) variants = null;
+    }
+
+    // Total quantity: variants > sizeStocks > brandStocks > shared quantity
     let quantity;
-    if (sizeStocks) {
-        quantity = Object.values(sizeStocks).reduce((total, stock) => total + stock, 0);
+    if (variants) {
+        quantity = Object.values(variants).reduce((t, v) => t + v.stock, 0);
+    } else if (sizeStocks) {
+        quantity = Object.values(sizeStocks).reduce((t, s) => t + s, 0);
     } else if (brandStocks) {
-        quantity = Object.values(brandStocks).reduce((total, stock) => total + stock, 0);
+        quantity = Object.values(brandStocks).reduce((t, s) => t + s, 0);
     } else {
         quantity = Number(product.quantity) || 0;
     }
@@ -175,6 +195,7 @@ async function addCategoryPrompt() {
         brand: rawBrand,
         brandMode,
         brandStocks,
+        variants,
         quantity,
         minStock: product.minStock ?? product.min_stock ?? 0,
         lastUpdated: product.lastUpdated || product.updated_at || product.created_at || ''
@@ -218,7 +239,14 @@ function specIconClass(spec) {
     }
 
     function getProductStockStatus(product) {
-        // Whichever dimension owns the stock drives the status
+        // Matrix wins if present
+        if (product.variants) {
+            const stocks = Object.values(product.variants).map(v => v.stock);
+            if (!stocks.length || stocks.every(s => s === 0)) return 'out_of_stock';
+            if (stocks.some(s => s <= product.minStock)) return 'low_stock';
+            if (product.quantity > product.minStock * 2) return 'over_stock';
+            return 'in_stock';
+        }
         if (product.sizeStocks) {
             const stocks = Object.values(product.sizeStocks).map(q => Number(q) || 0);
             if (!stocks.length || stocks.every(q => q === 0)) return 'out_of_stock';
@@ -306,11 +334,13 @@ function syncFilterCards() {
             const status = getProductStockStatus(product);
             const sizeLabel = product.size ? `<span class="product-sku"><i class="${specIconClass(product.size)}"></i> ${escapeHtml(product.size)}</span>` : '';
             const brandLabel = product.brand ? `<span class="product-sku"><i class="fas fa-tag"></i> ${escapeHtml(product.brand)}</span>` : '';
-            const quantityCell = product.sizeStocks
-                ? `<div class="size-stock-summary">${Object.entries(product.sizeStocks).map(([size, quantity]) => `<div><span>${escapeHtml(size)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
-                : product.brandStocks
-                    ? `<div class="size-stock-summary">${Object.entries(product.brandStocks).map(([brand, quantity]) => `<div><span>${escapeHtml(brand)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
-                    : `<input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)">`;
+            const quantityCell = product.variants
+                ? `<div class="size-stock-summary"><div><span>${Object.keys(product.variants).length} variants</span><strong class="size-stock-total" style="border:none;padding:0;">Total: ${product.quantity}</strong></div></div>`
+                : product.sizeStocks
+                    ? `<div class="size-stock-summary">${Object.entries(product.sizeStocks).map(([size, quantity]) => `<div><span>${escapeHtml(size)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
+                    : product.brandStocks
+                        ? `<div class="size-stock-summary">${Object.entries(product.brandStocks).map(([brand, quantity]) => `<div><span>${escapeHtml(brand)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
+                        : `<input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)">`;
             return `<tr>
                 <td>
                     <div class="product-info">
@@ -323,7 +353,13 @@ function syncFilterCards() {
                     </div>
                 </td>
                 <td>${product.category}</td>
-                <td>${formatCurrency(product.price)}</td>
+                <td>${product.variants ? (() => {
+                    const prices = Object.values(product.variants).map(v => v.price).filter(p => p != null);
+                    if (prices.length === 0) return formatCurrency(product.price);
+                    const min = Math.min(...prices);
+                    const max = Math.max(...prices);
+                    return min === max ? formatCurrency(min) : `${formatCurrency(min)} – ${formatCurrency(max)}`;
+                })() : formatCurrency(product.price)}</td>
                 <td>${quantityCell}</td>
                 <td>${getStockBadge(status)}</td>
                 <td>${product.lastUpdated}</td>
@@ -385,7 +421,12 @@ updateSizePreview();
                 const trackBrandStock = document.getElementById('trackBrandStock');
                 if (trackBrandStock) trackBrandStock.checked = Boolean(product.brandStocks);
                 brandStockDraft = product.brandStocks ? { ...product.brandStocks } : {};
+
+                // Seed the matrix draft from any existing variants
+                matrixDraft = product.variants ? { ...product.variants } : {};
+
                 updateBrandPreview();
+                renderVariantMatrix();
                 document.getElementById('productDescription').value = product.description || '';
             }
         } else {
@@ -401,7 +442,9 @@ updateSizePreview();
     const brandSingleRadio = document.querySelector('input[name="brandMode"][value="single"]');
     if (brandSingleRadio) brandSingleRadio.checked = true;
     brandStockDraft = {};
+    matrixDraft = {};
     updateBrandPreview();
+    renderVariantMatrix();
 }
 modal.classList.add('active');
     }
@@ -430,16 +473,29 @@ modal.classList.add('active');
             : [...new Set(rawBrand.split(',').map(v => v.trim()).filter(Boolean))].join(',');
         const tracksBrandStock = brandMode === 'variants' && document.getElementById('trackBrandStock').checked;
 
-        // Guard: only one dimension can track stock
-        if (tracksSizeStock && tracksBrandStock) {
-            showToast('Only one dimension (size or brand) can track stock per product', 'error');
-            return;
+        // ---------- Matrix mode ----------
+        const useMatrix = sizeMode === 'variants' && brandMode === 'variants';
+        let variants = null;
+
+        if (useMatrix) {
+            const readResult = readVariantMatrix();
+            if (readResult.error) {
+                showToast(readResult.error, 'error');
+                return;
+            }
+            variants = readResult.variants;
+        } else {
+            // Old guard — only one dimension can track stock
+            if (tracksSizeStock && tracksBrandStock) {
+                showToast('Only one dimension (size or brand) can track stock per product', 'error');
+                return;
+            }
         }
 
-        // ---------- Size stocks ----------
+        // ---------- Size stocks (only when not using matrix) ----------
         const sizes = normalizedSize.split(',').map(s => s.trim()).filter(Boolean);
         let sizeStocks = null;
-        if (tracksSizeStock) {
+        if (!useMatrix && tracksSizeStock) {
             if (!sizes.length) {
                 showToast('Add at least one size before setting stock', 'error');
                 return;
@@ -465,10 +521,10 @@ modal.classList.add('active');
             }
         }
 
-        // ---------- Brand stocks ----------
+        // ---------- Brand stocks (only when not using matrix) ----------
         const brands = normalizedBrand.split(',').map(b => b.trim()).filter(Boolean);
         let brandStocks = null;
-        if (tracksBrandStock) {
+        if (!useMatrix && tracksBrandStock) {
             if (!brands.length) {
                 showToast('Add at least one brand before setting stock', 'error');
                 return;
@@ -496,7 +552,8 @@ modal.classList.add('active');
 
         // ---------- Total quantity ----------
         let quantity;
-        if (sizeStocks) quantity = Object.values(sizeStocks).reduce((t, s) => t + s, 0);
+        if (variants) quantity = Object.values(variants).reduce((t, v) => t + v.stock, 0);
+        else if (sizeStocks) quantity = Object.values(sizeStocks).reduce((t, s) => t + s, 0);
         else if (brandStocks) quantity = Object.values(brandStocks).reduce((t, s) => t + s, 0);
         else quantity = parseInt(document.getElementById('productQuantity').value, 10);
 
@@ -516,11 +573,22 @@ modal.classList.add('active');
         };
 
         const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
-        if (sizeStocks) productData.sizeStocks = sizeStocks;
-        else if (existingProduct?.sizeStocks) productData.sizeStocks = null;
 
-        if (brandStocks) productData.brandStocks = brandStocks;
-        else if (existingProduct?.brandStocks) productData.brandStocks = null;
+        // Matrix replaces both stocks — write variants and clear the old shapes
+        if (variants) {
+            productData.variants = variants;
+            productData.sizeStocks = null;
+            productData.brandStocks = null;
+        } else {
+            if (sizeStocks) productData.sizeStocks = sizeStocks;
+            else if (existingProduct?.sizeStocks) productData.sizeStocks = null;
+
+            if (brandStocks) productData.brandStocks = brandStocks;
+            else if (existingProduct?.brandStocks) productData.brandStocks = null;
+
+            // Clear any leftover variants from a previous edit
+            if (existingProduct?.variants) productData.variants = null;
+        }
 
         const skuExists = inventoryState.products.some(p => p.sku === productData.sku && p.id !== inventoryState.editingProductId);
         if (skuExists) { showToast('Product code already exists', 'error'); return; }
@@ -542,6 +610,7 @@ modal.classList.add('active');
             showToast(result.error ? result.error.message : 'Product added successfully', result.error ? 'error' : 'success');
         }
         if (result.error) return;
+        matrixDraft = {};
         updateInventoryStats(); filterProducts(); closeProductModal();
         window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
     }
@@ -689,6 +758,186 @@ function renderBrandStockControls() {
     const sharedQty = document.getElementById('sharedQuantityGroup');
     if (sharedQty) sharedQty.style.display = 'none';
 }
+
+/* ============================================================
+   SIZE × BRAND MATRIX
+   ============================================================ */
+
+function shouldShowMatrix() {
+    const sizeMode = document.querySelector('input[name="sizeMode"]:checked')?.value;
+    const brandMode = document.querySelector('input[name="brandMode"]:checked')?.value;
+    return sizeMode === 'variants' && brandMode === 'variants';
+}
+
+// In-memory draft so values survive re-renders when the user edits
+// sizes or brands while the modal is open.
+let matrixDraft = {};
+
+function renderVariantMatrix() {
+    const group = document.getElementById('variantMatrixGroup');
+    const head = document.getElementById('variantMatrixHead');
+    const body = document.getElementById('variantMatrixBody');
+    if (!group || !head || !body) return;
+
+    if (!shouldShowMatrix()) {
+        group.style.display = 'none';
+        // Hide the two alternate stock panels while the matrix is visible
+        document.getElementById('variantStockGroup')?.style.setProperty('display', 'none');
+        document.getElementById('brandStockGroup')?.style.setProperty('display', 'none');
+        return;
+    }
+
+    // Hide the two alternative stock panels — the matrix replaces them
+    document.getElementById('variantStockGroup')?.style.setProperty('display', 'none');
+    document.getElementById('brandStockGroup')?.style.setProperty('display', 'none');
+    const sharedQty = document.getElementById('sharedQuantityGroup');
+    if (sharedQty) sharedQty.style.display = 'none';
+
+    group.style.display = '';
+
+    const sizes = [...new Set(
+        document.getElementById('productSize').value
+            .split(',').map(s => s.trim()).filter(Boolean)
+    )];
+    const brands = [...new Set(
+        document.getElementById('productBrand').value
+            .split(',').map(b => b.trim()).filter(Boolean)
+    )];
+
+    if (sizes.length === 0 || brands.length === 0) {
+        head.innerHTML = '';
+        body.innerHTML = '<tr><td style="text-align:center;padding:14px;color:var(--text-muted);">Add sizes and brands above to see the matrix</td></tr>';
+        updateMatrixSummary();
+        return;
+    }
+
+    // Preserve any values already typed in the current DOM
+    body.querySelectorAll('[data-variant-key]').forEach(input => {
+        const key = input.dataset.variantKey;
+        const field = input.dataset.variantField;
+        if (!matrixDraft[key]) matrixDraft[key] = {};
+        matrixDraft[key][field] = input.value;
+    });
+
+    head.innerHTML = '<tr><th class="matrix-row-label">Size</th>'
+        + brands.map(b => `<th>${escapeHtml(b)}</th>`).join('')
+        + '</tr>';
+
+    body.innerHTML = sizes.map(size => {
+        const cells = brands.map(brand => {
+            const key = `${size}::${brand}`;
+            const draft = matrixDraft[key] || {};
+            const price = draft.price ?? '';
+            const stock = draft.stock ?? '';
+            return `<td>
+                <div class="variant-cell-input">
+                    <input class="matrix-price" type="number" min="0" step="0.01" placeholder="₱"
+                        data-variant-key="${escapeHtml(key)}" data-variant-field="price"
+                        value="${escapeHtml(price)}"
+                        aria-label="Price for ${escapeHtml(size)} ${escapeHtml(brand)}">
+                    <input class="matrix-stock" type="number" min="0" step="1" placeholder="stock"
+                        data-variant-key="${escapeHtml(key)}" data-variant-field="stock"
+                        value="${escapeHtml(stock)}"
+                        aria-label="Stock for ${escapeHtml(size)} ${escapeHtml(brand)}">
+                </div>
+            </td>`;
+        }).join('');
+        return `<tr><th class="matrix-row-label">${escapeHtml(size)}</th>${cells}</tr>`;
+    }).join('');
+
+    updateMatrixSummary();
+}
+
+function updateMatrixSummary() {
+    const body = document.getElementById('variantMatrixBody');
+    if (!body) return;
+
+    let count = 0, totalStock = 0;
+    let minPrice = Infinity, maxPrice = -Infinity;
+
+    body.querySelectorAll('[data-variant-field="stock"]').forEach(stockInput => {
+        const key = stockInput.dataset.variantKey;
+        const priceInput = body.querySelector(`[data-variant-field="price"][data-variant-key="${CSS.escape(key)}"]`);
+        const stock = parseInt(stockInput.value, 10);
+        const priceRaw = priceInput?.value?.trim() || '';
+        const price = priceRaw === '' ? null : parseFloat(priceRaw);
+
+        if (Number.isInteger(stock) && stock >= 0) {
+            count++;
+            totalStock += stock;
+            if (price !== null && Number.isFinite(price)) {
+                if (price < minPrice) minPrice = price;
+                if (price > maxPrice) maxPrice = price;
+            }
+        }
+    });
+
+    const countEl = document.getElementById('matrixVariantCount');
+    const stockEl = document.getElementById('matrixTotalStock');
+    const rangeEl = document.getElementById('matrixPriceRange');
+
+    if (countEl) countEl.textContent = count;
+    if (stockEl) stockEl.textContent = totalStock;
+    if (rangeEl) {
+        if (count === 0 || !Number.isFinite(minPrice)) {
+            rangeEl.textContent = '—';
+        } else if (minPrice === maxPrice) {
+            rangeEl.textContent = formatCurrency(minPrice);
+        } else {
+            rangeEl.textContent = `${formatCurrency(minPrice)} – ${formatCurrency(maxPrice)}`;
+        }
+    }
+}
+
+function readVariantMatrix() {
+    const body = document.getElementById('variantMatrixBody');
+    if (!body) return { error: 'Matrix not found' };
+
+    const pairs = {};
+    body.querySelectorAll('[data-variant-key]').forEach(input => {
+        const key = input.dataset.variantKey;
+        const field = input.dataset.variantField;
+        if (!pairs[key]) pairs[key] = {};
+        pairs[key][field] = input.value.trim();
+    });
+
+    const out = {};
+    for (const [key, val] of Object.entries(pairs)) {
+        const stockRaw = val.stock ?? '';
+        const priceRaw = val.price ?? '';
+
+        // Fully empty cell → combination doesn't exist, skip
+        if (stockRaw === '' && priceRaw === '') continue;
+
+        if (stockRaw === '') {
+            return { error: `Enter stock for ${key} (or leave price blank to skip this combination)` };
+        }
+
+        const stock = Number(stockRaw);
+        if (!Number.isInteger(stock) || stock < 0) {
+            return { error: `Enter a whole-number stock for ${key}` };
+        }
+
+        let price = null;
+        if (priceRaw !== '') {
+            const p = Number(priceRaw);
+            if (!Number.isFinite(p) || p < 0) {
+                return { error: `Enter a valid price for ${key}, or leave blank to use base price` };
+            }
+            price = p;
+        }
+
+        out[key] = { price, stock };
+    }
+
+    if (Object.keys(out).length === 0) {
+        return { error: 'Add at least one variant with stock' };
+    }
+
+    return { variants: out };
+}
+
+
 function renderVariantStockControls() {
     const mode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
     const group = document.getElementById('variantStockGroup');
@@ -729,9 +978,15 @@ function setupInventoryEventListeners() {
 
     // Size mode radios + live preview
     document.querySelectorAll('input[name="sizeMode"]').forEach(radio => {
-        radio.addEventListener('change', updateSizePreview);
+        radio.addEventListener('change', () => {
+            updateSizePreview();
+            renderVariantMatrix();
+        });
     });
-    document.getElementById('productSize')?.addEventListener('input', updateSizePreview);
+    document.getElementById('productSize')?.addEventListener('input', () => {
+        updateSizePreview();
+        renderVariantMatrix();
+    });
     document.getElementById('trackSizeStock')?.addEventListener('change', renderVariantStockControls);
     document.getElementById('variantStockInputs')?.addEventListener('input', () => {
         const inputs = [...document.querySelectorAll('[data-size-stock]')];
@@ -742,15 +997,28 @@ function setupInventoryEventListeners() {
 
     // Brand mode radios + live preview
     document.querySelectorAll('input[name="brandMode"]').forEach(radio => {
-        radio.addEventListener('change', updateBrandPreview);
+        radio.addEventListener('change', () => {
+            updateBrandPreview();
+            renderVariantMatrix();
+        });
     });
-    document.getElementById('productBrand')?.addEventListener('input', updateBrandPreview);
+    document.getElementById('productBrand')?.addEventListener('input', () => {
+        updateBrandPreview();
+        renderVariantMatrix();
+    });
     document.getElementById('trackBrandStock')?.addEventListener('change', renderBrandStockControls);
     document.getElementById('brandStockInputs')?.addEventListener('input', () => {
         const inputs = [...document.querySelectorAll('[data-brand-stock]')];
         const values = inputs.map(input => input.value.trim());
         if (!inputs.length || values.some(value => value === '' || !Number.isInteger(Number(value)) || Number(value) < 0)) return;
         document.getElementById('productQuantity').value = values.reduce((total, value) => total + Number(value), 0);
+    });
+
+    // Matrix live updates — recalc footer summary on cell edit
+    document.getElementById('variantMatrixBody')?.addEventListener('input', (e) => {
+        if (e.target.matches('[data-variant-key]')) {
+            updateMatrixSummary();
+        }
     });
 
     document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);

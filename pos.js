@@ -87,14 +87,25 @@ function hasBrandStocks(product) {
     return Boolean(product?.brandStocks && typeof product.brandStocks === 'object' && !Array.isArray(product.brandStocks));
 }
 
+function hasVariantMatrix(product) {
+    return Boolean(product?.variants && typeof product.variants === 'object' && !Array.isArray(product.variants));
+}
+
 function getAvailableStock(product, size = '', brand = '') {
     if (!product) return Infinity;
+    if (hasVariantMatrix(product)) {
+        const v = product.variants[`${size}::${brand}`];
+        return Math.max(0, Number(v?.stock) || 0);
+    }
     if (hasSizeStocks(product)) return Math.max(0, Number(product.sizeStocks[size]) || 0);
     if (hasBrandStocks(product)) return Math.max(0, Number(product.brandStocks[brand]) || 0);
     return Math.max(0, Number(product.quantity) || 0);
 }
 
 function getTotalStock(product) {
+    if (hasVariantMatrix(product)) {
+        return Object.values(product.variants).reduce((t, v) => t + (Number(v.stock) || 0), 0);
+    }
     if (hasSizeStocks(product)) {
         return Object.values(product.sizeStocks).reduce((total, stock) => total + (Number(stock) || 0), 0);
     }
@@ -102,6 +113,17 @@ function getTotalStock(product) {
         return Object.values(product.brandStocks).reduce((total, stock) => total + (Number(stock) || 0), 0);
     }
     return Math.max(0, Number(product?.quantity) || 0);
+}
+
+// Returns the effective price for a (size, brand) combination
+function getVariantPrice(product, size = '', brand = '') {
+    if (!product) return 0;
+    if (hasVariantMatrix(product)) {
+        const v = product.variants[`${size}::${brand}`];
+        if (!v) return 0;
+        return v.price != null ? Number(v.price) : (Number(product.price) || 0);
+    }
+    return Number(product.price) || 0;
 }
 
 const PENDING_SALES_KEY = 'pos_order_queue';
@@ -236,12 +258,17 @@ function getCartMax(name, size, brand, currentCartKey = '') {
     const available = getAvailableStock(product, size, brand);
     const perSize = hasSizeStocks(product);
     const perBrand = hasBrandStocks(product);
+    const perVariant = hasVariantMatrix(product);
     const alreadyAllocated = Object.entries(cart).reduce((total, [cartKey, quantity]) => {
         if (cartKey === currentCartKey) return total;
         const item = parseCartKey(cartKey);
         if (item.name !== name) return total;
-        if (perSize && item.size !== size) return total;
-        if (perBrand && item.brand !== brand) return total;
+        if (perVariant) {
+            if (item.size !== size || item.brand !== brand) return total;
+        } else {
+            if (perSize && item.size !== size) return total;
+            if (perBrand && item.brand !== brand) return total;
+        }
         return total + quantity;
     }, 0);
     return Math.max(0, available - alreadyAllocated);
@@ -253,10 +280,13 @@ function buildStockUpdates(items) {
         const product = productCache[item.name];
         if (!product?.id) continue;
         if (!decrements.has(product.id)) {
-            decrements.set(product.id, { product, quantity: 0, bySize: {}, byBrand: {} });
+            decrements.set(product.id, { product, quantity: 0, bySize: {}, byBrand: {}, byVariant: {} });
         }
         const decrement = decrements.get(product.id);
-        if (hasSizeStocks(product) && item.size) {
+        if (hasVariantMatrix(product)) {
+            const key = `${item.size}::${item.brand}`;
+            decrement.byVariant[key] = (decrement.byVariant[key] || 0) + item.quantity;
+        } else if (hasSizeStocks(product) && item.size) {
             decrement.bySize[item.size] = (decrement.bySize[item.size] || 0) + item.quantity;
         } else if (hasBrandStocks(product) && item.brand) {
             decrement.byBrand[item.brand] = (decrement.byBrand[item.brand] || 0) + item.quantity;
@@ -265,7 +295,26 @@ function buildStockUpdates(items) {
         }
     }
 
-    return [...decrements.values()].map(({ product, quantity, bySize, byBrand }) => {
+    return [...decrements.values()].map(({ product, quantity, bySize, byBrand, byVariant }) => {
+        if (hasVariantMatrix(product)) {
+            const variants = {};
+            for (const [key, v] of Object.entries(product.variants)) {
+                variants[key] = { ...v };
+            }
+            for (const [key, sold] of Object.entries(byVariant)) {
+                if (variants[key]) {
+                    variants[key].stock = Math.max(0, variants[key].stock - sold);
+                }
+            }
+            return {
+                product,
+                productId: product.id,
+                updates: {
+                    variants,
+                    quantity: Object.values(variants).reduce((t, v) => t + (Number(v.stock) || 0), 0)
+                }
+            };
+        }
         if (hasSizeStocks(product)) {
             const sizeStocks = { ...product.sizeStocks };
             for (const [size, soldQuantity] of Object.entries(bySize)) {
@@ -344,9 +393,25 @@ function renderProductCatalog(products) {
         
         const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
         const brandOptions = brands.length ? ` data-brand-options="${brands.map(escapeHtml).join(',')}"` : '';
+        const variantPricesAttr = hasVariantMatrix(product)
+            ? ` data-variant-prices="${escapeHtml(JSON.stringify(product.variants))}"`
+            : '';
         const outClass = qty === 0 ? ' is-out-of-stock' : '';
+
+        // Display price: range for matrix, base otherwise
+        let displayPrice = formatCurrency(product.price);
+        if (hasVariantMatrix(product)) {
+            const prices = Object.values(product.variants).map(v => v.price).filter(p => p != null);
+            if (prices.length > 0) {
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+                displayPrice = min === max
+                    ? formatCurrency(min)
+                    : `${formatCurrency(min)} – ${formatCurrency(max)}`;
+            }
+        }
         
-        return `<div class="product-card${outClass}" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-category="${escapeHtml(category)}" data-stock="${qty}"${sizeOptions}${brandOptions}>
+        return `<div class="product-card${outClass}" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-category="${escapeHtml(category)}" data-stock="${qty}"${sizeOptions}${brandOptions}${variantPricesAttr}>
             <div class="product-card-header">
                 <h4 class="product-card-name">${escapeHtml(product.name)}</h4>
                 <span class="product-card-stock ${stockClass}">${stockLabel}</span>
@@ -354,7 +419,7 @@ function renderProductCatalog(products) {
             <div class="product-card-meta">${meta}</div>
             ${sizesHtml}
             ${brandsHtml}
-            <div class="product-card-price">${formatCurrency(product.price)}</div>
+            <div class="product-card-price">${displayPrice}</div>
         </div>`;
     }).join('');
 }
@@ -422,18 +487,28 @@ function renderProductCatalog(products) {
             brand: parts[2] || ''
         };
     }
-      function addToCart(name, price, size = '', brand = '') {
+      // cartPrices tracks the effective price per cart line, so
+    // matrix variants can have different prices from the same product.
+    const cartPrices = {};
+
+    function addToCart(name, price, size = '', brand = '') {
         const cartKey = getCartKey(name, size, brand);
         const maxStock = getCartMax(name, size, brand, cartKey);
         const currentQty = cart[cartKey] || 0;
-        
+
         if (currentQty >= maxStock) {
             showToast(`Only ${maxStock} left in stock`, 'error');
             return;
         }
-        
+
+        // Resolve the actual price: variant override > caller-supplied price
+        const product = productCache[name];
+        const resolved = getVariantPrice(product, size, brand) || price;
+
         cart[cartKey] = currentQty + 1;
+        cartPrices[cartKey] = resolved;
         updateCartDisplay();
+
         const bits = [name];
         if (size) bits.push(`(${size})`);
         if (brand) bits.push(`· ${brand}`);
@@ -468,7 +543,7 @@ function renderProductCatalog(products) {
         const row = cartItems.querySelector(`.cart-item-qty-input[data-cart-key="${CSS.escape(cartKey)}"]`)?.closest('.cart-item');
         if (row) {
             const { name, size, brand } = parseCartKey(cartKey);
-            const price = getProductPriceByName(name);
+            const price = getProductPriceByName(name, cartKey);
             const qtyInput = row.querySelector('.cart-item-qty-input');
             const lineTotalEl = row.querySelector('strong');
 
@@ -545,7 +620,7 @@ function renderProductCatalog(products) {
             cartItems.innerHTML = '';
 for (const [cartKey, qty] of Object.entries(cart)) {
     const { name, size, brand } = parseCartKey(cartKey);
-    const price = getProductPriceByName(name);
+    const price = getProductPriceByName(name, cartKey);
     const bits = [name];
     if (size) bits.push(`(${size})`);
     if (brand) bits.push(`· ${brand}`);
@@ -585,7 +660,7 @@ for (const [cartKey, qty] of Object.entries(cart)) {
         let subtotal = 0;
         for (const [cartKey, qty] of Object.entries(cart)) {
             const { name } = parseCartKey(cartKey);
-            const price = getProductPriceByName(name);
+            const price = getProductPriceByName(name, cartKey);
             subtotal += price * qty;
         }
         const tax = subtotal * 0.08;
@@ -599,7 +674,7 @@ function updateCartTotals() {
     let subtotal = 0;
     for (const [cartKey, qty] of Object.entries(cart)) {
         const { name } = parseCartKey(cartKey);
-        const price = getProductPriceByName(name);
+        const price = getProductPriceByName(name, cartKey);
         subtotal += price * qty;
     }
     const tax = subtotal * 0.08;
@@ -633,11 +708,11 @@ function commitCartQuantity(cartKey, rawValue) {
     updateCartDisplay();
 }
 
-function getProductPriceByName(name) {
-    // O(1) cache lookup — was a DOM query per cart item per render.
+function getProductPriceByName(name, cartKey = '') {
+    // Prefer the price stored for this specific cart line (matrix variants differ)
+    if (cartKey && cartPrices[cartKey] != null) return Number(cartPrices[cartKey]) || 0;
     const cached = productCache[name];
     if (cached && cached.price != null) return Number(cached.price) || 0;
-    // Fallback (cache miss — shouldn't normally happen)
     const card = productGrid?.querySelector(`.product-card[data-name="${CSS.escape(name)}"]`);
     return card ? parseFloat(card.dataset.price) : 0;
 }
@@ -808,7 +883,7 @@ if (cartItems) {
         
         const { name, size, brand } = parseCartKey(cartKey);
         const maxStock = getCartMax(name, size, brand, cartKey);
-        const price = getProductPriceByName(name);
+        const price = getProductPriceByName(name, cartKey);
         
         // Guard rail: product went out of stock mid-cart
         if (maxStock <= 0) {
@@ -872,7 +947,7 @@ if (cartItems) {
             let subtotal = 0;
             for (const [cartKey, qty] of Object.entries(cart)) {
                 const { name } = parseCartKey(cartKey);
-                const price = getProductPriceByName(name);
+                const price = getProductPriceByName(name, cartKey);
                 subtotal += price * qty;
             }
             const tax = subtotal * 0.08;
@@ -1114,7 +1189,7 @@ if (confirmPaymentBtn) {
         size,
         brand,
         quantity,
-        price: getProductPriceByName(itemName)
+        price: getProductPriceByName(itemName, cartKey)
     };
 });
         const requestedStock = new Map();
