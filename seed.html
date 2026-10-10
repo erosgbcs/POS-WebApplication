@@ -8,13 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* ============================================================
-           TOKENS — mirrors the app's palette so this tool feels native
-           ============================================================ */
         :root {
             --bg: #141210;
             --surface: rgba(30, 27, 23, 0.75);
-            --surface-solid: #1e1b17;
             --surface-soft: rgba(250, 204, 21, 0.05);
             --border: rgba(250, 204, 21, 0.12);
             --border-strong: rgba(250, 204, 21, 0.28);
@@ -43,13 +39,12 @@
                 radial-gradient(ellipse at 85% 50%, rgba(234, 179, 8, 0.06) 0%, transparent 60%);
             color: var(--text);
             padding: 24px 20px 60px;
-            max-width: 620px;
+            max-width: 640px;
             margin: 0 auto;
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* ---------- Page header ---------- */
         h1 {
             color: var(--text);
             font-size: 22px;
@@ -76,7 +71,6 @@
             margin-bottom: 8px;
         }
 
-        /* ---------- Section headings ---------- */
         h2 {
             color: var(--text-2);
             font-size: 12px;
@@ -99,7 +93,6 @@
             margin-top: 20px;
         }
 
-        /* ---------- Body copy ---------- */
         p {
             color: var(--text-2);
             font-size: 13px;
@@ -117,7 +110,6 @@
             border: 1px solid var(--border);
         }
 
-        /* ---------- Buttons ---------- */
         button {
             width: 100%;
             padding: 14px 18px;
@@ -140,7 +132,6 @@
             cursor: not-allowed;
         }
 
-        /* Primary — yellow, dark text (matches submit-btn) */
         #seedBtn {
             background: var(--accent);
             color: var(--accent-text);
@@ -152,7 +143,6 @@
             box-shadow: 0 8px 24px rgba(250, 204, 21, 0.28);
         }
 
-        /* Warning — orange */
         .warning {
             background: var(--warn);
             color: #1a0f00;
@@ -164,7 +154,6 @@
             box-shadow: 0 8px 24px rgba(251, 146, 60, 0.28);
         }
 
-        /* Danger — red */
         .danger {
             background: var(--danger);
             color: #ffffff;
@@ -176,7 +165,6 @@
             box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
         }
 
-        /* Neutral — glass, text-only */
         .neutral {
             background: var(--surface-soft);
             color: var(--text-2);
@@ -190,7 +178,6 @@
             color: var(--text);
         }
 
-        /* ---------- Confirm inputs ---------- */
         .confirm-input {
             width: 100%;
             padding: 12px 14px;
@@ -212,7 +199,6 @@
             background: rgba(250, 204, 21, 0.04);
         }
 
-        /* ---------- Count badges ---------- */
         .count-badge {
             display: inline-block;
             padding: 3px 9px;
@@ -226,7 +212,30 @@
             text-transform: none;
         }
 
-        /* ---------- Log panel ---------- */
+        .preview-panel {
+            margin: 12px 0;
+            padding: 14px 16px;
+            background: var(--surface-soft);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 12.5px;
+            line-height: 1.7;
+            color: var(--text-2);
+        }
+
+        .preview-panel strong {
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .preview-panel .row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .preview-panel .row + .row { margin-top: 4px; }
+
         #log {
             margin-top: 20px;
             padding: 16px;
@@ -246,13 +255,9 @@
             box-shadow: var(--shadow);
         }
 
-        #log > div {
-            padding: 2px 0;
-        }
-
+        #log > div { padding: 2px 0; }
         #log > div:first-child { padding-top: 0; }
 
-        /* Log scrollbar */
         #log::-webkit-scrollbar { width: 6px; }
         #log::-webkit-scrollbar-thumb {
             background: rgba(250, 204, 21, 0.25);
@@ -262,13 +267,11 @@
             background: rgba(250, 204, 21, 0.45);
         }
 
-        /* ---------- Log level colors ---------- */
         .ok   { color: var(--ok); }
         .err  { color: var(--danger); }
         .warn { color: var(--warn); }
         .info { color: var(--info); }
 
-        /* ---------- Responsive tweak ---------- */
         @media (max-width: 480px) {
             body { padding: 20px 14px 48px; }
             h1 { font-size: 19px; }
@@ -282,8 +285,13 @@
     <h1>Seed Data — Kirby's Hardware</h1>
     <p>One-time admin tool. Delete this file after use.</p>
 
-    <h2>Seed <span class="count-badge" id="seedCount">300 items with brands</span></h2>
-    <p>Paint, electrical, plumbing, tools, hardware, garden, and safety items get brand variants auto-injected. Building and fasteners stay unbranded. Brand names come from <code>CATEGORY_BRAND_POOLS</code> — edit that constant to change them.</p>
+    <h2>Seed <span class="count-badge" id="seedCount">300 items</span></h2>
+    <p>The seed generates <strong>size × brand matrices</strong> for categories with a brand pool, and <strong>size-only stocks</strong> for commodity categories (building, fasteners). Each variant gets its own price and stock. Brand pools are defined in <code>CATEGORY_BRAND_POOLS</code>.</p>
+
+    <div class="preview-panel" id="seedPreview">
+        <div class="row"><span>Analyzing…</span><span></span></div>
+    </div>
+
     <button id="seedBtn" disabled>Insert 300 Hardware Items</button>
 
     <h2>Danger Zone <span class="count-badge" id="invCount">— items in cloud</span></h2>
@@ -322,13 +330,12 @@
         const wipeConfirm = document.getElementById('wipeConfirm');
         const nukeConfirm = document.getElementById('nukeConfirm');
         const invCountBadge = document.getElementById('invCount');
+        const seedPreviewEl = document.getElementById('seedPreview');
 
-        // Collections covered by nuclear delete
         const ALL_COLLECTIONS = ['inventory', 'orders', 'customers', 'audit_logs', 'config'];
 
-        // Brand pools per category — injected automatically during seed.
-        // An item can override by declaring its own `brand` field.
-        // Categories not listed get no brand (commodity items like fasteners).
+        // Brand pools per category. An item can override with its own `brand`.
+        // Categories not listed stay unbranded.
         const CATEGORY_BRAND_POOLS = {
             paint:       'Boysen,Davies,Pacific Paint',
             electrical:  'Omni,Firefly,Akari',
@@ -338,6 +345,12 @@
             garden:      'Ace,Karcher,Gardena',
             safety:      '3M,Honeywell,MSA'
         };
+
+        // Size and brand multipliers for per-variant pricing.
+        //   price = round5(basePrice × sizeMult × brandMult)
+        const SIZE_MULTIPLIERS  = [1, 1.15, 1.35, 1.6, 1.9, 2.3];
+        const BRAND_MULTIPLIERS = [1, 1.04, 1.08, 1.12, 1.16];
+        const roundTo5 = n => Math.max(5, Math.round(n / 5) * 5);
 
         function log(msg, cls = '') {
             const line = document.createElement('div');
@@ -359,7 +372,7 @@
             nukeBtn.disabled = nukeConfirm.value.trim() !== 'DELETE ALL';
         });
 
-        // ---- Firebase + auth bootstrap ----
+        // ---- Firebase bootstrap ----
         let _fb = null;
         async function getFb() {
             if (_fb) return _fb;
@@ -384,7 +397,6 @@
             invCountBadge.textContent = n === null ? '— items in cloud' : `${n} items in cloud`;
         }
 
-        // Batch delete every doc in a collection
         async function wipeCollection(name) {
             const fb = await getFb();
             const { collection, getDocs, doc, writeBatch } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
@@ -409,6 +421,372 @@
             return deleted;
         }
 
+        // ============================================================
+        // SEED DATA — 300 items
+        // ============================================================
+        const V = 'variants';
+        const SEED_ITEMS = [
+            // TOOLS (50)
+            { name: 'Claw Hammer', sku: 'TL-001', category: 'tools', price: 350, quantity: 60, min_stock: 12, supplier: 'ToolMaster PH', size: '8 oz,16 oz,20 oz,24 oz', sizeMode: V, description: 'Forged steel claw hammer with fiberglass handle' },
+            { name: 'Rubber Mallet', sku: 'TL-002', category: 'tools', price: 280, quantity: 45, min_stock: 9, supplier: 'ToolMaster PH', size: '16 oz,24 oz,32 oz', sizeMode: V, description: 'White rubber head mallet with wood handle' },
+            { name: 'Ball Peen Hammer', sku: 'TL-003', category: 'tools', price: 420, quantity: 50, min_stock: 10, supplier: 'ToolMaster PH', size: '12 oz,16 oz,24 oz,32 oz', sizeMode: V, description: 'Drop-forged steel, hickory handle' },
+            { name: 'Sledgehammer', sku: 'TL-004', category: 'tools', price: 1250, quantity: 25, min_stock: 5, supplier: 'ToolMaster PH', size: '4 lb,6 lb,8 lb,10 lb', sizeMode: V, description: 'Fiberglass handle, drop-forged head' },
+            { name: 'Screwdriver Set', sku: 'TL-005', category: 'tools', price: 550, quantity: 80, min_stock: 16, supplier: 'Stanley PH', size: '4 pc,6 pc,8 pc,12 pc', sizeMode: V, description: 'Phillips and flat, chrome vanadium' },
+            { name: 'Precision Screwdriver Set', sku: 'TL-006', category: 'tools', price: 380, quantity: 60, min_stock: 12, supplier: 'Stanley PH', size: '16 pc,32 pc,45 pc', sizeMode: V, description: 'Electronics repair, magnetic tips' },
+            { name: 'Adjustable Wrench', sku: 'TL-007', category: 'tools', price: 480, quantity: 70, min_stock: 14, supplier: 'Stanley PH', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'Chrome vanadium, drop-forged' },
+            { name: 'Combination Wrench', sku: 'TL-008', category: 'tools', price: 180, quantity: 150, min_stock: 30, supplier: 'Stanley PH', size: '8 mm,10 mm,12 mm,14 mm,17 mm,19 mm', sizeMode: V, description: 'Mirror-polished metric wrench' },
+            { name: 'Socket Set', sku: 'TL-009', category: 'tools', price: 1850, quantity: 40, min_stock: 8, supplier: 'Stanley PH', size: '40 pc,60 pc,108 pc', sizeMode: V, description: '1/4 and 3/8 drive chrome vanadium' },
+            { name: 'Combination Pliers', sku: 'TL-010', category: 'tools', price: 220, quantity: 60, min_stock: 12, supplier: 'Stanley PH', size: '6 in,7 in,8 in', sizeMode: V, description: 'Insulated grip combination pliers' },
+            { name: 'Long Nose Pliers', sku: 'TL-011', category: 'tools', price: 250, quantity: 55, min_stock: 11, supplier: 'Stanley PH', size: '6 in,8 in', sizeMode: V, description: 'Precision long nose pliers' },
+            { name: 'Cutting Pliers', sku: 'TL-012', category: 'tools', price: 280, quantity: 50, min_stock: 10, supplier: 'Stanley PH', size: '6 in,7 in,8 in', sizeMode: V, description: 'Diagonal cutting pliers' },
+            { name: 'Locking Pliers', sku: 'TL-013', category: 'tools', price: 420, quantity: 40, min_stock: 8, supplier: 'Stanley PH', size: '5 in,7 in,10 in', sizeMode: V, description: 'Vise-grip locking pliers' },
+            { name: 'Tape Measure', sku: 'TL-014', category: 'tools', price: 150, quantity: 80, min_stock: 16, supplier: 'Stanley PH', size: '3 m,5 m,8 m,10 m', sizeMode: V, description: 'Auto-lock measuring tape with belt clip' },
+            { name: 'Handsaw', sku: 'TL-015', category: 'tools', price: 380, quantity: 35, min_stock: 7, supplier: 'Ace Hardware PH', size: '18 in,20 in,22 in,24 in', sizeMode: V, description: 'Heavy-duty wood handsaw' },
+            { name: 'Spirit Level', sku: 'TL-016', category: 'tools', price: 450, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '12 in,18 in,24 in,36 in,48 in', sizeMode: V, description: 'Aluminum spirit level with 3 vials' },
+            { name: 'Hacksaw Frame', sku: 'TL-017', category: 'tools', price: 320, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '10 in,12 in', sizeMode: V, description: 'Adjustable hacksaw frame' },
+            { name: 'Bolt Cutter', sku: 'TL-018', category: 'tools', price: 850, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: '14 in,18 in,24 in,30 in', sizeMode: V, description: 'Heavy-duty bolt cutter' },
+            { name: 'Pipe Wrench', sku: 'TL-019', category: 'tools', price: 680, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: '10 in,12 in,14 in,18 in,24 in', sizeMode: V, description: 'Cast-iron pipe wrench' },
+            { name: 'Wood Chisel Set', sku: 'TL-020', category: 'tools', price: 420, quantity: 35, min_stock: 7, supplier: 'Ace Hardware PH', size: '3 pc,4 pc,6 pc', sizeMode: V, description: 'Woodworking chisel set with wood handle' },
+            { name: 'Wood Plane', sku: 'TL-021', category: 'tools', price: 550, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: '7 in,9 in,14 in', sizeMode: V, description: 'Adjustable wood plane' },
+            { name: 'Steel Trowel', sku: 'TL-022', category: 'tools', price: 180, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '10 in,12 in,14 in', sizeMode: V, description: 'Masonry trowel with wooden handle' },
+            { name: 'Putty Knife', sku: 'TL-023', category: 'tools', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '1 in,2 in,3 in,4 in', sizeMode: V, description: 'Stainless putty knife' },
+            { name: 'Wire Stripper', sku: 'TL-024', category: 'tools', price: 280, quantity: 40, min_stock: 8, supplier: 'Stanley PH', size: '8 in,9 in', sizeMode: V, description: 'Automatic wire stripper' },
+            { name: 'Utility Knife', sku: 'TL-025', category: 'tools', price: 150, quantity: 60, min_stock: 12, supplier: 'Stanley PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Retractable utility knife' },
+            { name: 'Framing Square', sku: 'TL-026', category: 'tools', price: 220, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '8 in,12 in,16 in', sizeMode: V, description: 'Steel framing square' },
+            { name: 'Caulking Gun', sku: 'TL-027', category: 'tools', price: 260, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '9 in,10 in,12 in', sizeMode: V, description: 'Skeleton caulking gun' },
+            { name: 'Crowbar', sku: 'TL-028', category: 'tools', price: 480, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: '24 in,30 in,36 in,48 in', sizeMode: V, description: 'Forged steel pry bar' },
+            { name: 'Pickaxe', sku: 'TL-029', category: 'tools', price: 680, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Forged steel pickaxe with wooden handle' },
+            { name: 'Garden Hoe', sku: 'TL-030', category: 'tools', price: 380, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden hoe' },
+            { name: 'Trowel', sku: 'TL-031', category: 'tools', price: 140, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden hand trowel' },
+            { name: 'Nut Driver Set', sku: 'TL-032', category: 'tools', price: 550, quantity: 30, min_stock: 6, supplier: 'Stanley PH', size: '5 pc,6 pc,8 pc', sizeMode: V, description: 'Nut driver set, metric and SAE' },
+            { name: 'Hex Key Set', sku: 'TL-033', category: 'tools', price: 320, quantity: 50, min_stock: 10, supplier: 'Stanley PH', size: '9 pc,10 pc,22 pc', sizeMode: V, description: 'Allen wrench set, metric' },
+            { name: 'Torque Wrench', sku: 'TL-034', category: 'tools', price: 2500, quantity: 10, min_stock: 2, supplier: 'Stanley PH', size: '1/4 in,3/8 in,1/2 in', sizeMode: V, description: 'Click-type torque wrench' },
+            { name: 'Bench Vise', sku: 'TL-035', category: 'tools', price: 3200, quantity: 8, min_stock: 2, supplier: 'ToolMaster PH', size: '4 in,5 in,6 in,8 in', sizeMode: V, description: 'Cast-iron bench vise with swivel base' },
+            { name: 'C-Clamp', sku: 'TL-036', category: 'tools', price: 180, quantity: 60, min_stock: 12, supplier: 'ToolMaster PH', size: '4 in,6 in,8 in,12 in', sizeMode: V, description: 'Drop-forged C-clamp' },
+            { name: 'F-Clamp', sku: 'TL-037', category: 'tools', price: 380, quantity: 40, min_stock: 8, supplier: 'ToolMaster PH', size: '12 in,24 in,36 in,48 in', sizeMode: V, description: 'Sliding F-clamp with trigger release' },
+            { name: 'Spring Clamp', sku: 'TL-038', category: 'tools', price: 85, quantity: 100, min_stock: 20, supplier: 'ToolMaster PH', size: '2 in,3 in,4 in,6 in', sizeMode: V, description: 'Heavy-duty spring clamp' },
+            { name: 'Carpenter Pencil', sku: 'TL-039', category: 'tools', price: 25, quantity: 200, min_stock: 40, supplier: 'Ace Hardware PH', size: 'Small,Medium', sizeMode: V, description: 'Flat carpenter pencil, per piece' },
+            { name: 'Chalk Line Reel', sku: 'TL-040', category: 'tools', price: 320, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: '30 m,50 m', sizeMode: V, description: 'Chalk line reel with blue chalk' },
+            { name: 'Stud Finder', sku: 'TL-041', category: 'tools', price: 850, quantity: 20, min_stock: 4, supplier: 'Stanley PH', size: 'Basic,Pro', sizeMode: V, description: 'Electronic stud finder' },
+            { name: 'Laser Level', sku: 'TL-042', category: 'tools', price: 2800, quantity: 10, min_stock: 2, supplier: 'Stanley PH', size: 'Basic,Pro,Cross-Line', sizeMode: V, description: 'Self-leveling laser level' },
+            { name: 'Masonry Brush', sku: 'TL-043', category: 'tools', price: 120, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Heavy-duty masonry brush' },
+            { name: 'Tile Cutter', sku: 'TL-044', category: 'tools', price: 3500, quantity: 8, min_stock: 2, supplier: 'Ace Hardware PH', size: '24 in,36 in,48 in', sizeMode: V, description: 'Manual tile cutter with tungsten wheel' },
+            { name: 'Grout Float', sku: 'TL-045', category: 'tools', price: 220, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '4 in,9 in,12 in', sizeMode: V, description: 'Rubber grout float' },
+            { name: 'Notched Trowel', sku: 'TL-046', category: 'tools', price: 180, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '4 in,6 in,8 in', sizeMode: V, description: 'Notched adhesive trowel' },
+            { name: 'Sponge Float', sku: 'TL-047', category: 'tools', price: 160, quantity: 35, min_stock: 7, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Concrete sponge float' },
+            { name: 'Screed Board', sku: 'TL-048', category: 'tools', price: 420, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: '1.2 m,1.5 m,2 m', sizeMode: V, description: 'Aluminum screed board' },
+            { name: 'Mixing Paddle', sku: 'TL-049', category: 'tools', price: 280, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Hex shank mixing paddle' },
+            { name: 'Magnetic Sweeper', sku: 'TL-050', category: 'tools', price: 680, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: '12 in,18 in,24 in', sizeMode: V, description: 'Rolling magnetic sweeper' },
+
+            // HARDWARE (40)
+            { name: 'Door Hinge', sku: 'HW-001', category: 'hardware', price: 85, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in,5 in', sizeMode: V, description: 'Stainless door hinge with screws' },
+            { name: 'Door Knob Set', sku: 'HW-002', category: 'hardware', price: 350, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: 'Entry,Privacy,Passage', sizeMode: V, description: 'Door knob set with keys' },
+            { name: 'Padlock', sku: 'HW-003', category: 'hardware', price: 220, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '40 mm,50 mm,60 mm,70 mm', sizeMode: V, description: 'Brass padlock with 3 keys' },
+            { name: 'Deadbolt Lock', sku: 'HW-004', category: 'hardware', price: 550, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Single,Double', sizeMode: V, description: 'Cylinder deadbolt lock' },
+            { name: 'Cabinet Handle', sku: 'HW-005', category: 'hardware', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '3 in,4 in,5 in,6 in', sizeMode: V, description: 'Stainless cabinet pull handle' },
+            { name: 'Drawer Slide', sku: 'HW-006', category: 'hardware', price: 180, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '12 in,14 in,16 in,18 in,20 in', sizeMode: V, description: 'Ball-bearing drawer slide, sold as pair' },
+            { name: 'Door Stopper', sku: 'HW-007', category: 'hardware', price: 65, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Rubber door stopper' },
+            { name: 'Chain Lock', sku: 'HW-008', category: 'hardware', price: 280, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '2 ft,3 ft,4 ft', sizeMode: V, description: 'Steel chain with padlock' },
+            { name: 'Barrel Bolt', sku: 'HW-009', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '3 in,4 in,6 in,8 in', sizeMode: V, description: 'Steel barrel bolt' },
+            { name: 'Door Viewer', sku: 'HW-010', category: 'hardware', price: 180, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '180 deg,200 deg', sizeMode: V, description: 'Brass door peephole' },
+            { name: 'Door Closer', sku: 'HW-011', category: 'hardware', price: 850, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: 'Light,Medium,Heavy', sizeMode: V, description: 'Hydraulic door closer' },
+            { name: 'Furniture Leg', sku: 'HW-012', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '3 in,4 in,5 in,6 in', sizeMode: V, description: 'Metal furniture leg with base' },
+            { name: 'Shelf Bracket', sku: 'HW-013', category: 'hardware', price: 95, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'L-shaped shelf bracket with screws' },
+            { name: 'Shelf Pin', sku: 'HW-014', category: 'hardware', price: 5, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '5 mm,6 mm', sizeMode: V, description: 'Metal shelf support pin' },
+            { name: 'Cabinet Hinge', sku: 'HW-015', category: 'hardware', price: 65, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '35 mm,40 mm', sizeMode: V, description: 'Concealed European-style hinge' },
+            { name: 'Furniture Caster', sku: 'HW-016', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1 in,2 in,3 in', sizeMode: V, description: 'Swivel caster with brake' },
+            { name: 'Magnetic Catch', sku: 'HW-017', category: 'hardware', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Magnetic cabinet catch' },
+            { name: 'Door Seal Strip', sku: 'HW-018', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '1 m,2 m,3 m', sizeMode: V, description: 'Weather-stripping door seal' },
+            { name: 'Window Lock', sku: 'HW-019', category: 'hardware', price: 150, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Sliding window lock' },
+            { name: 'Gate Latch', sku: 'HW-020', category: 'hardware', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel gate latch with screws' },
+            { name: 'Gate Hinge', sku: 'HW-021', category: 'hardware', price: 220, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '3 in,4 in,5 in', sizeMode: V, description: 'Heavy-duty gate hinge' },
+            { name: 'Handrail Bracket', sku: 'HW-022', category: 'hardware', price: 180, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'Stainless handrail bracket' },
+            { name: 'Corner Brace', sku: 'HW-023', category: 'hardware', price: 45, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'L-shaped steel corner brace' },
+            { name: 'Flat Brace', sku: 'HW-024', category: 'hardware', price: 65, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in,12 in', sizeMode: V, description: 'Straight flat steel brace' },
+            { name: 'T-Hinge', sku: 'HW-025', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in,10 in', sizeMode: V, description: 'T-shaped strap hinge' },
+            { name: 'Strap Hinge', sku: 'HW-026', category: 'hardware', price: 150, quantity: 70, min_stock: 14, supplier: 'Wilcon Depot', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'Heavy-duty strap hinge' },
+            { name: 'Continuous Hinge', sku: 'HW-027', category: 'hardware', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1 m,1.2 m,1.5 m', sizeMode: V, description: 'Piano-style continuous hinge' },
+            { name: 'Gate Wheel', sku: 'HW-028', category: 'hardware', price: 320, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in', sizeMode: V, description: 'Gate support wheel' },
+            { name: 'Door Knock', sku: 'HW-029', category: 'hardware', price: 180, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Brass door knocker' },
+            { name: 'House Number', sku: 'HW-030', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '0-9', sizeMode: V, description: 'Metal house number digit' },
+            { name: 'Door Bell', sku: 'HW-031', category: 'hardware', price: 380, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Wired,Wireless', sizeMode: V, description: 'Door bell with chime' },
+            { name: 'Clothes Hook', sku: 'HW-032', category: 'hardware', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'Single,Double,Triple', sizeMode: V, description: 'Wall-mount clothes hook' },
+            { name: 'Towel Bar', sku: 'HW-033', category: 'hardware', price: 250, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: '18 in,24 in,30 in', sizeMode: V, description: 'Stainless towel bar' },
+            { name: 'Toilet Paper Holder', sku: 'HW-034', category: 'hardware', price: 180, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: 'Wall-Mount,Recessed', sizeMode: V, description: 'Stainless toilet paper holder' },
+            { name: 'Soap Dish', sku: 'HW-035', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: 'Wall-Mount,Countertop', sizeMode: V, description: 'Stainless soap dish' },
+            { name: 'Robe Hook', sku: 'HW-036', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'Single,Double', sizeMode: V, description: 'Stainless robe hook' },
+            { name: 'Glass Shelf', sku: 'HW-037', category: 'hardware', price: 480, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: '12 in,16 in,20 in', sizeMode: V, description: 'Tempered glass shelf with brackets' },
+            { name: 'Mirror Clip', sku: 'HW-038', category: 'hardware', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Metal mirror mounting clip' },
+            { name: 'Picture Hanger', sku: 'HW-039', category: 'hardware', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '10 lb,20 lb,50 lb', sizeMode: V, description: 'Picture frame hook with nail' },
+            { name: 'Magnet Catch Plate', sku: 'HW-040', category: 'hardware', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel magnet catch plate' },
+
+            // ELECTRICAL (40)
+            { name: 'Electrical Tape', sku: 'EL-001', category: 'electrical', price: 35, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: 'Black,Red,Blue,Yellow,Green', sizeMode: V, description: 'PVC electrical insulation tape' },
+            { name: 'Extension Cord', sku: 'EL-002', category: 'electrical', price: 280, quantity: 50, min_stock: 10, supplier: 'Cebu Hardware', size: '2 m,3 m,5 m,10 m', sizeMode: V, description: '3-gang extension cord with switch' },
+            { name: 'Outlet', sku: 'EL-003', category: 'electrical', price: 180, quantity: 80, min_stock: 16, supplier: 'Cebu Hardware', size: '1-Gang,2-Gang,3-Gang', sizeMode: V, description: 'Universal outlet with plate' },
+            { name: 'Light Switch', sku: 'EL-004', category: 'electrical', price: 95, quantity: 100, min_stock: 20, supplier: 'Cebu Hardware', size: '1-Gang,2-Gang,3-Gang', sizeMode: V, description: 'Wall light switch' },
+            { name: 'Circuit Breaker', sku: 'EL-005', category: 'electrical', price: 380, quantity: 40, min_stock: 8, supplier: 'Cebu Hardware', size: '15 A,20 A,30 A,40 A,60 A', sizeMode: V, description: 'Plug-in circuit breaker' },
+            { name: 'LED Bulb', sku: 'EL-006', category: 'electrical', price: 120, quantity: 150, min_stock: 30, supplier: 'Cebu Hardware', size: '5 W,7 W,9 W,12 W,15 W', sizeMode: V, description: 'E27 daylight LED bulb' },
+            { name: 'LED Tube', sku: 'EL-007', category: 'electrical', price: 280, quantity: 60, min_stock: 12, supplier: 'Cebu Hardware', size: '9 W,18 W,24 W', sizeMode: V, description: 'T8 LED fluorescent tube replacement' },
+            { name: 'Electrical Wire', sku: 'EL-008', category: 'electrical', price: 35, quantity: 500, min_stock: 100, supplier: 'Cebu Hardware', size: '#14,#12,#10,#8', sizeMode: V, description: 'Stranded copper wire, per meter' },
+            { name: 'Junction Box', sku: 'EL-009', category: 'electrical', price: 45, quantity: 120, min_stock: 24, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'PVC junction box' },
+            { name: 'Wire Connector', sku: 'EL-010', category: 'electrical', price: 15, quantity: 400, min_stock: 80, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Screw-on wire connector, per piece' },
+            { name: 'Ceiling Fan', sku: 'EL-011', category: 'electrical', price: 2500, quantity: 15, min_stock: 3, supplier: 'Cebu Hardware', size: '36 in,42 in,48 in,52 in', sizeMode: V, description: 'Ceiling fan with light' },
+            { name: 'Wall Fan', sku: 'EL-012', category: 'electrical', price: 1800, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: '12 in,16 in,18 in', sizeMode: V, description: 'Oscillating wall fan' },
+            { name: 'Stand Fan', sku: 'EL-013', category: 'electrical', price: 2200, quantity: 15, min_stock: 3, supplier: 'Cebu Hardware', size: '16 in,18 in', sizeMode: V, description: 'Oscillating stand fan' },
+            { name: 'Exhaust Fan', sku: 'EL-014', category: 'electrical', price: 1500, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'Wall-mount exhaust fan' },
+            { name: 'Fluorescent Fixture', sku: 'EL-015', category: 'electrical', price: 480, quantity: 30, min_stock: 6, supplier: 'Cebu Hardware', size: '20 W,40 W', sizeMode: V, description: 'Fluorescent light fixture' },
+            { name: 'LED Flood Light', sku: 'EL-016', category: 'electrical', price: 850, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: '30 W,50 W,100 W,150 W', sizeMode: V, description: 'Outdoor LED flood light' },
+            { name: 'LED Panel Light', sku: 'EL-017', category: 'electrical', price: 680, quantity: 25, min_stock: 5, supplier: 'Cebu Hardware', size: '12 W,18 W,24 W', sizeMode: V, description: 'Recessed LED panel' },
+            { name: 'Sensor Light', sku: 'EL-018', category: 'electrical', price: 550, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Motion sensor LED light' },
+            { name: 'Voltage Tester', sku: 'EL-019', category: 'electrical', price: 220, quantity: 40, min_stock: 8, supplier: 'Cebu Hardware', size: 'Basic,Pro', sizeMode: V, description: 'Voltage tester pen' },
+            { name: 'Multimeter', sku: 'EL-020', category: 'electrical', price: 850, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: 'Analog,Digital', sizeMode: V, description: 'Digital multimeter with probes' },
+            { name: 'Clamp Meter', sku: 'EL-021', category: 'electrical', price: 2200, quantity: 10, min_stock: 2, supplier: 'Cebu Hardware', size: 'Basic,Pro', sizeMode: V, description: 'Digital clamp meter' },
+            { name: 'Cable Reel', sku: 'EL-022', category: 'electrical', price: 3800, quantity: 8, min_stock: 2, supplier: 'Cebu Hardware', size: '10 m,20 m,30 m', sizeMode: V, description: 'Extension cable reel with outlets' },
+            { name: 'PVC Conduit', sku: 'EL-023', category: 'electrical', price: 85, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Electrical conduit, per meter' },
+            { name: 'Conduit Elbow', sku: 'EL-024', category: 'electrical', price: 25, quantity: 300, min_stock: 60, supplier: 'Cebu Hardware', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'PVC conduit elbow' },
+            { name: 'Conduit Coupling', sku: 'EL-025', category: 'electrical', price: 20, quantity: 300, min_stock: 60, supplier: 'Cebu Hardware', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'PVC conduit coupling' },
+            { name: 'Utility Box', sku: 'EL-026', category: 'electrical', price: 65, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'PVC utility box' },
+            { name: 'Ceiling Rose', sku: 'EL-027', category: 'electrical', price: 45, quantity: 250, min_stock: 50, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Ceiling rose for pendant light' },
+            { name: 'Lamp Holder', sku: 'EL-028', category: 'electrical', price: 55, quantity: 250, min_stock: 50, supplier: 'Cebu Hardware', size: 'E27,E14', sizeMode: V, description: 'Plastic lamp holder' },
+            { name: 'Light Socket', sku: 'EL-029', category: 'electrical', price: 75, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: 'E27,E14', sizeMode: V, description: 'Porcelain light socket' },
+            { name: 'Plug', sku: 'EL-030', category: 'electrical', price: 45, quantity: 300, min_stock: 60, supplier: 'Cebu Hardware', size: 'Flat,Polarized,Universal', sizeMode: V, description: 'Rubber electrical plug' },
+            { name: 'Socket Adapter', sku: 'EL-031', category: 'electrical', price: 85, quantity: 150, min_stock: 30, supplier: 'Cebu Hardware', size: 'Universal,Standard', sizeMode: V, description: 'Multi-socket adapter' },
+            { name: 'Ceiling Fan Remote', sku: 'EL-032', category: 'electrical', price: 480, quantity: 30, min_stock: 6, supplier: 'Cebu Hardware', size: 'Standard,Universal', sizeMode: V, description: 'Ceiling fan remote control' },
+            { name: 'Wire Nut', sku: 'EL-033', category: 'electrical', price: 8, quantity: 500, min_stock: 100, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Plastic wire nut, per piece' },
+            { name: 'Heat Shrink Tube', sku: 'EL-034', category: 'electrical', price: 45, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: '2 mm,3 mm,4 mm,6 mm,8 mm', sizeMode: V, description: 'Heat shrink tube, per meter' },
+            { name: 'Cable Clip', sku: 'EL-035', category: 'electrical', price: 25, quantity: 400, min_stock: 80, supplier: 'Cebu Hardware', size: '5 mm,6 mm,8 mm,10 mm', sizeMode: V, description: 'Plastic cable clip, per 100 pcs' },
+            { name: 'Doorbell Transformer', sku: 'EL-036', category: 'electrical', price: 380, quantity: 25, min_stock: 5, supplier: 'Cebu Hardware', size: '10 VA,16 VA,24 VA', sizeMode: V, description: 'Doorbell transformer' },
+            { name: 'Motion Sensor Switch', sku: 'EL-037', category: 'electrical', price: 680, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: 'Basic,Pro', sizeMode: V, description: 'PIR motion sensor switch' },
+            { name: 'Dimmer Switch', sku: 'EL-038', category: 'electrical', price: 480, quantity: 30, min_stock: 6, supplier: 'Cebu Hardware', size: 'Rotary,Slider,Touch', sizeMode: V, description: 'Wall dimmer switch' },
+            { name: 'Timer Switch', sku: 'EL-039', category: 'electrical', price: 550, quantity: 25, min_stock: 5, supplier: 'Cebu Hardware', size: 'Mechanical,Digital', sizeMode: V, description: 'Programmable timer switch' },
+            { name: 'Surge Protector', sku: 'EL-040', category: 'electrical', price: 380, quantity: 40, min_stock: 8, supplier: 'Cebu Hardware', size: '4-Outlet,6-Outlet,8-Outlet', sizeMode: V, description: 'Surge protector power strip' },
+
+            // PLUMBING (40)
+            { name: 'PVC Pipe', sku: 'PL-001', category: 'plumbing', price: 120, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'Schedule 40 PVC pipe, per length' },
+            { name: 'PVC Elbow', sku: 'PL-002', category: 'plumbing', price: 15, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: '90-degree PVC elbow' },
+            { name: 'PVC Tee', sku: 'PL-003', category: 'plumbing', price: 20, quantity: 400, min_stock: 80, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC tee connector' },
+            { name: 'PVC Coupling', sku: 'PL-004', category: 'plumbing', price: 15, quantity: 400, min_stock: 80, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC straight coupling' },
+            { name: 'PVC Reducer', sku: 'PL-005', category: 'plumbing', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '3/4x1/2 in,1x3/4 in,1-1/2x1 in,2x1-1/2 in', sizeMode: V, description: 'PVC reducer' },
+            { name: 'PVC Cap', sku: 'PL-006', category: 'plumbing', price: 12, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC pipe cap' },
+            { name: 'PVC Union', sku: 'PL-007', category: 'plumbing', price: 65, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC union with O-ring' },
+            { name: 'PVC Ball Valve', sku: 'PL-008', category: 'plumbing', price: 180, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC ball valve with handle' },
+            { name: 'Faucet', sku: 'PL-009', category: 'plumbing', price: 450, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in', sizeMode: V, description: 'Chrome faucet' },
+            { name: 'Kitchen Faucet', sku: 'PL-010', category: 'plumbing', price: 680, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Standard,Gooseneck,Pull-Down', sizeMode: V, description: 'Kitchen sink faucet' },
+            { name: 'Shower Head', sku: 'PL-011', category: 'plumbing', price: 320, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: 'Fixed,Hand-Held,Rain', sizeMode: V, description: 'Chrome shower head' },
+            { name: 'Shower Valve', sku: 'PL-012', category: 'plumbing', price: 850, quantity: 25, min_stock: 5, supplier: 'Wilcon Depot', size: 'Single-Handle,Double-Handle', sizeMode: V, description: 'Shower mixer valve' },
+            { name: 'Toilet Flush Valve', sku: 'PL-013', category: 'plumbing', price: 250, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: 'Standard,Universal', sizeMode: V, description: 'Replacement flush valve assembly' },
+            { name: 'Teflon Tape', sku: 'PL-014', category: 'plumbing', price: 15, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Thread seal tape, per roll' },
+            { name: 'Water Hose', sku: 'PL-015', category: 'plumbing', price: 45, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Flexible water hose, per meter' },
+            { name: 'Floor Drain', sku: 'PL-016', category: 'plumbing', price: 180, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in,6 in', sizeMode: V, description: 'Stainless floor drain with strainer' },
+            { name: 'Floor Strainer', sku: 'PL-017', category: 'plumbing', price: 65, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'Plastic floor strainer' },
+            { name: 'Hose Bibb', sku: 'PL-018', category: 'plumbing', price: 180, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Brass hose bib with handle' },
+            { name: 'Angle Valve', sku: 'PL-019', category: 'plumbing', price: 220, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Chrome angle stop valve' },
+            { name: 'Gate Valve', sku: 'PL-020', category: 'plumbing', price: 380, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in', sizeMode: V, description: 'Brass gate valve' },
+            { name: 'Check Valve', sku: 'PL-021', category: 'plumbing', price: 420, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Brass check valve' },
+            { name: 'Float Valve', sku: 'PL-022', category: 'plumbing', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Plastic float valve for tanks' },
+            { name: 'Toilet Seat', sku: 'PL-023', category: 'plumbing', price: 680, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Standard,Elongated', sizeMode: V, description: 'Plastic toilet seat with cover' },
+            { name: 'Toilet Bowl Wax Ring', sku: 'PL-024', category: 'plumbing', price: 85, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: 'Standard,Thick', sizeMode: V, description: 'Toilet bowl wax seal ring' },
+            { name: 'Bidet Spray', sku: 'PL-025', category: 'plumbing', price: 380, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: 'Standard,Handheld', sizeMode: V, description: 'Handheld bidet spray' },
+            { name: 'Flexible Hose', sku: 'PL-026', category: 'plumbing', price: 120, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1 ft,2 ft,3 ft', sizeMode: V, description: 'Stainless flexible hose' },
+            { name: 'Water Filter', sku: 'PL-027', category: 'plumbing', price: 850, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Sediment,Carbon,Universal', sizeMode: V, description: 'Inline water filter' },
+            { name: 'Water Heater', sku: 'PL-028', category: 'plumbing', price: 5500, quantity: 10, min_stock: 2, supplier: 'Wilcon Depot', size: 'Standard,Instant,Tankless', sizeMode: V, description: 'Electric water heater' },
+            { name: 'Water Tank', sku: 'PL-029', category: 'plumbing', price: 8500, quantity: 8, min_stock: 2, supplier: 'Wilcon Depot', size: '500 L,1000 L,1500 L', sizeMode: V, description: 'Polyethylene water storage tank' },
+            { name: 'Water Pump', sku: 'PL-030', category: 'plumbing', price: 4500, quantity: 12, min_stock: 2, supplier: 'Wilcon Depot', size: '0.5 HP,1 HP,1.5 HP,2 HP', sizeMode: V, description: 'Booster water pump' },
+            { name: 'Pipe Wrench', sku: 'PL-031', category: 'plumbing', price: 480, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '10 in,12 in,14 in,18 in', sizeMode: V, description: 'Pipe wrench for plumbing' },
+            { name: 'Pipe Cutter', sku: 'PL-032', category: 'plumbing', price: 850, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'PVC pipe cutter' },
+            { name: 'Plunger', sku: 'PL-033', category: 'plumbing', price: 220, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Rubber toilet plunger' },
+            { name: 'Drain Snake', sku: 'PL-034', category: 'plumbing', price: 380, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '3 m,5 m,8 m', sizeMode: V, description: 'Manual drain snake auger' },
+            { name: 'Bathroom Accessories Set', sku: 'PL-035', category: 'plumbing', price: 1200, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: '3 pc,5 pc,7 pc', sizeMode: V, description: 'Bathroom accessory set' },
+            { name: 'Shower Curtain Rod', sku: 'PL-036', category: 'plumbing', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1 m,1.2 m,1.5 m,1.8 m', sizeMode: V, description: 'Adjustable shower curtain rod' },
+            { name: 'Shower Curtain', sku: 'PL-037', category: 'plumbing', price: 350, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1 m x 1.8 m,1.2 m x 2 m', sizeMode: V, description: 'Waterproof shower curtain' },
+            { name: 'Sink Strainer', sku: 'PL-038', category: 'plumbing', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '3 in,3.5 in,4 in', sizeMode: V, description: 'Stainless sink strainer' },
+            { name: 'PTrap', sku: 'PL-039', category: 'plumbing', price: 120, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1-1/4 in,1-1/2 in', sizeMode: V, description: 'PVC P-trap for sink' },
+            { name: 'Toilet Flapper', sku: 'PL-040', category: 'plumbing', price: 120, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2 in,3 in,Universal', sizeMode: V, description: 'Rubber toilet flapper' },
+
+            // PAINT (30)
+            { name: 'Latex Paint', sku: 'PT-001', category: 'paint', price: 380, quantity: 80, min_stock: 16, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Interior latex paint, white' },
+            { name: 'Semi-Gloss Enamel', sku: 'PT-002', category: 'paint', price: 450, quantity: 60, min_stock: 12, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Semi-gloss enamel paint' },
+            { name: 'Gloss Enamel', sku: 'PT-003', category: 'paint', price: 480, quantity: 50, min_stock: 10, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'High-gloss enamel paint' },
+            { name: 'Primer', sku: 'PT-004', category: 'paint', price: 350, quantity: 60, min_stock: 12, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Latex primer sealer' },
+            { name: 'Wood Stain', sku: 'PT-005', category: 'paint', price: 320, quantity: 50, min_stock: 10, supplier: 'Boysen PH', size: '250 mL,500 mL,1 L,4 L', sizeMode: V, description: 'Oil-based wood stain' },
+            { name: 'Varnish', sku: 'PT-006', category: 'paint', price: 380, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '250 mL,500 mL,1 L,4 L', sizeMode: V, description: 'Clear gloss varnish' },
+            { name: 'Thinner', sku: 'PT-007', category: 'paint', price: 120, quantity: 100, min_stock: 20, supplier: 'Boysen PH', size: '500 mL,1 L,4 L', sizeMode: V, description: 'Paint thinner' },
+            { name: 'Paint Brush', sku: 'PT-008', category: 'paint', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '1 in,2 in,3 in,4 in', sizeMode: V, description: 'Flat paint brush' },
+            { name: 'Paint Roller', sku: 'PT-009', category: 'paint', price: 220, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Roller with handle' },
+            { name: 'Paint Tray', sku: 'PT-010', category: 'paint', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Plastic paint tray' },
+            { name: 'Sandpaper', sku: 'PT-011', category: 'paint', price: 35, quantity: 200, min_stock: 40, supplier: 'Ace Hardware PH', size: '#80,#100,#120,#180,#220', sizeMode: V, description: 'Wood sandpaper sheet, per piece' },
+            { name: 'Sanding Block', sku: 'PT-012', category: 'paint', price: 65, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Rubber sanding block' },
+            { name: 'Masking Tape', sku: 'PT-013', category: 'paint', price: 45, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: '1/2 in,3/4 in,1 in,2 in', sizeMode: V, description: 'Painter masking tape' },
+            { name: 'Drop Cloth', sku: 'PT-014', category: 'paint', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '2 m x 3 m,3 m x 4 m', sizeMode: V, description: 'Canvas drop cloth' },
+            { name: 'Paint Stirrer', sku: 'PT-015', category: 'paint', price: 15, quantity: 300, min_stock: 60, supplier: 'Ace Hardware PH', size: 'Small,Large', sizeMode: V, description: 'Wooden paint stirrer' },
+            { name: 'Spray Paint', sku: 'PT-016', category: 'paint', price: 220, quantity: 100, min_stock: 20, supplier: 'Boysen PH', size: 'Black,White,Red,Blue,Green,Yellow,Silver', sizeMode: V, description: 'Aerosol spray paint' },
+            { name: 'Epoxy Paint', sku: 'PT-017', category: 'paint', price: 850, quantity: 30, min_stock: 6, supplier: 'Boysen PH', size: '1 L,4 L', sizeMode: V, description: 'Two-part epoxy floor paint' },
+            { name: 'Roof Paint', sku: 'PT-018', category: 'paint', price: 550, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Elastomeric roof paint' },
+            { name: 'Waterproofing', sku: 'PT-019', category: 'paint', price: 680, quantity: 30, min_stock: 6, supplier: 'Boysen PH', size: '1 L,4 L', sizeMode: V, description: 'Cementitious waterproofing' },
+            { name: 'Concrete Neutralizer', sku: 'PT-020', category: 'paint', price: 220, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '1 L,4 L', sizeMode: V, description: 'Concrete neutralizer solution' },
+            { name: 'Putty', sku: 'PT-021', category: 'paint', price: 250, quantity: 60, min_stock: 12, supplier: 'Boysen PH', size: '1 kg,4 kg,20 kg', sizeMode: V, description: 'Wall putty filler' },
+            { name: 'Skim Coat', sku: 'PT-022', category: 'paint', price: 380, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '4 kg,20 kg', sizeMode: V, description: 'Skim coat wall finish' },
+            { name: 'Paint Roller Cover', sku: 'PT-023', category: 'paint', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Replacement roller cover' },
+            { name: 'Paint Roller Frame', sku: 'PT-024', category: 'paint', price: 120, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Metal roller frame' },
+            { name: 'Extension Pole', sku: 'PT-025', category: 'paint', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '1 m,2 m,3 m', sizeMode: V, description: 'Telescoping extension pole' },
+            { name: 'Paint Can Opener', sku: 'PT-026', category: 'paint', price: 35, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: 'Standard', sizeMode: V, description: 'Metal paint can opener' },
+            { name: 'Paint Strainer', sku: 'PT-027', category: 'paint', price: 45, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'Small,Large', sizeMode: V, description: 'Mesh paint strainer' },
+            { name: 'Paddle Brush', sku: 'PT-028', category: 'paint', price: 180, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '4 in,6 in', sizeMode: V, description: 'Wide paddle brush for large surfaces' },
+            { name: 'Corner Brush', sku: 'PT-029', category: 'paint', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'Small,Medium', sizeMode: V, description: 'Angled corner brush' },
+            { name: 'Trim Roller', sku: 'PT-030', category: 'paint', price: 150, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '4 in,6 in', sizeMode: V, description: 'Small trim paint roller' },
+
+            // GARDEN (25)
+            { name: 'Garden Hose', sku: 'GD-001', category: 'garden', price: 480, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '10 m,15 m,20 m,30 m', sizeMode: V, description: 'Flexible garden hose with fittings' },
+            { name: 'Watering Can', sku: 'GD-002', category: 'garden', price: 250, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: '2 L,5 L,8 L,10 L', sizeMode: V, description: 'Plastic watering can' },
+            { name: 'Garden Rake', sku: 'GD-003', category: 'garden', price: 380, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel leaf rake' },
+            { name: 'Shovel', sku: 'GD-004', category: 'garden', price: 480, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Round-point shovel with wooden handle' },
+            { name: 'Hand Trowel', sku: 'GD-005', category: 'garden', price: 120, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden hand trowel' },
+            { name: 'Pruning Shears', sku: 'GD-006', category: 'garden', price: 380, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Bypass pruning shears' },
+            { name: 'Loppers', sku: 'GD-007', category: 'garden', price: 550, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Bypass loppers for branches' },
+            { name: 'Hedge Shears', sku: 'GD-008', category: 'garden', price: 480, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Manual hedge shears' },
+            { name: 'Garden Fork', sku: 'GD-009', category: 'garden', price: 520, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden fork with wooden handle' },
+            { name: 'Cultivator', sku: 'GD-010', category: 'garden', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Hand cultivator for soil' },
+            { name: 'Weeder', sku: 'GD-011', category: 'garden', price: 220, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Weeding tool with fork end' },
+            { name: 'Garden Sprayer', sku: 'GD-012', category: 'garden', price: 380, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '1 L,2 L,5 L,8 L', sizeMode: V, description: 'Pressure sprayer for garden' },
+            { name: 'Sprinkler', sku: 'GD-013', category: 'garden', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Oscillating,Rotary,Stationary', sizeMode: V, description: 'Garden sprinkler' },
+            { name: 'Nozzle', sku: 'GD-014', category: 'garden', price: 120, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: 'Adjustable,Pistol,Brass', sizeMode: V, description: 'Hose nozzle with adjustable spray' },
+            { name: 'Hose Connector', sku: 'GD-015', category: 'garden', price: 65, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '1/2 in,3/4 in', sizeMode: V, description: 'Brass hose connector' },
+            { name: 'Pot Planter', sku: 'GD-016', category: 'garden', price: 85, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: '4 in,6 in,8 in,10 in,12 in', sizeMode: V, description: 'Plastic pot planter' },
+            { name: 'Pot Saucer', sku: 'GD-017', category: 'garden', price: 45, quantity: 200, min_stock: 40, supplier: 'Ace Hardware PH', size: '4 in,6 in,8 in,10 in,12 in', sizeMode: V, description: 'Plastic pot saucer' },
+            { name: 'Potting Soil', sku: 'GD-018', category: 'garden', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '5 L,10 L,20 L', sizeMode: V, description: 'Potting soil mix' },
+            { name: 'Fertilizer', sku: 'GD-019', category: 'garden', price: 220, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: '500 g,1 kg,5 kg', sizeMode: V, description: 'Complete fertilizer' },
+            { name: 'Plant Support', sku: 'GD-020', category: 'garden', price: 65, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '60 cm,90 cm,120 cm', sizeMode: V, description: 'Metal plant support stake' },
+            { name: 'Garden Tie', sku: 'GD-021', category: 'garden', price: 45, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: '2 m,5 m,10 m', sizeMode: V, description: 'Soft garden tie tape' },
+            { name: 'Garden Gloves', sku: 'GD-022', category: 'garden', price: 120, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'S,M,L,XL', sizeMode: V, description: 'Rubber-coated garden gloves' },
+            { name: 'Knee Pad', sku: 'GD-023', category: 'garden', price: 180, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'S,M,L', sizeMode: V, description: 'Garden knee pad' },
+            { name: 'Wheelbarrow', sku: 'GD-024', category: 'garden', price: 2800, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: 'Single-Wheel,Double-Wheel', sizeMode: V, description: 'Steel wheelbarrow' },
+            { name: 'Garden Cart', sku: 'GD-025', category: 'garden', price: 3500, quantity: 10, min_stock: 2, supplier: 'Ace Hardware PH', size: '2-Wheel,4-Wheel', sizeMode: V, description: 'Heavy-duty garden cart' },
+
+            // BUILDING (30) — unbranded
+            { name: 'Cement', sku: 'BD-001', category: 'building', price: 280, quantity: 500, min_stock: 100, supplier: 'Holcim PH', size: '40 kg,50 kg', sizeMode: V, description: 'Portland cement bag' },
+            { name: 'Washed Sand', sku: 'BD-002', category: 'building', price: 1200, quantity: 50, min_stock: 10, supplier: 'Local Supplier', size: '1 cu.m,2 cu.m', sizeMode: V, description: 'Washed sand per cubic meter' },
+            { name: 'Gravel', sku: 'BD-003', category: 'building', price: 1500, quantity: 50, min_stock: 10, supplier: 'Local Supplier', size: '3/4 in,3/8 in', sizeMode: V, description: 'Gravel per cubic meter' },
+            { name: 'Steel Bar', sku: 'BD-004', category: 'building', price: 280, quantity: 200, min_stock: 40, supplier: 'Local Supplier', size: '10 mm,12 mm,16 mm,20 mm', sizeMode: V, description: 'Deformed steel bar, 6 m length' },
+            { name: 'Hollow Block', sku: 'BD-005', category: 'building', price: 18, quantity: 2000, min_stock: 400, supplier: 'Local Supplier', size: '4 in,5 in,6 in', sizeMode: V, description: 'Concrete hollow block' },
+            { name: 'Plywood', sku: 'BD-006', category: 'building', price: 450, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/4 in,1/2 in,3/4 in,1 in', sizeMode: V, description: 'Plywood, 4x8 ft' },
+            { name: 'Marine Plywood', sku: 'BD-007', category: 'building', price: 950, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Marine plywood, 4x8 ft' },
+            { name: 'Lumber', sku: 'BD-008', category: 'building', price: 180, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '2x2,2x3,2x4,2x6', sizeMode: V, description: 'Coco lumber, 10 ft length' },
+            { name: 'Treated Lumber', sku: 'BD-009', category: 'building', price: 380, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2x3,2x4,2x6', sizeMode: V, description: 'Treated lumber, 10 ft length' },
+            { name: 'Metal Stud', sku: 'BD-010', category: 'building', price: 220, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'Galvanized metal stud' },
+            { name: 'Metal Furring', sku: 'BD-011', category: 'building', price: 120, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1 in,2 in', sizeMode: V, description: 'Galvanized metal furring channel' },
+            { name: 'Gypsum Board', sku: 'BD-012', category: 'building', price: 380, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '1/4 in,3/8 in,1/2 in', sizeMode: V, description: 'Gypsum board, 4x8 ft' },
+            { name: 'Fiber Cement Board', sku: 'BD-013', category: 'building', price: 550, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '4.5 mm,6 mm,9 mm', sizeMode: V, description: 'Fiber cement board, 4x8 ft' },
+            { name: 'Roofing Sheet', sku: 'BD-014', category: 'building', price: 480, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '8 ft,10 ft,12 ft', sizeMode: V, description: 'Pre-painted roofing sheet' },
+            { name: 'Roofing Nail', sku: 'BD-015', category: 'building', price: 120, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '2 in,2-1/2 in,3 in', sizeMode: V, description: 'Umbrella-head roofing nail, per kilo' },
+            { name: 'Rivet', sku: 'BD-016', category: 'building', price: 180, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/8 in,5/32 in,3/16 in', sizeMode: V, description: 'Aluminum rivet, per box' },
+            { name: 'Silicone Sealant', sku: 'BD-017', category: 'building', price: 220, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: 'Clear,White,Black,Gray', sizeMode: V, description: 'Silicone sealant cartridge' },
+            { name: 'Construction Adhesive', sku: 'BD-018', category: 'building', price: 280, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '300 mL,600 mL', sizeMode: V, description: 'Heavy-duty construction adhesive' },
+            { name: 'Tile Adhesive', sku: 'BD-019', category: 'building', price: 380, quantity: 100, min_stock: 20, supplier: 'Holcim PH', size: '20 kg,25 kg', sizeMode: V, description: 'Tile adhesive cement' },
+            { name: 'Grout', sku: 'BD-020', category: 'building', price: 180, quantity: 100, min_stock: 20, supplier: 'Holcim PH', size: '1 kg,2 kg,5 kg', sizeMode: V, description: 'Tile grout' },
+            { name: 'Tile Trim', sku: 'BD-021', category: 'building', price: 120, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '8 mm,10 mm,12 mm', sizeMode: V, description: 'Aluminum tile trim' },
+            { name: 'Expansion Joint', sku: 'BD-022', category: 'building', price: 220, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '6 mm,8 mm,10 mm', sizeMode: V, description: 'PVC expansion joint' },
+            { name: 'Chicken Wire', sku: 'BD-023', category: 'building', price: 180, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Galvanized chicken wire, per roll' },
+            { name: 'Rebar Tie Wire', sku: 'BD-024', category: 'building', price: 120, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '#16,#18', sizeMode: V, description: 'Black annealed tie wire, per kg' },
+            { name: 'C-Channel', sku: 'BD-025', category: 'building', price: 380, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in,6 in', sizeMode: V, description: 'Galvanized C-channel steel' },
+            { name: 'Angle Bar', sku: 'BD-026', category: 'building', price: 280, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1x1,1.5x1.5,2x2', sizeMode: V, description: 'Galvanized angle bar' },
+            { name: 'Flat Bar', sku: 'BD-027', category: 'building', price: 220, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/8 x 1,1/8 x 1-1/2,1/4 x 2', sizeMode: V, description: 'Galvanized flat bar' },
+            { name: 'Square Tube', sku: 'BD-028', category: 'building', price: 320, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '1x1,1.5x1.5,2x2', sizeMode: V, description: 'Galvanized square tube' },
+            { name: 'Round Tube', sku: 'BD-029', category: 'building', price: 320, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '1 in,1.5 in,2 in', sizeMode: V, description: 'Galvanized round tube' },
+            { name: 'Scaffolding Pin', sku: 'BD-030', category: 'building', price: 180, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'Standard,Heavy-Duty', sizeMode: V, description: 'Steel scaffolding pin' },
+
+            // FASTENERS (30) — unbranded
+            { name: 'Common Nail', sku: 'FS-001', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1-1/2 in,2 in,2-1/2 in,3 in,4 in', sizeMode: V, description: 'Bright steel common nail, per kilo' },
+            { name: 'Concrete Nail', sku: 'FS-002', category: 'fasteners', price: 95, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1 in,1-1/2 in,2 in,3 in', sizeMode: V, description: 'Hardened concrete nail, per kilo' },
+            { name: 'Wood Screw', sku: 'FS-003', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1 in,1-1/2 in,2 in,3 in', sizeMode: V, description: 'Phillips wood screw, per 100 pcs' },
+            { name: 'Self-Tapping Screw', sku: 'FS-004', category: 'fasteners', price: 95, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in', sizeMode: V, description: 'Self-tapping screw, per 100 pcs' },
+            { name: 'Drywall Screw', sku: 'FS-005', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1 in,1-1/4 in,1-5/8 in,2 in', sizeMode: V, description: 'Black phosphate drywall screw, per 100 pcs' },
+            { name: 'Machine Screw', sku: 'FS-006', category: 'fasteners', price: 120, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'M3,M4,M5,M6,M8', sizeMode: V, description: 'Stainless machine screw, per 100 pcs' },
+            { name: 'Hex Bolt', sku: 'FS-007', category: 'fasteners', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M6,M8,M10,M12', sizeMode: V, description: 'Zinc-plated hex bolt' },
+            { name: 'Carriage Bolt', sku: 'FS-008', category: 'fasteners', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'M6,M8,M10', sizeMode: V, description: 'Galvanized carriage bolt' },
+            { name: 'Lag Screw', sku: 'FS-009', category: 'fasteners', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in,1/2 in', sizeMode: V, description: 'Hex head lag screw' },
+            { name: 'Eye Bolt', sku: 'FS-010', category: 'fasteners', price: 65, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in', sizeMode: V, description: 'Zinc-plated eye bolt' },
+            { name: 'U-Bolt', sku: 'FS-011', category: 'fasteners', price: 85, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Galvanized U-bolt' },
+            { name: 'Hex Nut', sku: 'FS-012', category: 'fasteners', price: 15, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8,M10,M12', sizeMode: V, description: 'Zinc-plated hex nut, per 100 pcs' },
+            { name: 'Lock Nut', sku: 'FS-013', category: 'fasteners', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M6,M8,M10,M12', sizeMode: V, description: 'Nylon insert lock nut' },
+            { name: 'Wing Nut', sku: 'FS-014', category: 'fasteners', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in', sizeMode: V, description: 'Butterfly wing nut' },
+            { name: 'Flat Washer', sku: 'FS-015', category: 'fasteners', price: 10, quantity: 600, min_stock: 120, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8,M10,M12', sizeMode: V, description: 'Zinc-plated flat washer, per 100 pcs' },
+            { name: 'Lock Washer', sku: 'FS-016', category: 'fasteners', price: 12, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: 'M6,M8,M10,M12', sizeMode: V, description: 'Split ring lock washer, per 100 pcs' },
+            { name: 'Concrete Anchor', sku: 'FS-017', category: 'fasteners', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/4 in,3/8 in,1/2 in', sizeMode: V, description: 'Wedge concrete anchor' },
+            { name: 'Plastic Anchor', sku: 'FS-018', category: 'fasteners', price: 8, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '#6,#8,#10,#12', sizeMode: V, description: 'Wall plug anchor, per piece' },
+            { name: 'Toggle Bolt', sku: 'FS-019', category: 'fasteners', price: 35, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '3/16 in,1/4 in,5/16 in', sizeMode: V, description: 'Spring toggle bolt' },
+            { name: 'Cable Tie', sku: 'FS-020', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in,10 in,12 in', sizeMode: V, description: 'Nylon cable tie, per 100 pcs' },
+            { name: 'Hose Clamp', sku: 'FS-021', category: 'fasteners', price: 25, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/4 in', sizeMode: V, description: 'Stainless hose clamp' },
+            { name: 'Threaded Rod', sku: 'FS-022', category: 'fasteners', price: 180, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in,1/2 in', sizeMode: V, description: 'Zinc-plated threaded rod, 1 m' },
+            { name: 'Spring Pin', sku: 'FS-023', category: 'fasteners', price: 15, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '3/16 in,1/4 in,5/16 in', sizeMode: V, description: 'Stainless spring pin' },
+            { name: 'Cotter Pin', sku: 'FS-024', category: 'fasteners', price: 8, quantity: 400, min_stock: 80, supplier: 'Wilcon Depot', size: '1/8 in,5/32 in,3/16 in', sizeMode: V, description: 'Zinc-plated cotter pin' },
+            { name: 'Set Screw', sku: 'FS-025', category: 'fasteners', price: 12, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8', sizeMode: V, description: 'Cup point set screw' },
+            { name: 'Socket Cap Screw', sku: 'FS-026', category: 'fasteners', price: 25, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'M5,M6,M8,M10,M12', sizeMode: V, description: 'Hex socket cap screw' },
+            { name: 'Shoulder Screw', sku: 'FS-027', category: 'fasteners', price: 65, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'M5,M6,M8', sizeMode: V, description: 'Shoulder screw, alloy steel' },
+            { name: 'Thumb Screw', sku: 'FS-028', category: 'fasteners', price: 45, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8', sizeMode: V, description: 'Knurled thumb screw' },
+            { name: 'Anchor Bolt', sku: 'FS-029', category: 'fasteners', price: 65, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'M8,M10,M12,M16', sizeMode: V, description: 'Galvanized anchor bolt' },
+            { name: 'Rivet Nut', sku: 'FS-030', category: 'fasteners', price: 15, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8', sizeMode: V, description: 'Aluminum rivet nut' },
+
+            // SAFETY (15)
+            { name: 'Safety Gloves', sku: 'SF-001', category: 'safety', price: 120, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'S,M,L,XL', sizeMode: V, description: 'Cotton work gloves with rubber grip' },
+            { name: 'Safety Goggles', sku: 'SF-002', category: 'safety', price: 180, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: 'Clear,Smoke', sizeMode: V, description: 'Anti-fog safety goggles' },
+            { name: 'Dust Mask', sku: 'SF-003', category: 'safety', price: 45, quantity: 300, min_stock: 60, supplier: 'Ace Hardware PH', size: 'N95,KN95,Surgical', sizeMode: V, description: 'Dust mask, per piece' },
+            { name: 'Hard Hat', sku: 'SF-004', category: 'safety', price: 350, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: 'White,Yellow,Blue,Red,Green', sizeMode: V, description: 'Adjustable safety helmet' },
+            { name: 'Safety Vest', sku: 'SF-005', category: 'safety', price: 250, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'S,M,L,XL,XXL', sizeMode: V, description: 'Reflective high-visibility vest' },
+            { name: 'Ear Plug', sku: 'SF-006', category: 'safety', price: 25, quantity: 400, min_stock: 80, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Foam ear plug, per pair' },
+            { name: 'Ear Muff', sku: 'SF-007', category: 'safety', price: 480, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Standard,Pro', sizeMode: V, description: 'Noise-reduction ear muff' },
+            { name: 'Safety Shoes', sku: 'SF-008', category: 'safety', price: 1250, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '38,39,40,41,42,43,44', sizeMode: V, description: 'Steel-toe safety shoes' },
+            { name: 'Safety Harness', sku: 'SF-009', category: 'safety', price: 1800, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: 'Standard,Pro', sizeMode: V, description: 'Full-body safety harness' },
+            { name: 'Face Shield', sku: 'SF-010', category: 'safety', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Clear,Smoke', sizeMode: V, description: 'Full-face safety shield' },
+            { name: 'Welding Mask', sku: 'SF-011', category: 'safety', price: 680, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: 'Passive,Auto-Darkening', sizeMode: V, description: 'Welding helmet' },
+            { name: 'Reflective Tape', sku: 'SF-012', category: 'safety', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '1 in,2 in,4 in', sizeMode: V, description: 'Reflective warning tape, per meter' },
+            { name: 'Caution Sign', sku: 'SF-013', category: 'safety', price: 180, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Plastic caution sign' },
+            { name: 'Fire Extinguisher', sku: 'SF-014', category: 'safety', price: 2200, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: '1 kg,2 kg,4 kg,6 kg', sizeMode: V, description: 'Dry chemical fire extinguisher' },
+            { name: 'First Aid Kit', sku: 'SF-015', category: 'safety', price: 850, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Complete first aid kit' }
+        ];
+
+        // ============================================================
+        // Preview panel — computed once, displayed before the seed
+        // ============================================================
+        function analyzeSeed() {
+            let withBrand = 0;
+            let withSizeOnly = 0;
+            let withNeither = 0;
+            let totalVariants = 0;
+
+            for (const item of SEED_ITEMS) {
+                const sizes = String(item.size || '').split(',').map(s => s.trim()).filter(Boolean);
+                const pool = CATEGORY_BRAND_POOLS[item.category] || '';
+                const brand = item.brand !== undefined ? item.brand : pool;
+                const brands = brand ? brand.split(',').map(b => b.trim()).filter(Boolean) : [];
+
+                if (brands.length > 0 && sizes.length > 0) {
+                    withBrand++;
+                    totalVariants += sizes.length * brands.length;
+                } else if (sizes.length > 0) {
+                    withSizeOnly++;
+                } else {
+                    withNeither++;
+                }
+            }
+
+            return { withBrand, withSizeOnly, withNeither, totalVariants };
+        }
+
+        function renderPreview() {
+            if (!seedPreviewEl) return;
+            const s = analyzeSeed();
+            seedPreviewEl.innerHTML = `
+                <div class="row"><span>Items with <strong>size × brand matrix</strong></span><strong>${s.withBrand}</strong></div>
+                <div class="row"><span>Items with <strong>size stocks only</strong></span><strong>${s.withSizeOnly}</strong></div>
+                <div class="row"><span>Total matrix variants generated</span><strong>${s.totalVariants.toLocaleString()}</strong></div>
+                <div class="row"><span>Total items</span><strong>${SEED_ITEMS.length}</strong></div>
+            `;
+        }
+
+        renderPreview();
+
+        // ---- Firebase + auth bootstrap ----
         (async () => {
             clearLog();
             log('Waiting for Firebase...', 'warn');
@@ -496,13 +874,14 @@
             log('=== DONE. Total documents deleted: ' + totalDeleted + ' ===', 'ok');
             log('Refresh the app to see a clean slate.', 'info');
 
-            // Clear local caches so the app doesn't show stale data
             try {
                 localStorage.removeItem('pos_orders');
                 localStorage.removeItem('pos_customers');
                 localStorage.removeItem('pos_audit_logs');
                 localStorage.removeItem('pos_settings');
                 localStorage.removeItem('pos_categories');
+                localStorage.removeItem('pos_ai_cache_forecast_14d');
+                localStorage.removeItem('pos_ai_cache_restock_priority');
                 log('Local caches cleared.', 'ok');
             } catch (e) {}
 
@@ -510,7 +889,9 @@
             nukeBtn.disabled = false;
         };
 
-        // ---- Seed 300 items ----
+        // ============================================================
+        // SEED — generate matrix variants + size stocks per item
+        // ============================================================
         seedBtn.onclick = async () => {
             seedBtn.disabled = true;
             log('Starting insert...', 'warn');
@@ -518,358 +899,96 @@
                 const fb = await getFb();
                 const { collection, doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
 
-                const V = 'variants';
-                const items = [
-                    // ============ TOOLS (TL) — 50 items ============
-                    { name: 'Claw Hammer', sku: 'TL-001', category: 'tools', price: 350, quantity: 60, min_stock: 12, supplier: 'ToolMaster PH', size: '8 oz,16 oz,20 oz,24 oz', sizeMode: V, description: 'Forged steel claw hammer with fiberglass handle' },
-                    { name: 'Rubber Mallet', sku: 'TL-002', category: 'tools', price: 280, quantity: 45, min_stock: 9, supplier: 'ToolMaster PH', size: '16 oz,24 oz,32 oz', sizeMode: V, description: 'White rubber head mallet with wood handle' },
-                    { name: 'Ball Peen Hammer', sku: 'TL-003', category: 'tools', price: 420, quantity: 50, min_stock: 10, supplier: 'ToolMaster PH', size: '12 oz,16 oz,24 oz,32 oz', sizeMode: V, description: 'Drop-forged steel, hickory handle' },
-                    { name: 'Sledgehammer', sku: 'TL-004', category: 'tools', price: 1250, quantity: 25, min_stock: 5, supplier: 'ToolMaster PH', size: '4 lb,6 lb,8 lb,10 lb', sizeMode: V, description: 'Fiberglass handle, drop-forged head' },
-                    { name: 'Screwdriver Set', sku: 'TL-005', category: 'tools', price: 550, quantity: 80, min_stock: 16, supplier: 'Stanley PH', size: '4 pc,6 pc,8 pc,12 pc', sizeMode: V, description: 'Phillips and flat, chrome vanadium' },
-                    { name: 'Precision Screwdriver Set', sku: 'TL-006', category: 'tools', price: 380, quantity: 60, min_stock: 12, supplier: 'Stanley PH', size: '16 pc,32 pc,45 pc', sizeMode: V, description: 'Electronics repair, magnetic tips' },
-                    { name: 'Adjustable Wrench', sku: 'TL-007', category: 'tools', price: 480, quantity: 70, min_stock: 14, supplier: 'Stanley PH', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'Chrome vanadium, drop-forged' },
-                    { name: 'Combination Wrench', sku: 'TL-008', category: 'tools', price: 180, quantity: 150, min_stock: 30, supplier: 'Stanley PH', size: '8 mm,10 mm,12 mm,14 mm,17 mm,19 mm', sizeMode: V, description: 'Mirror-polished metric wrench' },
-                    { name: 'Socket Set', sku: 'TL-009', category: 'tools', price: 1850, quantity: 40, min_stock: 8, supplier: 'Stanley PH', size: '40 pc,60 pc,108 pc', sizeMode: V, description: '1/4 and 3/8 drive chrome vanadium' },
-                    { name: 'Combination Pliers', sku: 'TL-010', category: 'tools', price: 220, quantity: 60, min_stock: 12, supplier: 'Stanley PH', size: '6 in,7 in,8 in', sizeMode: V, description: 'Insulated grip combination pliers' },
-                    { name: 'Long Nose Pliers', sku: 'TL-011', category: 'tools', price: 250, quantity: 55, min_stock: 11, supplier: 'Stanley PH', size: '6 in,8 in', sizeMode: V, description: 'Precision long nose pliers' },
-                    { name: 'Cutting Pliers', sku: 'TL-012', category: 'tools', price: 280, quantity: 50, min_stock: 10, supplier: 'Stanley PH', size: '6 in,7 in,8 in', sizeMode: V, description: 'Diagonal cutting pliers' },
-                    { name: 'Locking Pliers', sku: 'TL-013', category: 'tools', price: 420, quantity: 40, min_stock: 8, supplier: 'Stanley PH', size: '5 in,7 in,10 in', sizeMode: V, description: 'Vise-grip locking pliers' },
-                    { name: 'Tape Measure', sku: 'TL-014', category: 'tools', price: 150, quantity: 80, min_stock: 16, supplier: 'Stanley PH', size: '3 m,5 m,8 m,10 m', sizeMode: V, description: 'Auto-lock measuring tape with belt clip' },
-                    { name: 'Handsaw', sku: 'TL-015', category: 'tools', price: 380, quantity: 35, min_stock: 7, supplier: 'Ace Hardware PH', size: '18 in,20 in,22 in,24 in', sizeMode: V, description: 'Heavy-duty wood handsaw' },
-                    { name: 'Spirit Level', sku: 'TL-016', category: 'tools', price: 450, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '12 in,18 in,24 in,36 in,48 in', sizeMode: V, description: 'Aluminum spirit level with 3 vials' },
-                    { name: 'Hacksaw Frame', sku: 'TL-017', category: 'tools', price: 320, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '10 in,12 in', sizeMode: V, description: 'Adjustable hacksaw frame' },
-                    { name: 'Bolt Cutter', sku: 'TL-018', category: 'tools', price: 850, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: '14 in,18 in,24 in,30 in', sizeMode: V, description: 'Heavy-duty bolt cutter' },
-                    { name: 'Pipe Wrench', sku: 'TL-019', category: 'tools', price: 680, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: '10 in,12 in,14 in,18 in,24 in', sizeMode: V, description: 'Cast-iron pipe wrench' },
-                    { name: 'Wood Chisel Set', sku: 'TL-020', category: 'tools', price: 420, quantity: 35, min_stock: 7, supplier: 'Ace Hardware PH', size: '3 pc,4 pc,6 pc', sizeMode: V, description: 'Woodworking chisel set with wood handle' },
-                    { name: 'Wood Plane', sku: 'TL-021', category: 'tools', price: 550, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: '7 in,9 in,14 in', sizeMode: V, description: 'Adjustable wood plane' },
-                    { name: 'Steel Trowel', sku: 'TL-022', category: 'tools', price: 180, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '10 in,12 in,14 in', sizeMode: V, description: 'Masonry trowel with wooden handle' },
-                    { name: 'Putty Knife', sku: 'TL-023', category: 'tools', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '1 in,2 in,3 in,4 in', sizeMode: V, description: 'Stainless putty knife' },
-                    { name: 'Wire Stripper', sku: 'TL-024', category: 'tools', price: 280, quantity: 40, min_stock: 8, supplier: 'Stanley PH', size: '8 in,9 in', sizeMode: V, description: 'Automatic wire stripper' },
-                    { name: 'Utility Knife', sku: 'TL-025', category: 'tools', price: 150, quantity: 60, min_stock: 12, supplier: 'Stanley PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Retractable utility knife' },
-                    { name: 'Framing Square', sku: 'TL-026', category: 'tools', price: 220, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '8 in,12 in,16 in', sizeMode: V, description: 'Steel framing square' },
-                    { name: 'Caulking Gun', sku: 'TL-027', category: 'tools', price: 260, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '9 in,10 in,12 in', sizeMode: V, description: 'Skeleton caulking gun' },
-                    { name: 'Crowbar', sku: 'TL-028', category: 'tools', price: 480, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: '24 in,30 in,36 in,48 in', sizeMode: V, description: 'Forged steel pry bar' },
-                    { name: 'Pickaxe', sku: 'TL-029', category: 'tools', price: 680, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Forged steel pickaxe with wooden handle' },
-                    { name: 'Garden Hoe', sku: 'TL-030', category: 'tools', price: 380, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden hoe' },
-                    { name: 'Trowel', sku: 'TL-031', category: 'tools', price: 140, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden hand trowel' },
-                    { name: 'Nut Driver Set', sku: 'TL-032', category: 'tools', price: 550, quantity: 30, min_stock: 6, supplier: 'Stanley PH', size: '5 pc,6 pc,8 pc', sizeMode: V, description: 'Nut driver set, metric and SAE' },
-                    { name: 'Hex Key Set', sku: 'TL-033', category: 'tools', price: 320, quantity: 50, min_stock: 10, supplier: 'Stanley PH', size: '9 pc,10 pc,22 pc', sizeMode: V, description: 'Allen wrench set, metric' },
-                    { name: 'Torque Wrench', sku: 'TL-034', category: 'tools', price: 2500, quantity: 10, min_stock: 2, supplier: 'Stanley PH', size: '1/4 in,3/8 in,1/2 in', sizeMode: V, description: 'Click-type torque wrench' },
-                    { name: 'Bench Vise', sku: 'TL-035', category: 'tools', price: 3200, quantity: 8, min_stock: 2, supplier: 'ToolMaster PH', size: '4 in,5 in,6 in,8 in', sizeMode: V, description: 'Cast-iron bench vise with swivel base' },
-                    { name: 'C-Clamp', sku: 'TL-036', category: 'tools', price: 180, quantity: 60, min_stock: 12, supplier: 'ToolMaster PH', size: '4 in,6 in,8 in,12 in', sizeMode: V, description: 'Drop-forged C-clamp' },
-                    { name: 'F-Clamp', sku: 'TL-037', category: 'tools', price: 380, quantity: 40, min_stock: 8, supplier: 'ToolMaster PH', size: '12 in,24 in,36 in,48 in', sizeMode: V, description: 'Sliding F-clamp with trigger release' },
-                    { name: 'Spring Clamp', sku: 'TL-038', category: 'tools', price: 85, quantity: 100, min_stock: 20, supplier: 'ToolMaster PH', size: '2 in,3 in,4 in,6 in', sizeMode: V, description: 'Heavy-duty spring clamp' },
-                    { name: 'Carpenter Pencil', sku: 'TL-039', category: 'tools', price: 25, quantity: 200, min_stock: 40, supplier: 'Ace Hardware PH', size: 'Small,Medium', sizeMode: V, description: 'Flat carpenter pencil, per piece' },
-                    { name: 'Chalk Line Reel', sku: 'TL-040', category: 'tools', price: 320, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: '30 m,50 m', sizeMode: V, description: 'Chalk line reel with blue chalk' },
-                    { name: 'Stud Finder', sku: 'TL-041', category: 'tools', price: 850, quantity: 20, min_stock: 4, supplier: 'Stanley PH', size: 'Basic,Pro', sizeMode: V, description: 'Electronic stud finder' },
-                    { name: 'Laser Level', sku: 'TL-042', category: 'tools', price: 2800, quantity: 10, min_stock: 2, supplier: 'Stanley PH', size: 'Basic,Pro,Cross-Line', sizeMode: V, description: 'Self-leveling laser level' },
-                    { name: 'Masonry Brush', sku: 'TL-043', category: 'tools', price: 120, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Heavy-duty masonry brush' },
-                    { name: 'Tile Cutter', sku: 'TL-044', category: 'tools', price: 3500, quantity: 8, min_stock: 2, supplier: 'Ace Hardware PH', size: '24 in,36 in,48 in', sizeMode: V, description: 'Manual tile cutter with tungsten wheel' },
-                    { name: 'Grout Float', sku: 'TL-045', category: 'tools', price: 220, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '4 in,9 in,12 in', sizeMode: V, description: 'Rubber grout float' },
-                    { name: 'Notched Trowel', sku: 'TL-046', category: 'tools', price: 180, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '4 in,6 in,8 in', sizeMode: V, description: 'Notched adhesive trowel' },
-                    { name: 'Sponge Float', sku: 'TL-047', category: 'tools', price: 160, quantity: 35, min_stock: 7, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Concrete sponge float' },
-                    { name: 'Screed Board', sku: 'TL-048', category: 'tools', price: 420, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: '1.2 m,1.5 m,2 m', sizeMode: V, description: 'Aluminum screed board' },
-                    { name: 'Mixing Paddle', sku: 'TL-049', category: 'tools', price: 280, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Hex shank mixing paddle' },
-                    { name: 'Magnetic Sweeper', sku: 'TL-050', category: 'tools', price: 680, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: '12 in,18 in,24 in', sizeMode: V, description: 'Rolling magnetic sweeper' },
-
-                    // ============ HARDWARE (HW) — 40 items ============
-                    { name: 'Door Hinge', sku: 'HW-001', category: 'hardware', price: 85, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in,5 in', sizeMode: V, description: 'Stainless door hinge with screws' },
-                    { name: 'Door Knob Set', sku: 'HW-002', category: 'hardware', price: 350, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: 'Entry,Privacy,Passage', sizeMode: V, description: 'Door knob set with keys' },
-                    { name: 'Padlock', sku: 'HW-003', category: 'hardware', price: 220, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '40 mm,50 mm,60 mm,70 mm', sizeMode: V, description: 'Brass padlock with 3 keys' },
-                    { name: 'Deadbolt Lock', sku: 'HW-004', category: 'hardware', price: 550, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Single,Double', sizeMode: V, description: 'Cylinder deadbolt lock' },
-                    { name: 'Cabinet Handle', sku: 'HW-005', category: 'hardware', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '3 in,4 in,5 in,6 in', sizeMode: V, description: 'Stainless cabinet pull handle' },
-                    { name: 'Drawer Slide', sku: 'HW-006', category: 'hardware', price: 180, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '12 in,14 in,16 in,18 in,20 in', sizeMode: V, description: 'Ball-bearing drawer slide, sold as pair' },
-                    { name: 'Door Stopper', sku: 'HW-007', category: 'hardware', price: 65, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Rubber door stopper' },
-                    { name: 'Chain Lock', sku: 'HW-008', category: 'hardware', price: 280, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '2 ft,3 ft,4 ft', sizeMode: V, description: 'Steel chain with padlock' },
-                    { name: 'Barrel Bolt', sku: 'HW-009', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '3 in,4 in,6 in,8 in', sizeMode: V, description: 'Steel barrel bolt' },
-                    { name: 'Door Viewer', sku: 'HW-010', category: 'hardware', price: 180, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '180 deg,200 deg', sizeMode: V, description: 'Brass door peephole' },
-                    { name: 'Door Closer', sku: 'HW-011', category: 'hardware', price: 850, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: 'Light,Medium,Heavy', sizeMode: V, description: 'Hydraulic door closer' },
-                    { name: 'Furniture Leg', sku: 'HW-012', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '3 in,4 in,5 in,6 in', sizeMode: V, description: 'Metal furniture leg with base' },
-                    { name: 'Shelf Bracket', sku: 'HW-013', category: 'hardware', price: 95, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'L-shaped shelf bracket with screws' },
-                    { name: 'Shelf Pin', sku: 'HW-014', category: 'hardware', price: 5, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '5 mm,6 mm', sizeMode: V, description: 'Metal shelf support pin' },
-                    { name: 'Cabinet Hinge', sku: 'HW-015', category: 'hardware', price: 65, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '35 mm,40 mm', sizeMode: V, description: 'Concealed European-style hinge' },
-                    { name: 'Furniture Caster', sku: 'HW-016', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1 in,2 in,3 in', sizeMode: V, description: 'Swivel caster with brake' },
-                    { name: 'Magnetic Catch', sku: 'HW-017', category: 'hardware', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Magnetic cabinet catch' },
-                    { name: 'Door Seal Strip', sku: 'HW-018', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '1 m,2 m,3 m', sizeMode: V, description: 'Weather-stripping door seal' },
-                    { name: 'Window Lock', sku: 'HW-019', category: 'hardware', price: 150, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Sliding window lock' },
-                    { name: 'Gate Latch', sku: 'HW-020', category: 'hardware', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel gate latch with screws' },
-                    { name: 'Gate Hinge', sku: 'HW-021', category: 'hardware', price: 220, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '3 in,4 in,5 in', sizeMode: V, description: 'Heavy-duty gate hinge' },
-                    { name: 'Handrail Bracket', sku: 'HW-022', category: 'hardware', price: 180, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'Stainless handrail bracket' },
-                    { name: 'Corner Brace', sku: 'HW-023', category: 'hardware', price: 45, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'L-shaped steel corner brace' },
-                    { name: 'Flat Brace', sku: 'HW-024', category: 'hardware', price: 65, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in,12 in', sizeMode: V, description: 'Straight flat steel brace' },
-                    { name: 'T-Hinge', sku: 'HW-025', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in,10 in', sizeMode: V, description: 'T-shaped strap hinge' },
-                    { name: 'Strap Hinge', sku: 'HW-026', category: 'hardware', price: 150, quantity: 70, min_stock: 14, supplier: 'Wilcon Depot', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'Heavy-duty strap hinge' },
-                    { name: 'Continuous Hinge', sku: 'HW-027', category: 'hardware', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1 m,1.2 m,1.5 m', sizeMode: V, description: 'Piano-style continuous hinge' },
-                    { name: 'Gate Wheel', sku: 'HW-028', category: 'hardware', price: 320, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in', sizeMode: V, description: 'Gate support wheel' },
-                    { name: 'Door Knock', sku: 'HW-029', category: 'hardware', price: 180, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Brass door knocker' },
-                    { name: 'House Number', sku: 'HW-030', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '0-9', sizeMode: V, description: 'Metal house number digit' },
-                    { name: 'Door Bell', sku: 'HW-031', category: 'hardware', price: 380, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Wired,Wireless', sizeMode: V, description: 'Door bell with chime' },
-                    { name: 'Clothes Hook', sku: 'HW-032', category: 'hardware', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'Single,Double,Triple', sizeMode: V, description: 'Wall-mount clothes hook' },
-                    { name: 'Towel Bar', sku: 'HW-033', category: 'hardware', price: 250, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: '18 in,24 in,30 in', sizeMode: V, description: 'Stainless towel bar' },
-                    { name: 'Toilet Paper Holder', sku: 'HW-034', category: 'hardware', price: 180, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: 'Wall-Mount,Recessed', sizeMode: V, description: 'Stainless toilet paper holder' },
-                    { name: 'Soap Dish', sku: 'HW-035', category: 'hardware', price: 120, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: 'Wall-Mount,Countertop', sizeMode: V, description: 'Stainless soap dish' },
-                    { name: 'Robe Hook', sku: 'HW-036', category: 'hardware', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'Single,Double', sizeMode: V, description: 'Stainless robe hook' },
-                    { name: 'Glass Shelf', sku: 'HW-037', category: 'hardware', price: 480, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: '12 in,16 in,20 in', sizeMode: V, description: 'Tempered glass shelf with brackets' },
-                    { name: 'Mirror Clip', sku: 'HW-038', category: 'hardware', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Metal mirror mounting clip' },
-                    { name: 'Picture Hanger', sku: 'HW-039', category: 'hardware', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '10 lb,20 lb,50 lb', sizeMode: V, description: 'Picture frame hook with nail' },
-                    { name: 'Magnet Catch Plate', sku: 'HW-040', category: 'hardware', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel magnet catch plate' },
-
-                    // ============ ELECTRICAL (EL) — 40 items ============
-                    { name: 'Electrical Tape', sku: 'EL-001', category: 'electrical', price: 35, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: 'Black,Red,Blue,Yellow,Green', sizeMode: V, description: 'PVC electrical insulation tape' },
-                    { name: 'Extension Cord', sku: 'EL-002', category: 'electrical', price: 280, quantity: 50, min_stock: 10, supplier: 'Cebu Hardware', size: '2 m,3 m,5 m,10 m', sizeMode: V, description: '3-gang extension cord with switch' },
-                    { name: 'Outlet', sku: 'EL-003', category: 'electrical', price: 180, quantity: 80, min_stock: 16, supplier: 'Cebu Hardware', size: '1-Gang,2-Gang,3-Gang', sizeMode: V, description: 'Universal outlet with plate' },
-                    { name: 'Light Switch', sku: 'EL-004', category: 'electrical', price: 95, quantity: 100, min_stock: 20, supplier: 'Cebu Hardware', size: '1-Gang,2-Gang,3-Gang', sizeMode: V, description: 'Wall light switch' },
-                    { name: 'Circuit Breaker', sku: 'EL-005', category: 'electrical', price: 380, quantity: 40, min_stock: 8, supplier: 'Cebu Hardware', size: '15 A,20 A,30 A,40 A,60 A', sizeMode: V, description: 'Plug-in circuit breaker' },
-                    { name: 'LED Bulb', sku: 'EL-006', category: 'electrical', price: 120, quantity: 150, min_stock: 30, supplier: 'Cebu Hardware', size: '5 W,7 W,9 W,12 W,15 W', sizeMode: V, description: 'E27 daylight LED bulb' },
-                    { name: 'LED Tube', sku: 'EL-007', category: 'electrical', price: 280, quantity: 60, min_stock: 12, supplier: 'Cebu Hardware', size: '9 W,18 W,24 W', sizeMode: V, description: 'T8 LED fluorescent tube replacement' },
-                    { name: 'Electrical Wire', sku: 'EL-008', category: 'electrical', price: 35, quantity: 500, min_stock: 100, supplier: 'Cebu Hardware', size: '#14,#12,#10,#8', sizeMode: V, description: 'Stranded copper wire, per meter' },
-                    { name: 'Junction Box', sku: 'EL-009', category: 'electrical', price: 45, quantity: 120, min_stock: 24, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'PVC junction box' },
-                    { name: 'Wire Connector', sku: 'EL-010', category: 'electrical', price: 15, quantity: 400, min_stock: 80, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Screw-on wire connector, per piece' },
-                    { name: 'Ceiling Fan', sku: 'EL-011', category: 'electrical', price: 2500, quantity: 15, min_stock: 3, supplier: 'Cebu Hardware', size: '36 in,42 in,48 in,52 in', sizeMode: V, description: 'Ceiling fan with light' },
-                    { name: 'Wall Fan', sku: 'EL-012', category: 'electrical', price: 1800, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: '12 in,16 in,18 in', sizeMode: V, description: 'Oscillating wall fan' },
-                    { name: 'Stand Fan', sku: 'EL-013', category: 'electrical', price: 2200, quantity: 15, min_stock: 3, supplier: 'Cebu Hardware', size: '16 in,18 in', sizeMode: V, description: 'Oscillating stand fan' },
-                    { name: 'Exhaust Fan', sku: 'EL-014', category: 'electrical', price: 1500, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: '6 in,8 in,10 in,12 in', sizeMode: V, description: 'Wall-mount exhaust fan' },
-                    { name: 'Fluorescent Fixture', sku: 'EL-015', category: 'electrical', price: 480, quantity: 30, min_stock: 6, supplier: 'Cebu Hardware', size: '20 W,40 W', sizeMode: V, description: 'Fluorescent light fixture' },
-                    { name: 'LED Flood Light', sku: 'EL-016', category: 'electrical', price: 850, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: '30 W,50 W,100 W,150 W', sizeMode: V, description: 'Outdoor LED flood light' },
-                    { name: 'LED Panel Light', sku: 'EL-017', category: 'electrical', price: 680, quantity: 25, min_stock: 5, supplier: 'Cebu Hardware', size: '12 W,18 W,24 W', sizeMode: V, description: 'Recessed LED panel' },
-                    { name: 'Sensor Light', sku: 'EL-018', category: 'electrical', price: 550, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Motion sensor LED light' },
-                    { name: 'Voltage Tester', sku: 'EL-019', category: 'electrical', price: 220, quantity: 40, min_stock: 8, supplier: 'Cebu Hardware', size: 'Basic,Pro', sizeMode: V, description: 'Voltage tester pen' },
-                    { name: 'Multimeter', sku: 'EL-020', category: 'electrical', price: 850, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: 'Analog,Digital', sizeMode: V, description: 'Digital multimeter with probes' },
-                    { name: 'Clamp Meter', sku: 'EL-021', category: 'electrical', price: 2200, quantity: 10, min_stock: 2, supplier: 'Cebu Hardware', size: 'Basic,Pro', sizeMode: V, description: 'Digital clamp meter' },
-                    { name: 'Cable Reel', sku: 'EL-022', category: 'electrical', price: 3800, quantity: 8, min_stock: 2, supplier: 'Cebu Hardware', size: '10 m,20 m,30 m', sizeMode: V, description: 'Extension cable reel with outlets' },
-                    { name: 'PVC Conduit', sku: 'EL-023', category: 'electrical', price: 85, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Electrical conduit, per meter' },
-                    { name: 'Conduit Elbow', sku: 'EL-024', category: 'electrical', price: 25, quantity: 300, min_stock: 60, supplier: 'Cebu Hardware', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'PVC conduit elbow' },
-                    { name: 'Conduit Coupling', sku: 'EL-025', category: 'electrical', price: 20, quantity: 300, min_stock: 60, supplier: 'Cebu Hardware', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'PVC conduit coupling' },
-                    { name: 'Utility Box', sku: 'EL-026', category: 'electrical', price: 65, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'PVC utility box' },
-                    { name: 'Ceiling Rose', sku: 'EL-027', category: 'electrical', price: 45, quantity: 250, min_stock: 50, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Ceiling rose for pendant light' },
-                    { name: 'Lamp Holder', sku: 'EL-028', category: 'electrical', price: 55, quantity: 250, min_stock: 50, supplier: 'Cebu Hardware', size: 'E27,E14', sizeMode: V, description: 'Plastic lamp holder' },
-                    { name: 'Light Socket', sku: 'EL-029', category: 'electrical', price: 75, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: 'E27,E14', sizeMode: V, description: 'Porcelain light socket' },
-                    { name: 'Plug', sku: 'EL-030', category: 'electrical', price: 45, quantity: 300, min_stock: 60, supplier: 'Cebu Hardware', size: 'Flat,Polarized,Universal', sizeMode: V, description: 'Rubber electrical plug' },
-                    { name: 'Socket Adapter', sku: 'EL-031', category: 'electrical', price: 85, quantity: 150, min_stock: 30, supplier: 'Cebu Hardware', size: 'Universal,Standard', sizeMode: V, description: 'Multi-socket adapter' },
-                    { name: 'Ceiling Fan Remote', sku: 'EL-032', category: 'electrical', price: 480, quantity: 30, min_stock: 6, supplier: 'Cebu Hardware', size: 'Standard,Universal', sizeMode: V, description: 'Ceiling fan remote control' },
-                    { name: 'Wire Nut', sku: 'EL-033', category: 'electrical', price: 8, quantity: 500, min_stock: 100, supplier: 'Cebu Hardware', size: 'Small,Medium,Large', sizeMode: V, description: 'Plastic wire nut, per piece' },
-                    { name: 'Heat Shrink Tube', sku: 'EL-034', category: 'electrical', price: 45, quantity: 200, min_stock: 40, supplier: 'Cebu Hardware', size: '2 mm,3 mm,4 mm,6 mm,8 mm', sizeMode: V, description: 'Heat shrink tube, per meter' },
-                    { name: 'Cable Clip', sku: 'EL-035', category: 'electrical', price: 25, quantity: 400, min_stock: 80, supplier: 'Cebu Hardware', size: '5 mm,6 mm,8 mm,10 mm', sizeMode: V, description: 'Plastic cable clip, per 100 pcs' },
-                    { name: 'Doorbell Transformer', sku: 'EL-036', category: 'electrical', price: 380, quantity: 25, min_stock: 5, supplier: 'Cebu Hardware', size: '10 VA,16 VA,24 VA', sizeMode: V, description: 'Doorbell transformer' },
-                    { name: 'Motion Sensor Switch', sku: 'EL-037', category: 'electrical', price: 680, quantity: 20, min_stock: 4, supplier: 'Cebu Hardware', size: 'Basic,Pro', sizeMode: V, description: 'PIR motion sensor switch' },
-                    { name: 'Dimmer Switch', sku: 'EL-038', category: 'electrical', price: 480, quantity: 30, min_stock: 6, supplier: 'Cebu Hardware', size: 'Rotary,Slider,Touch', sizeMode: V, description: 'Wall dimmer switch' },
-                    { name: 'Timer Switch', sku: 'EL-039', category: 'electrical', price: 550, quantity: 25, min_stock: 5, supplier: 'Cebu Hardware', size: 'Mechanical,Digital', sizeMode: V, description: 'Programmable timer switch' },
-                    { name: 'Surge Protector', sku: 'EL-040', category: 'electrical', price: 380, quantity: 40, min_stock: 8, supplier: 'Cebu Hardware', size: '4-Outlet,6-Outlet,8-Outlet', sizeMode: V, description: 'Surge protector power strip' },
-
-                    // ============ PLUMBING (PL) — 40 items ============
-                    { name: 'PVC Pipe', sku: 'PL-001', category: 'plumbing', price: 120, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'Schedule 40 PVC pipe, per length' },
-                    { name: 'PVC Elbow', sku: 'PL-002', category: 'plumbing', price: 15, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: '90-degree PVC elbow' },
-                    { name: 'PVC Tee', sku: 'PL-003', category: 'plumbing', price: 20, quantity: 400, min_stock: 80, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC tee connector' },
-                    { name: 'PVC Coupling', sku: 'PL-004', category: 'plumbing', price: 15, quantity: 400, min_stock: 80, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC straight coupling' },
-                    { name: 'PVC Reducer', sku: 'PL-005', category: 'plumbing', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '3/4x1/2 in,1x3/4 in,1-1/2x1 in,2x1-1/2 in', sizeMode: V, description: 'PVC reducer' },
-                    { name: 'PVC Cap', sku: 'PL-006', category: 'plumbing', price: 12, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC pipe cap' },
-                    { name: 'PVC Union', sku: 'PL-007', category: 'plumbing', price: 65, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC union with O-ring' },
-                    { name: 'PVC Ball Valve', sku: 'PL-008', category: 'plumbing', price: 180, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in,2 in', sizeMode: V, description: 'PVC ball valve with handle' },
-                    { name: 'Faucet', sku: 'PL-009', category: 'plumbing', price: 450, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in', sizeMode: V, description: 'Chrome faucet' },
-                    { name: 'Kitchen Faucet', sku: 'PL-010', category: 'plumbing', price: 680, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Standard,Gooseneck,Pull-Down', sizeMode: V, description: 'Kitchen sink faucet' },
-                    { name: 'Shower Head', sku: 'PL-011', category: 'plumbing', price: 320, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: 'Fixed,Hand-Held,Rain', sizeMode: V, description: 'Chrome shower head' },
-                    { name: 'Shower Valve', sku: 'PL-012', category: 'plumbing', price: 850, quantity: 25, min_stock: 5, supplier: 'Wilcon Depot', size: 'Single-Handle,Double-Handle', sizeMode: V, description: 'Shower mixer valve' },
-                    { name: 'Toilet Flush Valve', sku: 'PL-013', category: 'plumbing', price: 250, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: 'Standard,Universal', sizeMode: V, description: 'Replacement flush valve assembly' },
-                    { name: 'Teflon Tape', sku: 'PL-014', category: 'plumbing', price: 15, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Thread seal tape, per roll' },
-                    { name: 'Water Hose', sku: 'PL-015', category: 'plumbing', price: 45, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Flexible water hose, per meter' },
-                    { name: 'Floor Drain', sku: 'PL-016', category: 'plumbing', price: 180, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in,6 in', sizeMode: V, description: 'Stainless floor drain with strainer' },
-                    { name: 'Floor Strainer', sku: 'PL-017', category: 'plumbing', price: 65, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'Plastic floor strainer' },
-                    { name: 'Hose Bibb', sku: 'PL-018', category: 'plumbing', price: 180, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Brass hose bib with handle' },
-                    { name: 'Angle Valve', sku: 'PL-019', category: 'plumbing', price: 220, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in', sizeMode: V, description: 'Chrome angle stop valve' },
-                    { name: 'Gate Valve', sku: 'PL-020', category: 'plumbing', price: 380, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in', sizeMode: V, description: 'Brass gate valve' },
-                    { name: 'Check Valve', sku: 'PL-021', category: 'plumbing', price: 420, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Brass check valve' },
-                    { name: 'Float Valve', sku: 'PL-022', category: 'plumbing', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Plastic float valve for tanks' },
-                    { name: 'Toilet Seat', sku: 'PL-023', category: 'plumbing', price: 680, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Standard,Elongated', sizeMode: V, description: 'Plastic toilet seat with cover' },
-                    { name: 'Toilet Bowl Wax Ring', sku: 'PL-024', category: 'plumbing', price: 85, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: 'Standard,Thick', sizeMode: V, description: 'Toilet bowl wax seal ring' },
-                    { name: 'Bidet Spray', sku: 'PL-025', category: 'plumbing', price: 380, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: 'Standard,Handheld', sizeMode: V, description: 'Handheld bidet spray' },
-                    { name: 'Flexible Hose', sku: 'PL-026', category: 'plumbing', price: 120, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1 ft,2 ft,3 ft', sizeMode: V, description: 'Stainless flexible hose' },
-                    { name: 'Water Filter', sku: 'PL-027', category: 'plumbing', price: 850, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: 'Sediment,Carbon,Universal', sizeMode: V, description: 'Inline water filter' },
-                    { name: 'Water Heater', sku: 'PL-028', category: 'plumbing', price: 5500, quantity: 10, min_stock: 2, supplier: 'Wilcon Depot', size: 'Standard,Instant,Tankless', sizeMode: V, description: 'Electric water heater' },
-                    { name: 'Water Tank', sku: 'PL-029', category: 'plumbing', price: 8500, quantity: 8, min_stock: 2, supplier: 'Wilcon Depot', size: '500 L,1000 L,1500 L', sizeMode: V, description: 'Polyethylene water storage tank' },
-                    { name: 'Water Pump', sku: 'PL-030', category: 'plumbing', price: 4500, quantity: 12, min_stock: 2, supplier: 'Wilcon Depot', size: '0.5 HP,1 HP,1.5 HP,2 HP', sizeMode: V, description: 'Booster water pump' },
-                    { name: 'Pipe Wrench', sku: 'PL-031', category: 'plumbing', price: 480, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '10 in,12 in,14 in,18 in', sizeMode: V, description: 'Pipe wrench for plumbing' },
-                    { name: 'Pipe Cutter', sku: 'PL-032', category: 'plumbing', price: 850, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'PVC pipe cutter' },
-                    { name: 'Plunger', sku: 'PL-033', category: 'plumbing', price: 220, quantity: 50, min_stock: 10, supplier: 'Wilcon Depot', size: 'Small,Medium,Large', sizeMode: V, description: 'Rubber toilet plunger' },
-                    { name: 'Drain Snake', sku: 'PL-034', category: 'plumbing', price: 380, quantity: 30, min_stock: 6, supplier: 'Wilcon Depot', size: '3 m,5 m,8 m', sizeMode: V, description: 'Manual drain snake auger' },
-                    { name: 'Bathroom Accessories Set', sku: 'PL-035', category: 'plumbing', price: 1200, quantity: 20, min_stock: 4, supplier: 'Wilcon Depot', size: '3 pc,5 pc,7 pc', sizeMode: V, description: 'Bathroom accessory set' },
-                    { name: 'Shower Curtain Rod', sku: 'PL-036', category: 'plumbing', price: 280, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1 m,1.2 m,1.5 m,1.8 m', sizeMode: V, description: 'Adjustable shower curtain rod' },
-                    { name: 'Shower Curtain', sku: 'PL-037', category: 'plumbing', price: 350, quantity: 40, min_stock: 8, supplier: 'Wilcon Depot', size: '1 m x 1.8 m,1.2 m x 2 m', sizeMode: V, description: 'Waterproof shower curtain' },
-                    { name: 'Sink Strainer', sku: 'PL-038', category: 'plumbing', price: 85, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '3 in,3.5 in,4 in', sizeMode: V, description: 'Stainless sink strainer' },
-                    { name: 'PTrap', sku: 'PL-039', category: 'plumbing', price: 120, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1-1/4 in,1-1/2 in', sizeMode: V, description: 'PVC P-trap for sink' },
-                    { name: 'Toilet Flapper', sku: 'PL-040', category: 'plumbing', price: 120, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2 in,3 in,Universal', sizeMode: V, description: 'Rubber toilet flapper' },
-
-                    // ============ PAINT (PT) — 30 items ============
-                    { name: 'Latex Paint', sku: 'PT-001', category: 'paint', price: 380, quantity: 80, min_stock: 16, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Interior latex paint, white' },
-                    { name: 'Semi-Gloss Enamel', sku: 'PT-002', category: 'paint', price: 450, quantity: 60, min_stock: 12, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Semi-gloss enamel paint' },
-                    { name: 'Gloss Enamel', sku: 'PT-003', category: 'paint', price: 480, quantity: 50, min_stock: 10, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'High-gloss enamel paint' },
-                    { name: 'Primer', sku: 'PT-004', category: 'paint', price: 350, quantity: 60, min_stock: 12, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Latex primer sealer' },
-                    { name: 'Wood Stain', sku: 'PT-005', category: 'paint', price: 320, quantity: 50, min_stock: 10, supplier: 'Boysen PH', size: '250 mL,500 mL,1 L,4 L', sizeMode: V, description: 'Oil-based wood stain' },
-                    { name: 'Varnish', sku: 'PT-006', category: 'paint', price: 380, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '250 mL,500 mL,1 L,4 L', sizeMode: V, description: 'Clear gloss varnish' },
-                    { name: 'Thinner', sku: 'PT-007', category: 'paint', price: 120, quantity: 100, min_stock: 20, supplier: 'Boysen PH', size: '500 mL,1 L,4 L', sizeMode: V, description: 'Paint thinner' },
-                    { name: 'Paint Brush', sku: 'PT-008', category: 'paint', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '1 in,2 in,3 in,4 in', sizeMode: V, description: 'Flat paint brush' },
-                    { name: 'Paint Roller', sku: 'PT-009', category: 'paint', price: 220, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Roller with handle' },
-                    { name: 'Paint Tray', sku: 'PT-010', category: 'paint', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Plastic paint tray' },
-                    { name: 'Sandpaper', sku: 'PT-011', category: 'paint', price: 35, quantity: 200, min_stock: 40, supplier: 'Ace Hardware PH', size: '#80,#100,#120,#180,#220', sizeMode: V, description: 'Wood sandpaper sheet, per piece' },
-                    { name: 'Sanding Block', sku: 'PT-012', category: 'paint', price: 65, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Rubber sanding block' },
-                    { name: 'Masking Tape', sku: 'PT-013', category: 'paint', price: 45, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: '1/2 in,3/4 in,1 in,2 in', sizeMode: V, description: 'Painter masking tape' },
-                    { name: 'Drop Cloth', sku: 'PT-014', category: 'paint', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '2 m x 3 m,3 m x 4 m', sizeMode: V, description: 'Canvas drop cloth' },
-                    { name: 'Paint Stirrer', sku: 'PT-015', category: 'paint', price: 15, quantity: 300, min_stock: 60, supplier: 'Ace Hardware PH', size: 'Small,Large', sizeMode: V, description: 'Wooden paint stirrer' },
-                    { name: 'Spray Paint', sku: 'PT-016', category: 'paint', price: 220, quantity: 100, min_stock: 20, supplier: 'Boysen PH', size: 'Black,White,Red,Blue,Green,Yellow,Silver', sizeMode: V, description: 'Aerosol spray paint' },
-                    { name: 'Epoxy Paint', sku: 'PT-017', category: 'paint', price: 850, quantity: 30, min_stock: 6, supplier: 'Boysen PH', size: '1 L,4 L', sizeMode: V, description: 'Two-part epoxy floor paint' },
-                    { name: 'Roof Paint', sku: 'PT-018', category: 'paint', price: 550, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '1 L,4 L,16 L', sizeMode: V, description: 'Elastomeric roof paint' },
-                    { name: 'Waterproofing', sku: 'PT-019', category: 'paint', price: 680, quantity: 30, min_stock: 6, supplier: 'Boysen PH', size: '1 L,4 L', sizeMode: V, description: 'Cementitious waterproofing' },
-                    { name: 'Concrete Neutralizer', sku: 'PT-020', category: 'paint', price: 220, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '1 L,4 L', sizeMode: V, description: 'Concrete neutralizer solution' },
-                    { name: 'Putty', sku: 'PT-021', category: 'paint', price: 250, quantity: 60, min_stock: 12, supplier: 'Boysen PH', size: '1 kg,4 kg,20 kg', sizeMode: V, description: 'Wall putty filler' },
-                    { name: 'Skim Coat', sku: 'PT-022', category: 'paint', price: 380, quantity: 40, min_stock: 8, supplier: 'Boysen PH', size: '4 kg,20 kg', sizeMode: V, description: 'Skim coat wall finish' },
-                    { name: 'Paint Roller Cover', sku: 'PT-023', category: 'paint', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Replacement roller cover' },
-                    { name: 'Paint Roller Frame', sku: 'PT-024', category: 'paint', price: 120, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: '4 in,7 in,9 in', sizeMode: V, description: 'Metal roller frame' },
-                    { name: 'Extension Pole', sku: 'PT-025', category: 'paint', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '1 m,2 m,3 m', sizeMode: V, description: 'Telescoping extension pole' },
-                    { name: 'Paint Can Opener', sku: 'PT-026', category: 'paint', price: 35, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: 'Standard', sizeMode: V, description: 'Metal paint can opener' },
-                    { name: 'Paint Strainer', sku: 'PT-027', category: 'paint', price: 45, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'Small,Large', sizeMode: V, description: 'Mesh paint strainer' },
-                    { name: 'Paddle Brush', sku: 'PT-028', category: 'paint', price: 180, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '4 in,6 in', sizeMode: V, description: 'Wide paddle brush for large surfaces' },
-                    { name: 'Corner Brush', sku: 'PT-029', category: 'paint', price: 120, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'Small,Medium', sizeMode: V, description: 'Angled corner brush' },
-                    { name: 'Trim Roller', sku: 'PT-030', category: 'paint', price: 150, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: '4 in,6 in', sizeMode: V, description: 'Small trim paint roller' },
-
-                    // ============ GARDEN (GD) — 25 items ============
-                    { name: 'Garden Hose', sku: 'GD-001', category: 'garden', price: 480, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '10 m,15 m,20 m,30 m', sizeMode: V, description: 'Flexible garden hose with fittings' },
-                    { name: 'Watering Can', sku: 'GD-002', category: 'garden', price: 250, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: '2 L,5 L,8 L,10 L', sizeMode: V, description: 'Plastic watering can' },
-                    { name: 'Garden Rake', sku: 'GD-003', category: 'garden', price: 380, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel leaf rake' },
-                    { name: 'Shovel', sku: 'GD-004', category: 'garden', price: 480, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Round-point shovel with wooden handle' },
-                    { name: 'Hand Trowel', sku: 'GD-005', category: 'garden', price: 120, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden hand trowel' },
-                    { name: 'Pruning Shears', sku: 'GD-006', category: 'garden', price: 380, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Bypass pruning shears' },
-                    { name: 'Loppers', sku: 'GD-007', category: 'garden', price: 550, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Bypass loppers for branches' },
-                    { name: 'Hedge Shears', sku: 'GD-008', category: 'garden', price: 480, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Manual hedge shears' },
-                    { name: 'Garden Fork', sku: 'GD-009', category: 'garden', price: 520, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Steel garden fork with wooden handle' },
-                    { name: 'Cultivator', sku: 'GD-010', category: 'garden', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Hand cultivator for soil' },
-                    { name: 'Weeder', sku: 'GD-011', category: 'garden', price: 220, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Weeding tool with fork end' },
-                    { name: 'Garden Sprayer', sku: 'GD-012', category: 'garden', price: 380, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: '1 L,2 L,5 L,8 L', sizeMode: V, description: 'Pressure sprayer for garden' },
-                    { name: 'Sprinkler', sku: 'GD-013', category: 'garden', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Oscillating,Rotary,Stationary', sizeMode: V, description: 'Garden sprinkler' },
-                    { name: 'Nozzle', sku: 'GD-014', category: 'garden', price: 120, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: 'Adjustable,Pistol,Brass', sizeMode: V, description: 'Hose nozzle with adjustable spray' },
-                    { name: 'Hose Connector', sku: 'GD-015', category: 'garden', price: 65, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '1/2 in,3/4 in', sizeMode: V, description: 'Brass hose connector' },
-                    { name: 'Pot Planter', sku: 'GD-016', category: 'garden', price: 85, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: '4 in,6 in,8 in,10 in,12 in', sizeMode: V, description: 'Plastic pot planter' },
-                    { name: 'Pot Saucer', sku: 'GD-017', category: 'garden', price: 45, quantity: 200, min_stock: 40, supplier: 'Ace Hardware PH', size: '4 in,6 in,8 in,10 in,12 in', sizeMode: V, description: 'Plastic pot saucer' },
-                    { name: 'Potting Soil', sku: 'GD-018', category: 'garden', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '5 L,10 L,20 L', sizeMode: V, description: 'Potting soil mix' },
-                    { name: 'Fertilizer', sku: 'GD-019', category: 'garden', price: 220, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: '500 g,1 kg,5 kg', sizeMode: V, description: 'Complete fertilizer' },
-                    { name: 'Plant Support', sku: 'GD-020', category: 'garden', price: 65, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '60 cm,90 cm,120 cm', sizeMode: V, description: 'Metal plant support stake' },
-                    { name: 'Garden Tie', sku: 'GD-021', category: 'garden', price: 45, quantity: 150, min_stock: 30, supplier: 'Ace Hardware PH', size: '2 m,5 m,10 m', sizeMode: V, description: 'Soft garden tie tape' },
-                    { name: 'Garden Gloves', sku: 'GD-022', category: 'garden', price: 120, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'S,M,L,XL', sizeMode: V, description: 'Rubber-coated garden gloves' },
-                    { name: 'Knee Pad', sku: 'GD-023', category: 'garden', price: 180, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'S,M,L', sizeMode: V, description: 'Garden knee pad' },
-                    { name: 'Wheelbarrow', sku: 'GD-024', category: 'garden', price: 2800, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: 'Single-Wheel,Double-Wheel', sizeMode: V, description: 'Steel wheelbarrow' },
-                    { name: 'Garden Cart', sku: 'GD-025', category: 'garden', price: 3500, quantity: 10, min_stock: 2, supplier: 'Ace Hardware PH', size: '2-Wheel,4-Wheel', sizeMode: V, description: 'Heavy-duty garden cart' },
-
-                    // ============ BUILDING (BD) — 30 items ============
-                    { name: 'Cement', sku: 'BD-001', category: 'building', price: 280, quantity: 500, min_stock: 100, supplier: 'Holcim PH', size: '40 kg,50 kg', sizeMode: V, description: 'Portland cement bag' },
-                    { name: 'Washed Sand', sku: 'BD-002', category: 'building', price: 1200, quantity: 50, min_stock: 10, supplier: 'Local Supplier', size: '1 cu.m,2 cu.m', sizeMode: V, description: 'Washed sand per cubic meter' },
-                    { name: 'Gravel', sku: 'BD-003', category: 'building', price: 1500, quantity: 50, min_stock: 10, supplier: 'Local Supplier', size: '3/4 in,3/8 in', sizeMode: V, description: 'Gravel per cubic meter' },
-                    { name: 'Steel Bar', sku: 'BD-004', category: 'building', price: 280, quantity: 200, min_stock: 40, supplier: 'Local Supplier', size: '10 mm,12 mm,16 mm,20 mm', sizeMode: V, description: 'Deformed steel bar, 6 m length' },
-                    { name: 'Hollow Block', sku: 'BD-005', category: 'building', price: 18, quantity: 2000, min_stock: 400, supplier: 'Local Supplier', size: '4 in,5 in,6 in', sizeMode: V, description: 'Concrete hollow block' },
-                    { name: 'Plywood', sku: 'BD-006', category: 'building', price: 450, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/4 in,1/2 in,3/4 in,1 in', sizeMode: V, description: 'Plywood, 4x8 ft' },
-                    { name: 'Marine Plywood', sku: 'BD-007', category: 'building', price: 950, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Marine plywood, 4x8 ft' },
-                    { name: 'Lumber', sku: 'BD-008', category: 'building', price: 180, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '2x2,2x3,2x4,2x6', sizeMode: V, description: 'Coco lumber, 10 ft length' },
-                    { name: 'Treated Lumber', sku: 'BD-009', category: 'building', price: 380, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2x3,2x4,2x6', sizeMode: V, description: 'Treated lumber, 10 ft length' },
-                    { name: 'Metal Stud', sku: 'BD-010', category: 'building', price: 220, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in', sizeMode: V, description: 'Galvanized metal stud' },
-                    { name: 'Metal Furring', sku: 'BD-011', category: 'building', price: 120, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1 in,2 in', sizeMode: V, description: 'Galvanized metal furring channel' },
-                    { name: 'Gypsum Board', sku: 'BD-012', category: 'building', price: 380, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '1/4 in,3/8 in,1/2 in', sizeMode: V, description: 'Gypsum board, 4x8 ft' },
-                    { name: 'Fiber Cement Board', sku: 'BD-013', category: 'building', price: 550, quantity: 60, min_stock: 12, supplier: 'Wilcon Depot', size: '4.5 mm,6 mm,9 mm', sizeMode: V, description: 'Fiber cement board, 4x8 ft' },
-                    { name: 'Roofing Sheet', sku: 'BD-014', category: 'building', price: 480, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '8 ft,10 ft,12 ft', sizeMode: V, description: 'Pre-painted roofing sheet' },
-                    { name: 'Roofing Nail', sku: 'BD-015', category: 'building', price: 120, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '2 in,2-1/2 in,3 in', sizeMode: V, description: 'Umbrella-head roofing nail, per kilo' },
-                    { name: 'Rivet', sku: 'BD-016', category: 'building', price: 180, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/8 in,5/32 in,3/16 in', sizeMode: V, description: 'Aluminum rivet, per box' },
-                    { name: 'Silicone Sealant', sku: 'BD-017', category: 'building', price: 220, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: 'Clear,White,Black,Gray', sizeMode: V, description: 'Silicone sealant cartridge' },
-                    { name: 'Construction Adhesive', sku: 'BD-018', category: 'building', price: 280, quantity: 80, min_stock: 16, supplier: 'Wilcon Depot', size: '300 mL,600 mL', sizeMode: V, description: 'Heavy-duty construction adhesive' },
-                    { name: 'Tile Adhesive', sku: 'BD-019', category: 'building', price: 380, quantity: 100, min_stock: 20, supplier: 'Holcim PH', size: '20 kg,25 kg', sizeMode: V, description: 'Tile adhesive cement' },
-                    { name: 'Grout', sku: 'BD-020', category: 'building', price: 180, quantity: 100, min_stock: 20, supplier: 'Holcim PH', size: '1 kg,2 kg,5 kg', sizeMode: V, description: 'Tile grout' },
-                    { name: 'Tile Trim', sku: 'BD-021', category: 'building', price: 120, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '8 mm,10 mm,12 mm', sizeMode: V, description: 'Aluminum tile trim' },
-                    { name: 'Expansion Joint', sku: 'BD-022', category: 'building', price: 220, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '6 mm,8 mm,10 mm', sizeMode: V, description: 'PVC expansion joint' },
-                    { name: 'Chicken Wire', sku: 'BD-023', category: 'building', price: 180, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Galvanized chicken wire, per roll' },
-                    { name: 'Rebar Tie Wire', sku: 'BD-024', category: 'building', price: 120, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '#16,#18', sizeMode: V, description: 'Black annealed tie wire, per kg' },
-                    { name: 'C-Channel', sku: 'BD-025', category: 'building', price: 380, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '2 in,3 in,4 in,6 in', sizeMode: V, description: 'Galvanized C-channel steel' },
-                    { name: 'Angle Bar', sku: 'BD-026', category: 'building', price: 280, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1x1,1.5x1.5,2x2', sizeMode: V, description: 'Galvanized angle bar' },
-                    { name: 'Flat Bar', sku: 'BD-027', category: 'building', price: 220, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/8 x 1,1/8 x 1-1/2,1/4 x 2', sizeMode: V, description: 'Galvanized flat bar' },
-                    { name: 'Square Tube', sku: 'BD-028', category: 'building', price: 320, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '1x1,1.5x1.5,2x2', sizeMode: V, description: 'Galvanized square tube' },
-                    { name: 'Round Tube', sku: 'BD-029', category: 'building', price: 320, quantity: 120, min_stock: 24, supplier: 'Wilcon Depot', size: '1 in,1.5 in,2 in', sizeMode: V, description: 'Galvanized round tube' },
-                    { name: 'Scaffolding Pin', sku: 'BD-030', category: 'building', price: 180, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'Standard,Heavy-Duty', sizeMode: V, description: 'Steel scaffolding pin' },
-
-                    // ============ FASTENERS (FS) — 30 items ============
-                    { name: 'Common Nail', sku: 'FS-001', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1-1/2 in,2 in,2-1/2 in,3 in,4 in', sizeMode: V, description: 'Bright steel common nail, per kilo' },
-                    { name: 'Concrete Nail', sku: 'FS-002', category: 'fasteners', price: 95, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1 in,1-1/2 in,2 in,3 in', sizeMode: V, description: 'Hardened concrete nail, per kilo' },
-                    { name: 'Wood Screw', sku: 'FS-003', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1 in,1-1/2 in,2 in,3 in', sizeMode: V, description: 'Phillips wood screw, per 100 pcs' },
-                    { name: 'Self-Tapping Screw', sku: 'FS-004', category: 'fasteners', price: 95, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/2 in', sizeMode: V, description: 'Self-tapping screw, per 100 pcs' },
-                    { name: 'Drywall Screw', sku: 'FS-005', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1 in,1-1/4 in,1-5/8 in,2 in', sizeMode: V, description: 'Black phosphate drywall screw, per 100 pcs' },
-                    { name: 'Machine Screw', sku: 'FS-006', category: 'fasteners', price: 120, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'M3,M4,M5,M6,M8', sizeMode: V, description: 'Stainless machine screw, per 100 pcs' },
-                    { name: 'Hex Bolt', sku: 'FS-007', category: 'fasteners', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M6,M8,M10,M12', sizeMode: V, description: 'Zinc-plated hex bolt' },
-                    { name: 'Carriage Bolt', sku: 'FS-008', category: 'fasteners', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'M6,M8,M10', sizeMode: V, description: 'Galvanized carriage bolt' },
-                    { name: 'Lag Screw', sku: 'FS-009', category: 'fasteners', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in,1/2 in', sizeMode: V, description: 'Hex head lag screw' },
-                    { name: 'Eye Bolt', sku: 'FS-010', category: 'fasteners', price: 65, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in', sizeMode: V, description: 'Zinc-plated eye bolt' },
-                    { name: 'U-Bolt', sku: 'FS-011', category: 'fasteners', price: 85, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in', sizeMode: V, description: 'Galvanized U-bolt' },
-                    { name: 'Hex Nut', sku: 'FS-012', category: 'fasteners', price: 15, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8,M10,M12', sizeMode: V, description: 'Zinc-plated hex nut, per 100 pcs' },
-                    { name: 'Lock Nut', sku: 'FS-013', category: 'fasteners', price: 25, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M6,M8,M10,M12', sizeMode: V, description: 'Nylon insert lock nut' },
-                    { name: 'Wing Nut', sku: 'FS-014', category: 'fasteners', price: 35, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in', sizeMode: V, description: 'Butterfly wing nut' },
-                    { name: 'Flat Washer', sku: 'FS-015', category: 'fasteners', price: 10, quantity: 600, min_stock: 120, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8,M10,M12', sizeMode: V, description: 'Zinc-plated flat washer, per 100 pcs' },
-                    { name: 'Lock Washer', sku: 'FS-016', category: 'fasteners', price: 12, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: 'M6,M8,M10,M12', sizeMode: V, description: 'Split ring lock washer, per 100 pcs' },
-                    { name: 'Concrete Anchor', sku: 'FS-017', category: 'fasteners', price: 45, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '1/4 in,3/8 in,1/2 in', sizeMode: V, description: 'Wedge concrete anchor' },
-                    { name: 'Plastic Anchor', sku: 'FS-018', category: 'fasteners', price: 8, quantity: 500, min_stock: 100, supplier: 'Wilcon Depot', size: '#6,#8,#10,#12', sizeMode: V, description: 'Wall plug anchor, per piece' },
-                    { name: 'Toggle Bolt', sku: 'FS-019', category: 'fasteners', price: 35, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: '3/16 in,1/4 in,5/16 in', sizeMode: V, description: 'Spring toggle bolt' },
-                    { name: 'Cable Tie', sku: 'FS-020', category: 'fasteners', price: 85, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: '4 in,6 in,8 in,10 in,12 in', sizeMode: V, description: 'Nylon cable tie, per 100 pcs' },
-                    { name: 'Hose Clamp', sku: 'FS-021', category: 'fasteners', price: 25, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: '1/2 in,3/4 in,1 in,1-1/4 in', sizeMode: V, description: 'Stainless hose clamp' },
-                    { name: 'Threaded Rod', sku: 'FS-022', category: 'fasteners', price: 180, quantity: 100, min_stock: 20, supplier: 'Wilcon Depot', size: '1/4 in,5/16 in,3/8 in,1/2 in', sizeMode: V, description: 'Zinc-plated threaded rod, 1 m' },
-                    { name: 'Spring Pin', sku: 'FS-023', category: 'fasteners', price: 15, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: '3/16 in,1/4 in,5/16 in', sizeMode: V, description: 'Stainless spring pin' },
-                    { name: 'Cotter Pin', sku: 'FS-024', category: 'fasteners', price: 8, quantity: 400, min_stock: 80, supplier: 'Wilcon Depot', size: '1/8 in,5/32 in,3/16 in', sizeMode: V, description: 'Zinc-plated cotter pin' },
-                    { name: 'Set Screw', sku: 'FS-025', category: 'fasteners', price: 12, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8', sizeMode: V, description: 'Cup point set screw' },
-                    { name: 'Socket Cap Screw', sku: 'FS-026', category: 'fasteners', price: 25, quantity: 250, min_stock: 50, supplier: 'Wilcon Depot', size: 'M5,M6,M8,M10,M12', sizeMode: V, description: 'Hex socket cap screw' },
-                    { name: 'Shoulder Screw', sku: 'FS-027', category: 'fasteners', price: 65, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'M5,M6,M8', sizeMode: V, description: 'Shoulder screw, alloy steel' },
-                    { name: 'Thumb Screw', sku: 'FS-028', category: 'fasteners', price: 45, quantity: 150, min_stock: 30, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8', sizeMode: V, description: 'Knurled thumb screw' },
-                    { name: 'Anchor Bolt', sku: 'FS-029', category: 'fasteners', price: 65, quantity: 200, min_stock: 40, supplier: 'Wilcon Depot', size: 'M8,M10,M12,M16', sizeMode: V, description: 'Galvanized anchor bolt' },
-                    { name: 'Rivet Nut', sku: 'FS-030', category: 'fasteners', price: 15, quantity: 300, min_stock: 60, supplier: 'Wilcon Depot', size: 'M4,M5,M6,M8', sizeMode: V, description: 'Aluminum rivet nut' },
-
-                    // ============ SAFETY (SF) — 15 items ============
-                    { name: 'Safety Gloves', sku: 'SF-001', category: 'safety', price: 120, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: 'S,M,L,XL', sizeMode: V, description: 'Cotton work gloves with rubber grip' },
-                    { name: 'Safety Goggles', sku: 'SF-002', category: 'safety', price: 180, quantity: 80, min_stock: 16, supplier: 'Ace Hardware PH', size: 'Clear,Smoke', sizeMode: V, description: 'Anti-fog safety goggles' },
-                    { name: 'Dust Mask', sku: 'SF-003', category: 'safety', price: 45, quantity: 300, min_stock: 60, supplier: 'Ace Hardware PH', size: 'N95,KN95,Surgical', sizeMode: V, description: 'Dust mask, per piece' },
-                    { name: 'Hard Hat', sku: 'SF-004', category: 'safety', price: 350, quantity: 50, min_stock: 10, supplier: 'Ace Hardware PH', size: 'White,Yellow,Blue,Red,Green', sizeMode: V, description: 'Adjustable safety helmet' },
-                    { name: 'Safety Vest', sku: 'SF-005', category: 'safety', price: 250, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'S,M,L,XL,XXL', sizeMode: V, description: 'Reflective high-visibility vest' },
-                    { name: 'Ear Plug', sku: 'SF-006', category: 'safety', price: 25, quantity: 400, min_stock: 80, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Foam ear plug, per pair' },
-                    { name: 'Ear Muff', sku: 'SF-007', category: 'safety', price: 480, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: 'Standard,Pro', sizeMode: V, description: 'Noise-reduction ear muff' },
-                    { name: 'Safety Shoes', sku: 'SF-008', category: 'safety', price: 1250, quantity: 30, min_stock: 6, supplier: 'Ace Hardware PH', size: '38,39,40,41,42,43,44', sizeMode: V, description: 'Steel-toe safety shoes' },
-                    { name: 'Safety Harness', sku: 'SF-009', category: 'safety', price: 1800, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: 'Standard,Pro', sizeMode: V, description: 'Full-body safety harness' },
-                    { name: 'Face Shield', sku: 'SF-010', category: 'safety', price: 280, quantity: 40, min_stock: 8, supplier: 'Ace Hardware PH', size: 'Clear,Smoke', sizeMode: V, description: 'Full-face safety shield' },
-                    { name: 'Welding Mask', sku: 'SF-011', category: 'safety', price: 680, quantity: 20, min_stock: 4, supplier: 'Ace Hardware PH', size: 'Passive,Auto-Darkening', sizeMode: V, description: 'Welding helmet' },
-                    { name: 'Reflective Tape', sku: 'SF-012', category: 'safety', price: 85, quantity: 100, min_stock: 20, supplier: 'Ace Hardware PH', size: '1 in,2 in,4 in', sizeMode: V, description: 'Reflective warning tape, per meter' },
-                    { name: 'Caution Sign', sku: 'SF-013', category: 'safety', price: 180, quantity: 60, min_stock: 12, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Plastic caution sign' },
-                    { name: 'Fire Extinguisher', sku: 'SF-014', category: 'safety', price: 2200, quantity: 15, min_stock: 3, supplier: 'Ace Hardware PH', size: '1 kg,2 kg,4 kg,6 kg', sizeMode: V, description: 'Dry chemical fire extinguisher' },
-                    { name: 'First Aid Kit', sku: 'SF-015', category: 'safety', price: 850, quantity: 25, min_stock: 5, supplier: 'Ace Hardware PH', size: 'Small,Medium,Large', sizeMode: V, description: 'Complete first aid kit' }
-                ];
-
-                log('Prepared ' + items.length + ' items.', 'warn');
-                log('Injecting brand variants by category...', 'info');
+                log('Prepared ' + SEED_ITEMS.length + ' items.', 'warn');
+                log('Generating matrix variants and size stocks...', 'info');
 
                 let batch = writeBatch(fb.db);
                 let count = 0;
                 let total = 0;
-                let brandedCount = 0;
+                let matrixCount = 0;
+                let sizeOnlyCount = 0;
+                let totalVariants = 0;
 
-                for (const item of items) {
+                for (const item of SEED_ITEMS) {
                     const ref = doc(collection(fb.db, 'inventory'));
 
-                    // Brand injection — explicit item.brand wins; otherwise
-                    // pull the category pool. Empty string = unbranded.
+                    // Parse dimensions
+                    const sizes = String(item.size || '').split(',').map(s => s.trim()).filter(Boolean);
                     const pool = CATEGORY_BRAND_POOLS[item.category] || '';
                     const brand = item.brand !== undefined ? item.brand : pool;
-                    const brandMode = item.brandMode
-                        || (brand.includes(',') ? 'variants' : 'single');
-                    if (brand) brandedCount++;
+                    const brands = brand ? brand.split(',').map(b => b.trim()).filter(Boolean) : [];
+
+                    const basePrice = Number(item.price) || 0;
+                    const baseQty = Number(item.quantity) || 0;
+
+                    let variants = null;
+                    let sizeStocks = null;
+                    let quantity = baseQty;
+
+                    if (brands.length > 0 && sizes.length > 0) {
+                        // Matrix mode — distribute stock evenly, price by size/brand multipliers
+                        const totalPairs = sizes.length * brands.length;
+                        const perVariant = Math.floor(baseQty / totalPairs);
+                        const remainder = baseQty - (perVariant * totalPairs);
+
+                        variants = {};
+                        let variantIdx = 0;
+                        for (let si = 0; si < sizes.length; si++) {
+                            const size = sizes[si];
+                            const sizeMult = SIZE_MULTIPLIERS[Math.min(si, SIZE_MULTIPLIERS.length - 1)];
+                            for (let bi = 0; bi < brands.length; bi++) {
+                                const brandName = brands[bi];
+                                const brandMult = BRAND_MULTIPLIERS[Math.min(bi, BRAND_MULTIPLIERS.length - 1)];
+                                const price = roundTo5(basePrice * sizeMult * brandMult);
+                                const stock = perVariant + (variantIdx < remainder ? 1 : 0);
+                                variants[`${size}::${brandName}`] = { price, stock };
+                                variantIdx++;
+                            }
+                        }
+                        quantity = Object.values(variants).reduce((t, v) => t + v.stock, 0);
+                        totalVariants += Object.keys(variants).length;
+                        matrixCount++;
+                    } else if (sizes.length > 0) {
+                        // Size-only mode (building, fasteners)
+                        const perSize = Math.floor(baseQty / sizes.length);
+                        const remainder = baseQty - (perSize * sizes.length);
+                        sizeStocks = {};
+                        sizes.forEach((size, si) => {
+                            sizeStocks[size] = perSize + (si < remainder ? 1 : 0);
+                        });
+                        quantity = Object.values(sizeStocks).reduce((t, v) => t + v, 0);
+                        sizeOnlyCount++;
+                    }
+
+                    const sizeMode = sizes.length > 1 ? 'variants' : 'spec';
+                    const brandMode = brands.length > 1 ? 'variants' : 'single';
 
                     const payload = {
-                        ...item,
+                        id: ref.id,
+                        name: item.name,
+                        sku: item.sku,
+                        category: item.category,
+                        price: basePrice,
+                        quantity,
+                        min_stock: item.min_stock,
+                        supplier: item.supplier || '',
+                        size: item.size || '',
+                        sizeMode,
                         brand,
                         brandMode,
-                        id: ref.id,
+                        description: item.description || '',
+                        sizeStocks: sizeStocks || null,
+                        brandStocks: null,
+                        variants: variants || null,
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),
                         syncedAt: serverTimestamp()
                     };
+
                     batch.set(ref, payload);
                     count++;
                     total++;
+
                     if (count === 400) {
                         await batch.commit();
                         log('Committed batch of ' + count + ' (total ' + total + ')', 'ok');
@@ -877,9 +996,13 @@
                         count = 0;
                     }
                 }
+
                 if (count > 0) await batch.commit();
-                log('Done. Inserted ' + total + ' items (' + brandedCount + ' with brands).', 'ok');
-                log('Go back to the app and reload.', 'ok');
+
+                log('Done. Inserted ' + total + ' items.', 'ok');
+                log('  · ' + matrixCount + ' with size × brand matrix (' + totalVariants + ' total variants)', 'info');
+                log('  · ' + sizeOnlyCount + ' with size stocks only', 'info');
+                log('Open the app and reload to see the products.', 'ok');
 
                 await refreshInventoryCount();
             } catch (e) {
