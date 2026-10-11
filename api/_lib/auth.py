@@ -5,7 +5,7 @@ We verify it server-side with the Firebase Admin SDK. Never trust a
 user id or role supplied in the request body.
 """
 
-import os
+import sys
 from typing import Optional
 
 from .errors import AuthError, ForbiddenError
@@ -13,10 +13,20 @@ from .errors import AuthError, ForbiddenError
 
 def _verify_id_token(id_token: str) -> dict:
     """Verify a Firebase ID token and return the decoded claims."""
+    # CRITICAL: Firebase Admin requires the default app to exist BEFORE
+    # verify_id_token is called. get_app() triggers _ensure_app() which
+    # initialises the SDK from the service-account env var. Without this,
+    # verify_id_token raises ValueError("The default Firebase app does not exist")
+    # and we misreport it as an invalid token.
+    from .firebase_client import get_app
+    get_app()
+
     from firebase_admin import auth as fb_auth
     try:
         return fb_auth.verify_id_token(id_token, check_revoked=False)
-    except Exception as exc:  # firebase_admin raises several subclasses
+    except Exception as exc:
+        # TEMP DEBUG — remove once auth is confirmed working in prod
+        print(f"[auth-debug] {type(exc).__name__}: {exc}", file=sys.stderr)
         raise AuthError("Invalid or expired authentication token.") from exc
 
 
