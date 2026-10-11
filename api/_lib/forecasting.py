@@ -210,7 +210,7 @@ def forecast_next_7_days(orders: list) -> dict:
         "method_label": method_label,
         "message": (
             f"Estimated sales for the next 7 days: "
-            f"PHP {total:,.2f}. This is a statistical forecast "
+            f"₱{total:,.2f}. This is a statistical forecast "
             f"based on historical sales, not a guaranteed result."
         ),
         "history_days": nonzero_days,

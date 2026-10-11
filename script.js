@@ -2149,6 +2149,7 @@ async function refreshAiCards() {
 
 function renderAiForecast(container, subtitleEl, data) {
     const list = Array.isArray(data.forecast) ? data.forecast : [];
+    const raw = data._raw || {};
 
     if (!list.length) {
         container.innerHTML = `<div class="ai-loading">${escapeCustomerText(data.summary || 'No forecast available yet.')}</div>`;
@@ -2156,28 +2157,107 @@ function renderAiForecast(container, subtitleEl, data) {
         return;
     }
 
-    const total = list.reduce((s, d) => s + (Number(d.revenue) || 0), 0);
-    const avg = total / list.length;
-    const max = Math.max(...list.map(d => Number(d.revenue) || 0), 1);
+    // Formatters — KPI values drop decimals, tooltips keep them.
+    const fmt = v => '₱' + Math.round(Number(v) || 0).toLocaleString('en-PH');
 
-    if (subtitleEl) {
-        const arrow = data.trend === 'up' ? '↗' : data.trend === 'down' ? '↘' : '→';
-        subtitleEl.textContent = `${arrow} Expected: ₱${total.toLocaleString('en-PH', { maximumFractionDigits: 0 })} over 14 days`;
+    const revenues = list.map(d => Number(d.revenue) || 0);
+    const total = revenues.reduce((s, v) => s + v, 0);
+    const avg = total / revenues.length;
+    const max = Math.max(...revenues, 1);
+    const min = Math.min(...revenues);
+
+    // Flat-forecast detection: all 7 values within 1% of each other.
+    const spread = max - min;
+    const isFlat = max > 0 && (spread / max) < 0.01;
+
+    // Trend direction — trust the backend's `trend`, fall back to slope.
+    let trend = data.trend || 'stable';
+    if (trend === 'stable' && !isFlat && revenues.length >= 2) {
+        const first = revenues[0];
+        const last = revenues[revenues.length - 1];
+        trend = last > first * 1.02 ? 'up'
+              : last < first * 0.98 ? 'down'
+              : 'stable';
     }
 
-    const fmt = v => '₱' + Number(v).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+    // Week-over-week comparison from the raw daily_series if present.
+    let vsLastPct = null;
+    const series = raw.daily_series_last_7 || [];
+    if (Array.isArray(series) && series.length === 7) {
+        const lastActual = series.reduce((s, d) => s + (Number(d.revenue) || 0), 0);
+        if (lastActual > 0) vsLastPct = ((total - lastActual) / lastActual) * 100;
+    }
 
-    const bars = list.map(d => {
-        const v = Number(d.revenue) || 0;
-        const h = Math.max(4, (v / max) * 100);
-        return `<div class="ai-forecast-bar" style="height:${h}%" title="${escapeCustomerText(d.date)}: ${fmt(v)} (${escapeCustomerText(d.confidence || 'medium')} confidence)"></div>`;
+    // Header subtitle
+    if (subtitleEl) {
+        const arrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
+        let text = `${arrow} Expected: ${fmt(total)} over 7 days`;
+        if (vsLastPct != null) {
+            const sign = vsLastPct >= 0 ? '+' : '';
+            text += ` · ${sign}${vsLastPct.toFixed(1)}% vs last 7`;
+        }
+        subtitleEl.textContent = text;
+    }
+
+    // Pills -----------------------------------------------------------
+    const modelLabel = raw.method_label
+        || (raw.method === 'linear_regression' ? 'Linear regression'
+        : raw.method === 'moving_average' ? '7-day weighted moving average'
+        : raw.method === 'historical_mean' ? 'Historical daily average'
+        : 'Statistical forecast');
+
+    const mae = raw.validation_mae;
+    const errorPill = (mae != null && Number.isFinite(Number(mae)))
+        ? `<span class="ai-pill ai-pill-error">± ${fmt(mae)} error</span>`
+        : '';
+
+    const trendCls = trend === 'up' ? 'ai-pill-up'
+                    : trend === 'down' ? 'ai-pill-down'
+                    : 'ai-pill-flat';
+    const trendIcon = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
+    const trendText = trend === 'up' ? 'Upward' : trend === 'down' ? 'Downward' : 'Stable';
+
+    // Summary — swap any stray "PHP" prefix just in case.
+    const summaryText = String(data.summary || '').replace(/\bPHP\s?/gi, '₱');
+
+    // Chart ----------------------------------------------------------
+    let chartHtml = '';
+    if (isFlat) {
+        chartHtml = `
+            <div class="ai-forecast-flat">
+                <div class="ai-forecast-flat-line"></div>
+                <div class="ai-forecast-flat-dot"></div>
+                <div class="ai-forecast-flat-label">${fmt(avg)} / day</div>
+            </div>
+            <div class="ai-forecast-flat-note">All ${list.length} days projected at the same value — no clear trend to show.</div>
+        `;
+    } else {
+        const bars = list.map(d => {
+            const v = Number(d.revenue) || 0;
+            const h = Math.max(6, (v / max) * 100);
+            return `<div class="ai-forecast-bar" style="height:${h}%">
+                <span class="ai-forecast-bar-val">${fmt(v)}</span>
+            </div>`;
+        }).join('');
+        chartHtml = `<div class="ai-forecast-chart">${bars}</div>`;
+    }
+
+    // X-axis — weekday + day number
+    const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const labels = list.map(d => {
+        const dt = new Date(String(d.date) + 'T00:00:00');
+        if (isNaN(dt.getTime())) return `<span>${escapeCustomerText(d.date)}</span>`;
+        return `<span>${WEEKDAYS[dt.getDay()]} ${dt.getDate()}</span>`;
     }).join('');
 
-    const labels = list.map(d => `<span>${new Date(d.date).getDate()}</span>`).join('');
-
     container.innerHTML = `
-        <div class="ai-forecast-summary">${escapeCustomerText(data.summary || '')}</div>
-        <div class="ai-forecast-chart">${bars}</div>
+        <div class="ai-forecast-pills">
+            <span class="ai-pill ai-pill-model">📊 ${escapeCustomerText(modelLabel)}</span>
+            ${errorPill}
+            <span class="ai-pill ${trendCls}">${trendIcon} ${trendText}</span>
+        </div>
+        <div class="ai-forecast-summary">${escapeCustomerText(summaryText)}</div>
+        ${chartHtml}
         <div class="ai-forecast-xaxis">${labels}</div>
         <div class="ai-forecast-totals">
             <span>Avg/day: <strong>${fmt(avg)}</strong></span>

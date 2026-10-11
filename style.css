@@ -10226,3 +10226,206 @@ html:not([data-theme="light"]) .payment-method i {
     border-top-color: rgba(148, 163, 184, 0.35);
     color: #64748b;
 }
+
+/* ============================================
+   AI FORECAST — REDESIGN
+   Pills row, flat-forecast view, value labels
+   on trending bars, weekday x-axis.
+   ============================================ */
+
+/* ---------- Pills row (model / error / trend) ---------- */
+.ai-forecast-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.ai-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.ai-pill-model {
+    background: rgba(250, 204, 21, 0.12);
+    color: #FACC15;
+    border: 1px solid rgba(250, 204, 21, 0.22);
+}
+
+.ai-pill-error {
+    background: rgba(148, 163, 184, 0.1);
+    color: #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    font-weight: 600;
+}
+
+.ai-pill-up {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+.ai-pill-down {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.ai-pill-flat {
+    background: rgba(148, 163, 184, 0.15);
+    color: #cbd5e1;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+/* ---------- Flat forecast view (no trend to chart) ---------- */
+.ai-forecast-flat {
+    position: relative;
+    height: 110px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    background: linear-gradient(to top, rgba(250, 204, 21, 0.03), transparent);
+    overflow: hidden;
+}
+
+.ai-forecast-flat-line {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 50%;
+    border-top: 2px dashed rgba(250, 204, 21, 0.65);
+    transform: translateY(-50%);
+}
+
+.ai-forecast-flat-dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #FACC15;
+    box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.18), 0 4px 12px rgba(250, 204, 21, 0.35);
+}
+
+.ai-forecast-flat-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, calc(-50% - 32px));
+    font-size: 12px;
+    font-weight: 700;
+    color: #FACC15;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(20, 18, 16, 0.7);
+    backdrop-filter: blur(6px);
+}
+
+.ai-forecast-flat-note {
+    text-align: center;
+    font-size: 11px;
+    color: #8a8275;
+    font-style: italic;
+    margin-bottom: 12px;
+}
+
+/* ---------- Trending bars — value labels above each bar ---------- */
+.ai-forecast-bar {
+    position: relative;
+}
+
+.ai-forecast-bar-val {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    color: #FACC15;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0.9;
+}
+
+/* Widen the value label spacing on narrow panels so numbers
+   don't crash into each other. */
+@media (max-width: 480px) {
+    .ai-forecast-bar-val {
+        font-size: 8px;
+        top: -14px;
+    }
+}
+
+/* ---------- X-axis — weekday + day number ---------- */
+.ai-forecast-xaxis span {
+    font-size: 9.5px;
+    letter-spacing: 0.01em;
+}
+
+/* ---------- Light mode overrides ---------- */
+[data-theme="light"] .ai-pill-model {
+    background: rgba(224, 163, 0, 0.14);
+    color: #8a5a00;
+    border-color: rgba(224, 163, 0, 0.28);
+}
+
+[data-theme="light"] .ai-pill-error {
+    background: rgba(120, 95, 55, 0.1);
+    color: #756c5e;
+    border-color: rgba(120, 95, 55, 0.22);
+}
+
+[data-theme="light"] .ai-pill-up {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+[data-theme="light"] .ai-pill-down {
+    background: rgba(239, 68, 68, 0.14);
+    color: #b91c1c;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="light"] .ai-pill-flat {
+    background: rgba(120, 95, 55, 0.12);
+    color: #57534e;
+    border-color: rgba(120, 95, 55, 0.25);
+}
+
+[data-theme="light"] .ai-forecast-flat {
+    background: linear-gradient(to top, rgba(224, 163, 0, 0.04), transparent);
+}
+
+[data-theme="light"] .ai-forecast-flat-line {
+    border-top-color: rgba(224, 163, 0, 0.65);
+}
+
+[data-theme="light"] .ai-forecast-flat-dot {
+    background: #E0A300;
+    box-shadow: 0 0 0 4px rgba(224, 163, 0, 0.18), 0 4px 12px rgba(224, 163, 0, 0.35);
+}
+
+[data-theme="light"] .ai-forecast-flat-label {
+    color: #8a5a00;
+    background: rgba(255, 253, 247, 0.85);
+}
+
+[data-theme="light"] .ai-forecast-flat-note {
+    color: #756c5e;
+}
+
+[data-theme="light"] .ai-forecast-bar-val {
+    color: #8a5a00;
+}
