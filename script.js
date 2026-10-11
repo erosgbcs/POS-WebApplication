@@ -63,12 +63,14 @@
     const sidebar = document.getElementById('sidebar');
     const themeToggle = document.getElementById('themeToggle');
     const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const resetSettingsBtn = document.getElementById('resetSettingsBtn');
     const settingStoreName = document.getElementById('settingStoreName');
-    const settingCurrency = document.getElementById('settingCurrency');
-    const settingTimeZone = document.getElementById('settingTimeZone');
-    const settingLowStockNotifications = document.getElementById('settingLowStockNotifications');
-    const settingDailyReports = document.getElementById('settingDailyReports');
-    const settingWeeklySummary = document.getElementById('settingWeeklySummary');
+    const settingStoreAddress = document.getElementById('settingStoreAddress');
+    const settingStoreContact = document.getElementById('settingStoreContact');
+    const settingReceiptFooter = document.getElementById('settingReceiptFooter');
+    const settingTaxRate = document.getElementById('settingTaxRate');
+    const settingGcashNumber = document.getElementById('settingGcashNumber');
+    const settingGcashName = document.getElementById('settingGcashName');
     const customerSearch = document.getElementById('customerSearch');
     const addCustomerBtn = document.getElementById('addCustomerBtn');
     const customersTableBody = document.getElementById('customersTableBody');
@@ -119,46 +121,127 @@ const CUSTOMERS_KEY = 'pos_customers';
     const THEME_KEY = 'pos_theme';
     const SETTINGS_KEY = 'pos_settings';
 
+    // Canonical defaults — Reset and missing-field fallbacks read from here.
+    const SETTINGS_DEFAULTS = {
+        storeName: "Kirby's Hardware",
+        storeAddress: 'Gimeno Bldg, Gungon St, Santa Maria, 3022 Bulacan',
+        storeContact: '0935 491 9766',
+        receiptFooter: 'Thank you for your business!',
+        taxRate: 8,
+        gcashNumber: '0993 591 7971',
+        gcashName: 'Gabriel A'
+    };
+
+    function collectSettingsFromForm() {
+        const taxRaw = parseFloat(settingTaxRate?.value);
+        return {
+            storeName: (settingStoreName?.value || '').trim() || SETTINGS_DEFAULTS.storeName,
+            storeAddress: (settingStoreAddress?.value || '').trim() || SETTINGS_DEFAULTS.storeAddress,
+            storeContact: (settingStoreContact?.value || '').trim() || SETTINGS_DEFAULTS.storeContact,
+            receiptFooter: (settingReceiptFooter?.value || '').trim() || SETTINGS_DEFAULTS.receiptFooter,
+            taxRate: Number.isFinite(taxRaw) && taxRaw >= 0 && taxRaw <= 50 ? taxRaw : SETTINGS_DEFAULTS.taxRate,
+            gcashNumber: (settingGcashNumber?.value || '').trim() || SETTINGS_DEFAULTS.gcashNumber,
+            gcashName: (settingGcashName?.value || '').trim() || SETTINGS_DEFAULTS.gcashName
+        };
+    }
+
+    function applySettingsToForm(settings) {
+        if (!settings) return;
+        if (settingStoreName && typeof settings.storeName === 'string') settingStoreName.value = settings.storeName;
+        if (settingStoreAddress && typeof settings.storeAddress === 'string') settingStoreAddress.value = settings.storeAddress;
+        if (settingStoreContact && typeof settings.storeContact === 'string') settingStoreContact.value = settings.storeContact;
+        if (settingReceiptFooter && typeof settings.receiptFooter === 'string') settingReceiptFooter.value = settings.receiptFooter;
+        if (settingTaxRate && settings.taxRate != null) settingTaxRate.value = settings.taxRate;
+        if (settingGcashNumber && typeof settings.gcashNumber === 'string') settingGcashNumber.value = settings.gcashNumber;
+        if (settingGcashName && typeof settings.gcashName === 'string') settingGcashName.value = settings.gcashName;
+    }
+
+    // Broadcast a "settings updated" signal so POS can refresh its tax
+    // label and any other live UI.
+    function announceSettingsChange() {
+        try {
+            window.dispatchEvent(new CustomEvent('pos-settings-updated'));
+        } catch (e) {}
+    }
+
     async function loadSettings() {
-    let settings = {};
-    try {
-        settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-    } catch (e) {}
-    
-    try {
-        const { data } = await window.POS_SUPABASE.getSettings();
-        if (data) settings = { ...settings, ...data };
-    } catch (e) {}
-    
-    if (settingStoreName && typeof settings.storeName === 'string') settingStoreName.value = settings.storeName;
-    if (settingCurrency && settings.currency) settingCurrency.value = settings.currency;
-    if (settingTimeZone && settings.timeZone) settingTimeZone.value = settings.timeZone;
-    if (settingLowStockNotifications && typeof settings.lowStockNotifications === 'boolean') settingLowStockNotifications.checked = settings.lowStockNotifications;
-    if (settingDailyReports && typeof settings.dailyReports === 'boolean') settingDailyReports.checked = settings.dailyReports;
-    if (settingWeeklySummary && typeof settings.weeklySummary === 'boolean') settingWeeklySummary.checked = settings.weeklySummary;
-    
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
-}
+        let settings = {};
+        try {
+            settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+        } catch (e) {}
+
+        try {
+            const { data } = await window.POS_SUPABASE.getSettings();
+            if (data) settings = { ...settings, ...data };
+        } catch (e) {}
+
+        // Merge against defaults so every field is populated.
+        settings = { ...SETTINGS_DEFAULTS, ...settings };
+        applySettingsToForm(settings);
+
+        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+        announceSettingsChange();
+    }
 
     async function saveSettings() {
-    const settings = {
-        storeName: settingStoreName?.value.trim() || "Kirby's Hardware",
-        currency: settingCurrency?.value || 'PHP',
-        timeZone: settingTimeZone?.value || 'UTC-8',
-        lowStockNotifications: settingLowStockNotifications?.checked ?? true,
-        dailyReports: settingDailyReports?.checked ?? true,
-        weeklySummary: settingWeeklySummary?.checked ?? false
-    };
-    
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
-    
-    const { error } = await window.POS_SUPABASE.saveSettings(settings);
-    if (error) {
-        showToast('Unable to save settings to cloud', 'error');
-        return;
+        const btn = document.getElementById('saveSettingsBtn');
+        const originalHtml = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+        }
+
+        const settings = collectSettingsFromForm();
+
+        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+
+        try {
+            const { error } = await window.POS_SUPABASE.saveSettings(settings);
+            if (error) {
+                showToast('Unable to save settings to cloud', 'error');
+                window.POS_APP_LOG?.('update', 'settings', 'Settings save failed', 'warning');
+                return;
+            }
+            window.POS_APP_LOG?.('update', 'settings', 'System settings updated', 'info');
+            showToast('Settings saved successfully', 'success');
+            announceSettingsChange();
+        } catch (err) {
+            showToast('Unable to save settings', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml || '<i class="fas fa-save"></i> Save Settings';
+            }
+        }
     }
-        window.POS_APP_LOG?.('update', 'settings', 'System settings updated', 'info');
-    showToast('Settings saved successfully', 'success');
+
+    async function resetSettings() {
+        if (!window.confirm('Reset all settings to defaults? This cannot be undone.')) return;
+
+        const btn = document.getElementById('resetSettingsBtn');
+        const originalHtml = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting…';
+        }
+
+        try {
+            applySettingsToForm(SETTINGS_DEFAULTS);
+            try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS_DEFAULTS)); } catch (e) {}
+            const { error } = await window.POS_SUPABASE.saveSettings(SETTINGS_DEFAULTS);
+            if (error) {
+                showToast('Reset failed — could not reach cloud', 'error');
+                return;
+            }
+            window.POS_APP_LOG?.('update', 'settings', 'Settings reset to defaults', 'info');
+            showToast('Settings reset to defaults', 'success');
+            announceSettingsChange();
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml || '<i class="fas fa-rotate-left"></i> Reset to Defaults';
+            }
+        }
     }
     
     function readStoredRecords(key) {
@@ -3365,6 +3448,11 @@ applyRoleAccess(user);
     function init() {
     initializeTheme();
     loadSettings();
+
+    // Settings page buttons
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
+    document.getElementById('resetSettingsBtn')?.addEventListener('click', resetSettings);
+
     renderCustomers();
     setupOrderFeatures();
     setupReportFeatures();
@@ -3709,6 +3797,16 @@ window.addEventListener('inventory-products-loaded', () => {
         refresh();
     })();
 
+
+    // Expose a read-only settings accessor for pos.js and any other
+    // module that needs live store config (tax, GCash, receipt).
+    window.POS_SETTINGS = {
+        get: function () {
+            let stored = {};
+            try { stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) {}
+            return { ...SETTINGS_DEFAULTS, ...stored };
+        }
+    };
 
     // Expose for auth.js (assigned after the override wrappers, so the
     // session-save/clear behaviour is preserved).

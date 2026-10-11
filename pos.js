@@ -30,10 +30,20 @@
     const cashReceived = document.getElementById('cashReceived');
     const changeAmount = document.getElementById('changeAmount');
     const confirmPaymentBtn = document.getElementById('confirmPaymentBtn');
-        // --- GCash QR ---
-    const GCASH_NUMBER = '09935917971';
-    const GCASH_NAME = 'Gabriel A';
-    const GCASH_QR_CONTENT = `GCash: ${GCASH_NUMBER} | ${GCASH_NAME}`;
+        // --- GCash QR (values resolved from Settings at render time) ---
+    function getGcashSettings() {
+        const s = window.POS_SETTINGS?.get?.() || {};
+        return {
+            number: s.gcashNumber || '0993 591 7971',
+            name: s.gcashName || 'Gabriel A'
+        };
+    }
+
+    function getTaxRatePercent() {
+        const s = window.POS_SETTINGS?.get?.() || {};
+        const raw = Number(s.taxRate);
+        return Number.isFinite(raw) && raw >= 0 ? raw : 8;
+    }
     const gcashQrGroup = document.getElementById('gcashQrGroup');
     const gcashQrImage = document.getElementById('gcashQrImage');
     const gcashConfirmCheck = document.getElementById('gcashConfirmCheck');
@@ -43,7 +53,15 @@
    
         function showGcashQr() {
     if (!gcashQrImage) return;
-    gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GCASH_QR_CONTENT)}`;
+    const { number, name } = getGcashSettings();
+    const qrContent = `GCash: ${number} | ${name}`;
+    gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrContent)}`;
+
+    // Refresh the visible Number / Name rows from live settings
+    const numEl = document.getElementById('gcashNumberDisplay');
+    const nameEl = document.getElementById('gcashNameDisplay');
+    if (numEl) numEl.textContent = number;
+    if (nameEl) nameEl.textContent = name;
 
     // Read the total fresh from the modal — never rely on a stale value
     if (gcashAmountToPay) {
@@ -715,12 +733,15 @@ for (const [cartKey, qty] of Object.entries(cart)) {
             const price = getProductPriceByName(name, cartKey);
             subtotal += price * qty;
         }
-        const tax = subtotal * 0.08;
+        const tax = subtotal * (getTaxRatePercent() / 100);
         const total = subtotal + tax;
 
         subtotalEl.textContent = formatCurrency(subtotal);
         taxEl.textContent = formatCurrency(tax);
         totalEl.textContent = formatCurrency(total);
+
+        const taxLabel = document.getElementById('taxRateLabel');
+        if (taxLabel) taxLabel.textContent = `Tax (${getTaxRatePercent()}%):`;
     }
 function updateCartTotals() {
     let subtotal = 0;
@@ -729,7 +750,7 @@ function updateCartTotals() {
         const price = getProductPriceByName(name, cartKey);
         subtotal += price * qty;
     }
-    const tax = subtotal * 0.08;
+    const tax = subtotal * (getTaxRatePercent() / 100);
     const total = subtotal + tax;
     subtotalEl.textContent = formatCurrency(subtotal);
     taxEl.textContent = formatCurrency(tax);
@@ -1002,7 +1023,7 @@ if (cartItems) {
                 const price = getProductPriceByName(name, cartKey);
                 subtotal += price * qty;
             }
-            const tax = subtotal * 0.08;
+            const tax = subtotal * (getTaxRatePercent() / 100);
             const total = subtotal + tax;
 
             // Set modal total
@@ -1099,19 +1120,25 @@ if (cartItems) {
                 currentUser?.email?.split('@')[0] ||
                 'Unknown';
             
+            const storeCfg = window.POS_SETTINGS?.get?.() || {};
+            const storeName = storeCfg.storeName || "Kirby's Hardware";
+            const storeAddress = storeCfg.storeAddress || '';
+            const storeContact = storeCfg.storeContact || '';
+            const receiptFooter = storeCfg.receiptFooter || '';
+            const taxRate = getTaxRatePercent();
+
             receiptContent.innerHTML = `
-        <div class="receipt-store-name">Kirby's Hardware</div>
+        <div class="receipt-store-name">${escapeHtml(storeName)}</div>
         <div class="receipt-heading">POS TRANSACTION</div>
         <div class="receipt-number">Receipt No: ${escapeHtml(receiptNumber)}</div>
         <div class="receipt-store-details">
-            <div>Gimeno Bldg, Gungon St</div>
-            <div>Santa Maria, 3022 Bulacan</div>
-            <div>Contact: 0935 491 9766</div>
+            ${storeAddress ? `<div>${escapeHtml(storeAddress)}</div>` : ''}
+            ${storeContact ? `<div>Contact: ${escapeHtml(storeContact)}</div>` : ''}
         </div>
         ${customer ? `<div class="receipt-meta">Customer: ${customer}</div>` : ''}
         <div class="receipt-items">${itemRows}</div>
         <div class="receipt-total-line"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
-        <div class="receipt-total-line"><span>Tax (8%)</span><span>${formatCurrency(tax)}</span></div>
+        <div class="receipt-total-line"><span>Tax (${taxRate}%)</span><span>${formatCurrency(tax)}</span></div>
         <div class="receipt-total-line receipt-grand-total"><strong>Total</strong><strong>${formatCurrency(total)}</strong></div>
         <div class="receipt-meta">Payment: ${paymentLabel}</div>
         ${paymentMethod === 'cash'
@@ -1122,6 +1149,7 @@ if (cartItems) {
             : ''}
         <div class="receipt-meta">Date: ${escapeHtml(receiptDate)}</div>
         <div class="receipt-meta">Cashier: ${escapeHtml(cashierName)}</div>
+        ${receiptFooter ? `<div class="receipt-footer">${escapeHtml(receiptFooter)}</div>` : ''}
     `;
             receiptModal.classList.add('show');
         
@@ -1429,7 +1457,7 @@ const phone = rawPhone.replace(/\D/g, '');
         }
         const stockUpdates = buildStockUpdates(items);
         const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const tax = subtotal * 0.08;
+        const tax = subtotal * (getTaxRatePercent() / 100);
         const receiptNumber = createReceiptNumber();
         let cash = 0;
         let change = 0;
@@ -1554,6 +1582,13 @@ const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${payLabel
 });
 }
     
+    // Refresh the visible tax-rate label whenever Settings change.
+    window.addEventListener('pos-settings-updated', () => {
+        const taxLabel = document.getElementById('taxRateLabel');
+        if (taxLabel) taxLabel.textContent = `Tax (${getTaxRatePercent()}%):`;
+        updateCartDisplay();
+    });
+
     // Initialize cart display
     updateCartDisplay();
     })();

@@ -592,7 +592,7 @@
                                     <strong id="subtotal">₱0.00</strong>
                 </div>
                 <div class="total-row">
-                    <span>Tax (8%):</span>
+                    <span id="taxRateLabel">Tax (8%):</span>
                                     <strong id="tax">₱0.00</strong>
                 </div>
                 <div class="total-row grand-total">
@@ -1103,48 +1103,66 @@
                         <p>Configure system preferences</p>
                     </div>
                     <div class="settings-container">
-                        <div class="settings-section">
-                            <h3>General Settings</h3>
-                            <div class="form-group">
-                                <label for="settingStoreName">Store Name</label>
-                                <input type="text" id="settingStoreName" value="Kirby's Hardware" class="settings-input">
+                        <div class="settings-grid">
+
+                            <div class="settings-section">
+                                <h3><i class="fas fa-store"></i> Store Information</h3>
+                                <div class="form-group">
+                                    <label for="settingStoreName">Store Name</label>
+                                    <input type="text" id="settingStoreName" value="Kirby's Hardware" class="settings-input">
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingStoreAddress">Address</label>
+                                    <input type="text" id="settingStoreAddress" value="Gimeno Bldg, Gungon St, Santa Maria, 3022 Bulacan" class="settings-input">
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingStoreContact">Contact Number</label>
+                                    <input type="text" id="settingStoreContact" value="0935 491 9766" class="settings-input" placeholder="e.g., 0935 491 9766">
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingReceiptFooter">Receipt Footer</label>
+                                    <input type="text" id="settingReceiptFooter" value="Thank you for your business!" class="settings-input" placeholder="Message shown at the bottom of receipts">
+                                    <small class="settings-hint">
+                                        <i class="fas fa-info-circle"></i>
+                                        Shown at the bottom of every printed receipt.
+                                    </small>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="settingCurrency">Currency</label>
-                                <select id="settingCurrency" class="settings-input">
-                                    <option value="PHP">PHP (₱)</option>
-                                    <option value="EUR">EUR (€)</option>
-                                    <option value="GBP">GBP (£)</option>
-                                </select>
+
+                            <div class="settings-section">
+                                <h3><i class="fas fa-receipt"></i> Tax &amp; Payments</h3>
+                                <div class="form-group">
+                                    <label for="settingTaxRate">Tax Rate (%)</label>
+                                    <input type="number" id="settingTaxRate" value="8" min="0" max="50" step="0.01" class="settings-input">
+                                    <small class="settings-hint">
+                                        <i class="fas fa-info-circle"></i>
+                                        Applied to all new sales. Default: 8%.
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingGcashNumber">GCash Number</label>
+                                    <input type="text" id="settingGcashNumber" value="0993 591 7971" class="settings-input" placeholder="e.g., 0993 591 7971">
+                                </div>
+                                <div class="form-group">
+                                    <label for="settingGcashName">GCash Account Name</label>
+                                    <input type="text" id="settingGcashName" value="Gabriel A" class="settings-input" placeholder="Name on the GCash account">
+                                </div>
+                                <small class="settings-hint">
+                                    <i class="fas fa-info-circle"></i>
+                                    The GCash QR code on the payment screen rebuilds automatically from these values.
+                                </small>
                             </div>
-                            <div class="form-group">
-                                <label for="settingTimeZone">Time Zone</label>
-                                <select id="settingTimeZone" class="settings-input">
-                                    <option value="UTC-8">UTC-8 (Pacific Time)</option>
-                                    <option value="UTC-5">UTC-5 (Eastern Time)</option>
-                                    <option value="UTC+0">UTC+0 (GMT)</option>
-                                </select>
-                            </div>
+
                         </div>
-                        <div class="settings-section">
-                            <h3>Notifications</h3>
-                            <label class="checkbox-wrapper">
-                                <input type="checkbox" id="settingLowStockNotifications" checked>
-                                <span class="checkmark"></span>
-                                <span>Email notifications for low stock</span>
-                            </label>
-                            <label class="checkbox-wrapper">
-                                <input type="checkbox" id="settingDailyReports" checked>
-                                <span class="checkmark"></span>
-                                <span>Daily sales report</span>
-                            </label>
-                            <label class="checkbox-wrapper">
-                                <input type="checkbox" id="settingWeeklySummary">
-                                <span class="checkmark"></span>
-                                <span>Weekly inventory summary</span>
-                            </label>
+
+                        <div class="settings-actions">
+                            <button class="secondary-btn" id="resetSettingsBtn" type="button">
+                                <i class="fas fa-rotate-left"></i> Reset to Defaults
+                            </button>
+                            <button class="submit-btn" id="saveSettingsBtn" type="button">
+                                <i class="fas fa-save"></i> Save Settings
+                            </button>
                         </div>
-                        <button class="submit-btn" id="saveSettingsBtn" type="button">Save Settings</button>
                     </div>
                 </div>
             </main>
@@ -1364,8 +1382,8 @@
     </div>
     <div class="gcash-qr-details">
         <div class="gcash-qr-row gcash-qr-amount"><span>Amount to pay</span><strong id="gcashAmountToPay">₱0.00</strong></div>
-        <div class="gcash-qr-row"><span>Number</span><strong>0993 591 7971</strong></div>
-        <div class="gcash-qr-row"><span>Name</span><strong>Gabriel A</strong></div>
+        <div class="gcash-qr-row"><span>Number</span><strong id="gcashNumberDisplay">0993 591 7971</strong></div>
+        <div class="gcash-qr-row"><span>Name</span><strong id="gcashNameDisplay">Gabriel A</strong></div>
     </div>
 
     <div class="gcash-reference-field">
