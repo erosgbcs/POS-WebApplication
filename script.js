@@ -261,18 +261,24 @@ renderOrders();
     renderOrders();
 }
 
-function openOrderDetails(orderId) {
+   function openOrderDetails(orderId) {
     const orders = readStoredRecords(ORDERS_KEY);
     const order = orders.find(o => String(o.id) === String(orderId));
     if (!order) return;
-    
-    const items = order.items || [];
-    
-    // Meta block — customer, receipt, payment
+
+    const items = Array.isArray(order.items) ? order.items : [];
+    const isGcash = String(order.paymentMethod || '').toLowerCase() === 'gcash';
+
+    // ---- META BLOCK ----
+    const statusLabel = escapeCustomerText(order.status || 'Completed');
+    const statusClass = String(order.status || '').toLowerCase() === 'cancelled'
+        ? 'out-of-stock'
+        : 'in-stock';
+
     document.getElementById('orderDetailsMeta').innerHTML = `
         <div class="order-details-row">
             <span>Receipt No</span>
-            <strong>${escapeCustomerText(order.id)}</strong>
+            <strong style="font-family:ui-monospace,'SF Mono',monospace;font-size:12px;">${escapeCustomerText(order.id)}</strong>
         </div>
         <div class="order-details-row">
             <span>Customer</span>
@@ -285,15 +291,28 @@ function openOrderDetails(orderId) {
         </div>` : ''}
         <div class="order-details-row">
             <span>Date</span>
-            <strong>${new Date(order.createdAt).toLocaleString()}</strong>
+            <strong>${escapeCustomerText(new Date(order.createdAt).toLocaleString())}</strong>
         </div>
         <div class="order-details-row">
             <span>Payment</span>
-            <strong>${escapeCustomerText((order.paymentMethod || 'cash').toUpperCase())}</strong>
+            <strong>${isGcash ? 'GCash' : 'Cash'}</strong>
+        </div>
+        ${isGcash && order.gcashReference ? `
+        <div class="order-details-row">
+            <span>GCash Ref No.</span>
+            <strong style="font-family:ui-monospace,'SF Mono',monospace;font-size:12px;">${escapeCustomerText(order.gcashReference)}</strong>
+        </div>` : ''}
+        <div class="order-details-row">
+            <span>Status</span>
+            <span class="stock-badge ${statusClass}">${statusLabel}</span>
+        </div>
+        <div class="order-details-row">
+            <span>Items</span>
+            <strong>${items.length} item${items.length === 1 ? '' : 's'}</strong>
         </div>
     `;
-    
-    // Items block
+
+    // ---- ITEMS BLOCK ----
     if (items.length === 0) {
         document.getElementById('orderDetailsItems').innerHTML = `
             <p style="text-align:center;color:var(--text-secondary);padding:1rem 0;">No items recorded</p>`;
@@ -302,19 +321,25 @@ function openOrderDetails(orderId) {
             const qty = Number(item.quantity) || 0;
             const price = Number(item.price) || 0;
             const lineTotal = qty * price;
-            const sizeLabel = item.size ? ` <span class="order-detail-size">(${escapeCustomerText(item.size)})</span>` : '';
+
+            // Show both size and brand if present
+            const bits = [];
+            if (item.size) bits.push(`<span class="order-detail-size">(${escapeCustomerText(item.size)})</span>`);
+            if (item.brand) bits.push(`<span class="order-detail-size">· ${escapeCustomerText(item.brand)}</span>`);
+            const variantLabel = bits.length ? ' ' + bits.join(' ') : '';
+
             return `
                 <div class="order-details-item">
                     <div class="order-details-item-name">
-                        <span>${escapeCustomerText(item.name)}${sizeLabel}</span>
+                        <span>${escapeCustomerText(item.name)}${variantLabel}</span>
                         <span class="order-details-item-qty">${qty} × ${formatAppCurrency(price)}</span>
                     </div>
                     <strong>${formatAppCurrency(lineTotal)}</strong>
                 </div>`;
         }).join('');
     }
-    
-    // Totals block
+
+    // ---- TOTALS BLOCK ----
     const subtotal = Number(order.subtotal) || 0;
     const tax = Number(order.tax) || 0;
     const total = Number(order.total) || 0;
@@ -324,7 +349,7 @@ function openOrderDetails(orderId) {
             <strong>${formatAppCurrency(subtotal)}</strong>
         </div>
         <div class="order-details-row">
-            <span>Tax</span>
+            <span>Tax (8%)</span>
             <strong>${formatAppCurrency(tax)}</strong>
         </div>
         <div class="order-details-row order-details-grand">
@@ -332,7 +357,7 @@ function openOrderDetails(orderId) {
             <strong>${formatAppCurrency(total)}</strong>
         </div>
     `;
-    
+
     document.getElementById('orderDetailsModal')?.classList.add('active');
 }
 
