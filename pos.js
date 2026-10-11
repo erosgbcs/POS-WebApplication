@@ -1046,6 +1046,18 @@ if (cartItems) {
             if (changeAmount) changeAmount.textContent = formatCurrency(0);
             hideGcashQr();
 
+            // Clear required stars + flags left over from a previous GCash sale
+            document.querySelectorAll(
+                'label[for="customerName"] .required-star, ' +
+                'label[for="customerPhone"] .required-star'
+            ).forEach(el => el.remove());
+            if (customerName) customerName.required = false;
+            if (customerPhone) customerPhone.required = false;
+
+            // Reset the customer-info heading back to "Optional"
+            const heading = document.getElementById('customerInfoHeading');
+            if (heading) heading.textContent = 'Customer Information (Optional)';
+
             // Clear customer info fields
             if (customerName) customerName.value = '';
             if (customerPhone) customerPhone.value = '';
@@ -1203,6 +1215,14 @@ if (cartItems) {
         method.classList.add('selected');
         selectedPaymentMethod = method.dataset.method;
 
+        // Update heading to reflect what's required for this method
+        const heading = document.getElementById('customerInfoHeading');
+        if (heading) {
+            heading.textContent = selectedPaymentMethod === 'gcash'
+                ? 'Customer Information (Required for GCash)'
+                : 'Customer Information (Optional)';
+        }
+
         // Show/hide cash input
         if (cashInputGroup) {
             cashInputGroup.style.display = selectedPaymentMethod === 'cash' ? 'block' : 'none';
@@ -1211,7 +1231,7 @@ if (cartItems) {
         // Toggle required attributes on customer fields based on method
         const nameInput = document.getElementById('customerName');
         const phoneInput = document.getElementById('customerPhone');
-        const phoneLabelStar = document.querySelector('label[for="customerPhone"] .required-star');
+
 
         if (selectedPaymentMethod === 'gcash') {
             if (nameInput) nameInput.required = true;
