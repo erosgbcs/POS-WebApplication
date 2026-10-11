@@ -1509,16 +1509,45 @@ function renderLowStockWidget() {
     const products = window.getInventorySnapshot?.() || [];
     
     // Filter to low/out-of-stock products, sorted by urgency
+    const sliceOf = (p) => {
+        const v = p.variants;
+        if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length) {
+            return Object.entries(v)
+                .filter(([, val]) => val && typeof val === 'object')
+                .map(([k, val]) => {
+                    const [size, brand] = String(k).split('::');
+                    return { size: size || '', brand: brand || '', stock: Number(val.stock) || 0 };
+                });
+        }
+        const ss = p.sizeStocks;
+        if (ss && typeof ss === 'object' && !Array.isArray(ss) && Object.keys(ss).length) {
+            return Object.entries(ss).map(([size, stock]) => ({ size, brand: '', stock: Number(stock) || 0 }));
+        }
+        const bs = p.brandStocks;
+        if (bs && typeof bs === 'object' && !Array.isArray(bs) && Object.keys(bs).length) {
+            return Object.entries(bs).map(([brand, stock]) => ({ size: '', brand, stock: Number(stock) || 0 }));
+        }
+        return [{ size: '', brand: '', stock: Number(p.quantity) || 0 }];
+    };
+
     const alerts = products
-        .map(p => ({
-            product: p,
-            status: getStockStatusForWidget(p),
-            qty: Number(p.quantity) || 0,
-            min: Number(p.minStock ?? p.min_stock ?? 0) || 0
-        }))
+        .map(p => {
+            const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+            const slices = sliceOf(p);
+            const lowSlices = slices.filter(s => s.stock <= min);
+            const status = slices.every(s => s.stock === 0) ? 'out_of_stock'
+                          : lowSlices.length ? 'low_stock'
+                          : 'in_stock';
+            return {
+                product: p,
+                status,
+                qty: slices.reduce((t, s) => t + s.stock, 0),
+                min,
+                lowSlices,
+            };
+        })
         .filter(item => item.status !== 'in_stock')
         .sort((a, b) => {
-            // Out-of-stock items first, then lowest qty relative to min
             if (a.status !== b.status) return a.status === 'out_of_stock' ? -1 : 1;
             return (a.qty - a.min) - (b.qty - b.min);
         })
@@ -1542,12 +1571,23 @@ function renderLowStockWidget() {
         return;
     }
     
-    listEl.innerHTML = alerts.map(({ product, status, qty, min }) => {
+    listEl.innerHTML = alerts.map(({ product, status, qty, min, lowSlices }) => {
         const isOut = status === 'out_of_stock';
         const color = isOut ? 'orange' : 'blue';
         const icon = isOut ? 'fa-times-circle' : 'fa-exclamation-triangle';
         const badgeClass = isOut ? 'stock-badge out-of-stock' : 'stock-badge low-stock';
-        const badgeLabel = isOut ? 'Out of Stock' : `Low: ${qty} / ${min}`;
+
+        const sliceNames = (lowSlices || [])
+            .map(s => [s.size, s.brand].filter(Boolean).join(' · '))
+            .filter(Boolean);
+        const badgeLabel = isOut
+            ? 'Out of Stock'
+            : (sliceNames.length > 1 ? `${sliceNames.length} low` : `Low: ${qty} / ${min}`);
+
+        const detail = sliceNames.length && sliceNames.length <= 3
+            ? `Low: ${sliceNames.join(', ')}`
+            : `Product Code: ${escapeCustomerText(product.sku || 'N/A')} · Qty: ${qty}`;
+
         return `
             <div class="activity-item" style="cursor: pointer;" onclick="window.navigateToPage?.('inventory')">
                 <div class="activity-icon ${color}">
@@ -1555,7 +1595,7 @@ function renderLowStockWidget() {
                 </div>
                 <div class="activity-content" style="flex: 1;">
                     <p><strong>${escapeCustomerText(product.name)}</strong></p>
-                    <span class="activity-time">Product Code: ${escapeCustomerText(product.sku || 'N/A')} · Qty: ${qty}</span>
+                    <span class="activity-time">${detail}</span>
                 </div>
                 <span class="${badgeClass}">${badgeLabel}</span>
             </div>
@@ -1801,11 +1841,16 @@ function renderAiRestock(container, subtitleEl, data) {
         const days = (item.daysLeft != null && isFinite(item.daysLeft) && item.daysLeft < 999)
             ? ` · ${Number(item.daysLeft).toFixed(1)} days left`
             : '';
+        // Slice label pill (S, M, L, Bosny, etc.) — only shown when the
+        // product tracks per-size or per-brand stock.
+        const sliceLabel = item.label
+            ? `<span class="ai-restock-slice">${escapeCustomerText(item.label)}</span>`
+            : '';
         return `
             <div class="ai-restock-item">
                 <div class="ai-restock-icon ${urgency}"><i class="fas ${iconFor(urgency)}"></i></div>
                 <div class="ai-restock-body">
-                    <span class="ai-restock-name">${escapeCustomerText(item.name)}</span>
+                    <span class="ai-restock-name">${escapeCustomerText(item.name)}${sliceLabel}</span>
                     <span class="ai-restock-reason">${escapeCustomerText(item.reason || '')}${days}</span>
                 </div>
                 <div class="ai-restock-action">Order ${escapeCustomerText(item.recommendedOrder ?? '?')}</div>
@@ -3176,22 +3221,57 @@ window.addEventListener('inventory-products-loaded', () => {
             }[c]));
         }
 
+        function getStockSlices(product) {
+            // Mirror the inventory.js slice order so this bell agrees with
+            // the Inventory page and the restock panel.
+            const v = product.variants;
+            if (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length) {
+                return Object.entries(v)
+                    .filter(([, val]) => val && typeof val === 'object')
+                    .map(([key, val]) => {
+                        const [size, brand] = String(key).split('::');
+                        return { size: size || '', brand: brand || '', stock: Number(val.stock) || 0 };
+                    });
+            }
+            const ss = product.sizeStocks;
+            if (ss && typeof ss === 'object' && !Array.isArray(ss) && Object.keys(ss).length) {
+                return Object.entries(ss).map(([size, stock]) => ({ size, brand: '', stock: Number(stock) || 0 }));
+            }
+            const bs = product.brandStocks;
+            if (bs && typeof bs === 'object' && !Array.isArray(bs) && Object.keys(bs).length) {
+                return Object.entries(bs).map(([brand, stock]) => ({ size: '', brand, stock: Number(stock) || 0 }));
+            }
+            return [{ size: '', brand: '', stock: Number(product.quantity) || 0 }];
+        }
+
         function getAlerts() {
             const products = window.getInventorySnapshot?.() || [];
-            return products
-                .map(p => {
-                    const qty = Number(p.quantity) || 0;
-                    const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
-                    let status = null;
-                    if (qty === 0) status = 'out_of_stock';
-                    else if (qty <= min + LOW_STOCK_BUFFER) status = 'low_stock';
-                    return status ? { product: p, qty, min, status } : null;
-                })
-                .filter(Boolean)
-                .sort((a, b) => {
-                    if (a.status !== b.status) return a.status === 'out_of_stock' ? -1 : 1;
-                    return (a.qty - a.min) - (b.qty - b.min);
+            const alerts = [];
+            for (const p of products) {
+                const min = Number(p.minStock ?? p.min_stock ?? 0) || 0;
+                const slices = getStockSlices(p);
+                const lowSlices = slices.filter(s => s.stock <= min + LOW_STOCK_BUFFER);
+                if (!lowSlices.length) continue;
+
+                // Whole product is out if every slice is 0
+                const allZero = slices.every(s => s.stock === 0);
+                const status = allZero ? 'out_of_stock' : 'low_stock';
+
+                // Aggregate qty displayed — sum across slices for the row
+                const totalQty = slices.reduce((t, s) => t + s.stock, 0);
+                alerts.push({
+                    product: p,
+                    qty: totalQty,
+                    min,
+                    status,
+                    sliceCount: lowSlices.length,
+                    lowSlices,
                 });
+            }
+            return alerts.sort((a, b) => {
+                if (a.status !== b.status) return a.status === 'out_of_stock' ? -1 : 1;
+                return (a.qty - a.min) - (b.qty - b.min);
+            });
         }
 
         function renderBadge(alerts) {
@@ -3220,12 +3300,22 @@ window.addEventListener('inventory-products-loaded', () => {
             }
 
             const visible = alerts.slice(0, MAX_VISIBLE);
-            list.innerHTML = visible.map(({ product, qty, min, status }) => {
+            list.innerHTML = visible.map(({ product, qty, min, status, sliceCount, lowSlices }) => {
                 const isOut = status === 'out_of_stock';
                 const badgeClass = isOut ? 'stock-badge out-of-stock' : 'stock-badge low-stock';
-                const badgeLabel = isOut ? 'Out of Stock' : `Low: ${qty} / ${min}`;
+                const badgeLabel = isOut
+                    ? 'Out of Stock'
+                    : (sliceCount > 1 ? `${sliceCount} sizes low` : `Low: ${qty} / ${min}`);
                 const icon = isOut ? 'fa-times-circle' : 'fa-exclamation-triangle';
                 const iconClass = isOut ? 'orange' : 'blue';
+
+                // Show the specific slice names when there are 1-3 low ones
+                const sliceHint = (sliceCount > 0 && sliceCount <= 3 && !isOut)
+                    ? `<div class="notification-slices">${lowSlices
+                          .map(s => escapeHtml([s.size, s.brand].filter(Boolean).join(' · ') || 'stock'))
+                          .join(', ')}</div>`
+                    : '';
+
                 return `
                     <button type="button" class="notification-item">
                         <div class="notification-icon ${iconClass}">
@@ -3234,6 +3324,7 @@ window.addEventListener('inventory-products-loaded', () => {
                         <div class="notification-body">
                             <p class="notification-title">${escapeHtml(product.name)}</p>
                             <span class="notification-meta">${escapeHtml(product.sku || 'N/A')} · Qty ${qty}${min ? ` / min ${min}` : ''}</span>
+                            ${sliceHint}
                         </div>
                         <span class="${badgeClass}">${badgeLabel}</span>
                     </button>`;

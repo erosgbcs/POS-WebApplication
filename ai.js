@@ -169,9 +169,14 @@
                 const result = {
                     items: items.map(i => ({
                         name: i.name,
+                        label: i.label || '',
+                        size: i.size || '',
+                        brand: i.brand || '',
                         urgency: i.urgency || 'low',
                         daysLeft: i.days_left != null ? Number(i.days_left) : null,
                         recommendedOrder: i.recommended_order != null ? Number(i.recommended_order) : 0,
+                        stock: i.stock != null ? Number(i.stock) : null,
+                        minStock: i.min_stock != null ? Number(i.min_stock) : null,
                         reason: i.reason || ''
                     })),
                     summary: json.response || ''

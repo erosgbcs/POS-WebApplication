@@ -10198,3 +10198,37 @@ html:not([data-theme="light"]) .product-image-choose:hover {
 [data-theme="light"] .gcash-reference-error {
     color: #b91c1c;
 }
+
+/* AI restock: slice label pill (S, M, L, Bosny, etc.) */
+.ai-restock-slice {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: rgba(250, 204, 21, 0.15);
+    color: #FACC15;
+    vertical-align: middle;
+}
+
+[data-theme="light"] .ai-restock-slice {
+    background: rgba(224, 163, 0, 0.15);
+    color: #8a5a00;
+}
+
+/* Notifications panel: which slices are low */
+.notification-slices {
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: #fb923c;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-theme="light"] .notification-slices {
+    color: #9a3412;
+}
