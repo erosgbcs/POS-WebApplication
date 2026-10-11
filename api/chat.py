@@ -152,8 +152,17 @@ def process_request(body: dict, authorization: str) -> dict:
 
     # ---- 6. AI fallback for conversational POS questions ----
     from _lib.ai_providers import ask_ai
+    from _lib.handlers import build_ai_context
 
-    ai = ask_ai(AI_SYSTEM_PROMPT, message)
+    # Build a compact, question-specific data snapshot so the AI
+    # reasons on real numbers instead of guessing.
+    context = build_ai_context(message)
+    augmented_prompt = (
+        f"STORE_DATA:\n{json.dumps(context, indent=2)}\n\n"
+        f"User question: {message}"
+    )
+
+    ai = ask_ai(AI_SYSTEM_PROMPT, augmented_prompt)
     if ai.get("text"):
         return {
             "success": True,

@@ -510,14 +510,212 @@ def dispatch_intent(intent: str, ctx: dict):
 # AI system prompt (only for open-ended follow-ups)
 # ----------------------------------------------------------------
 AI_SYSTEM_PROMPT = (
-    "You are Kirby's Hardware POS assistant. You answer only questions "
-    "about this store's sales, inventory, orders, customers, and operations. "
-    "You never invent numbers, product names, or transactions. "
-    "If you are not given data that answers the question, reply: "
-    "\"I don't have enough data to answer that.\" "
-    "Reply in 1-2 short sentences. No markdown. "
-    "IMPORTANT: Reply in the same language the user wrote in. "
-    "If the user wrote in Tagalog or Taglish, reply in natural Tagalog/Taglish. "
-    "If the user wrote in English, reply in English. "
-    "The store is in Bulacan, Philippines. All amounts are in PHP."
+    "You are Kirby's Hardware POS assistant. You answer questions about "
+    "this store's sales, inventory, orders, customers, and operations.\n"
+    "\n"
+    "You will be given a JSON block titled STORE_DATA containing real, "
+    "current aggregates from the store's database. Use ONLY those numbers "
+    "when answering. NEVER invent numbers, product names, or transactions "
+    "that are not present in STORE_DATA.\n"
+    "\n"
+    "If STORE_DATA does not contain the information needed to answer, "
+    "reply with exactly: \"I don't have enough data to answer that.\"\n"
+    "\n"
+    "When you do have data:\n"
+    "- Answer in 2-4 short sentences.\n"
+    "- Cite actual numbers from STORE_DATA (PHP amounts, unit counts).\n"
+    "- When comparing trends, mention the percentage change if present.\n"
+    "- When giving advice, base it on the actual top products, low-stock "
+    "items, or revenue trend shown in STORE_DATA.\n"
+    "- No markdown, no bullet lists — plain sentences.\n"
+    "\n"
+    "Reply in the same language the user wrote in. Tagalog/Taglish in → "
+    "Tagalog/Taglish out. English in → English out.\n"
+    "\n"
+    "The store is in Bulacan, Philippines. All amounts are in PHP. "
+    "The metric is gross revenue (orders.total summed)."
 )
+# ----------------------------------------------------------------
+# AI CONTEXT — compact business snapshot for open-ended questions
+# ----------------------------------------------------------------
+
+def _classify_context_need(message: str) -> str:
+    """
+    Decide which slice of data the AI needs to answer this question.
+    Returns one of: 'sales', 'inventory', 'customers', 'both', 'none'.
+    """
+    m = (message or "").lower()
+
+    wants_sales = any(w in m for w in (
+        "sales", "revenue", "earned", "profit", "income",
+        "benta", "kita", "kumita", "trend", "down", "up",
+        "growth", "compare", "performance", "analyze", "analysis",
+    ))
+    wants_inventory = any(w in m for w in (
+        "stock", "inventory", "product", "restock", "reorder",
+        "supply", "item", "shelf", "shop", "shop",
+    ))
+    wants_customers = any(w in m for w in (
+        "customer", "buyer", "client", "loyal", "repeat",
+    ))
+
+    hits = sum([wants_sales, wants_inventory, wants_customers])
+    if hits == 0:
+        return "both"       # default: give sales + inventory summary
+    if hits >= 2:
+        return "both"
+    if wants_sales:
+        return "sales"
+    if wants_inventory:
+        return "inventory"
+    return "customers"
+
+
+def _build_sales_summary() -> dict:
+    """Aggregated sales: today, last 7, last 30, top products."""
+    today = now_manila().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    last_7_start = today - timedelta(days=6)
+    last_30_start = today - timedelta(days=29)
+
+    orders_30d = get_orders_in_range(last_30_start, today + timedelta(days=1))
+    orders_30d = [o for o in orders_30d if not _order_is_cancelled(o)]
+
+    # Bucket by day
+    daily = {}
+    for o in orders_30d:
+        dt = parse_iso(o.get("createdAt") or "")
+        if dt is None:
+            continue
+        key = dt.astimezone(STORE_TZ).strftime("%Y-%m-%d")
+        daily[key] = daily.get(key, 0.0) + _order_total(o)
+
+    today_key = today.strftime("%Y-%m-%d")
+    today_rev = round(daily.get(today_key, 0.0), 2)
+
+    # Last 7 and last 30 revenue
+    rev_7 = round(sum(
+        daily.get((today - timedelta(days=i)).strftime("%Y-%m-%d"), 0.0)
+        for i in range(7)
+    ), 2)
+    rev_30 = round(sum(daily.values()), 2)
+
+    # Prior 7 days for a delta
+    rev_prev_7 = round(sum(
+        daily.get((today - timedelta(days=i)).strftime("%Y-%m-%d"), 0.0)
+        for i in range(7, 14)
+    ), 2)
+
+    # Top 8 products by units in last 30 days
+    counts = {}
+    for o in orders_30d:
+        for item in (o.get("items") or []):
+            name = str(item.get("name") or "").strip()
+            qty = float(item.get("quantity") or 0)
+            if name and qty > 0:
+                counts[name] = counts.get(name, 0.0) + qty
+    top_products = [
+        {"name": n, "units_sold_30d": int(v)}
+        for n, v in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:8]
+    ]
+
+    # Daily series (last 7)
+    daily_series = [
+        {
+            "date": (today - timedelta(days=i)).strftime("%Y-%m-%d"),
+            "revenue": round(daily.get((today - timedelta(days=i)).strftime("%Y-%m-%d"), 0.0), 2),
+        }
+        for i in range(6, -1, -1)
+    ]
+
+    delta_pct = None
+    if rev_prev_7 > 0:
+        delta_pct = round(((rev_7 - rev_prev_7) / rev_prev_7) * 100, 1)
+
+    return {
+        "today_revenue_php": today_rev,
+        "last_7_days_revenue_php": rev_7,
+        "previous_7_days_revenue_php": rev_prev_7,
+        "week_over_week_change_pct": delta_pct,
+        "last_30_days_revenue_php": rev_30,
+        "order_count_30d": len(orders_30d),
+        "daily_series_last_7": daily_series,
+        "top_products_last_30d": top_products,
+        "metric": "gross_revenue_php",
+        "timezone": "Asia/Manila",
+    }
+
+
+def _build_inventory_summary() -> dict:
+    """Aggregated inventory: counts, low stock, out of stock."""
+    products = get_all_inventory()
+    low = [p for p in products if _is_low_stock(p)]
+    out = [p for p in products if _is_out_of_stock(p)]
+
+    return {
+        "total_products": len(products),
+        "low_stock_count": len(low),
+        "out_of_stock_count": len(out),
+        "low_stock_items": [
+            {
+                "name": p.get("name"),
+                "quantity": int(float(p.get("quantity") or 0)),
+                "min_stock": int(float(p.get("min_stock") or 0)),
+            }
+            for p in low[:8]
+        ],
+        "out_of_stock_items": [
+            {"name": p.get("name")} for p in out[:8]
+        ],
+    }
+
+
+def _build_customer_summary() -> dict:
+    """Aggregated customer stats."""
+    # We don't have a get_all_customers in firebase_client — pull orders
+    # instead and derive unique customer names from the last 30 days.
+    today = now_manila().replace(hour=0, minute=0, second=0, microsecond=0)
+    start = today - timedelta(days=29)
+    orders = get_orders_in_range(start, today + timedelta(days=1))
+    orders = [o for o in orders if not _order_is_cancelled(o)]
+
+    spend = {}
+    order_counts = {}
+    for o in orders:
+        name = str(o.get("customerName") or "").strip() or "Walk-in"
+        spend[name] = spend.get(name, 0.0) + _order_total(o)
+        order_counts[name] = order_counts.get(name, 0) + 1
+
+    top = [
+        {"name": n, "total_spent_php": round(spend[n], 2), "orders": order_counts[n]}
+        for n in sorted(spend, key=lambda k: spend[k], reverse=True)[:5]
+        if n != "Walk-in"
+    ]
+
+    return {
+        "unique_customers_30d": len(spend),
+        "top_customers_last_30d": top,
+    }
+
+
+def build_ai_context(message: str) -> dict:
+    """
+    Return a compact business snapshot tailored to the question.
+    Never includes raw transaction rows — only aggregates.
+    """
+    need = _classify_context_need(message)
+    ctx = {"as_of": now_manila().isoformat(), "store_timezone": "Asia/Manila"}
+
+    try:
+        if need in ("sales", "both"):
+            ctx["sales"] = _build_sales_summary()
+        if need in ("inventory", "both"):
+            ctx["inventory"] = _build_inventory_summary()
+        if need in ("customers", "both"):
+            ctx["customers"] = _build_customer_summary()
+    except Exception as exc:
+        # Never let context-build crash the chat — just log and continue.
+        import sys
+        print(f"[ai-context] failed: {exc}", file=sys.stderr)
+
+    return ctx
