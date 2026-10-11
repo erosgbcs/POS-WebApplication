@@ -385,5 +385,17 @@ class NLPEngine:
 
     def is_pos_relevant(self, text: str) -> bool:
         normalized = self.normalize(text)
-        tokens = set(normalized.split())
+        tokens = set()
+
+        # Split on whitespace and take each token plus its apostrophe
+        # base form. So "store's" contributes both "store's" AND "store",
+        # which lets anchor words match even when the user writes
+        # possessives ("my store's sales", "the customer's order").
+        for raw in normalized.split():
+            tokens.add(raw)
+            # "store's" -> "store",  "customer's" -> "customer"
+            base = raw.split("'", 1)[0]
+            if base:
+                tokens.add(base)
+
         return bool(tokens & self.POS_ANCHOR_WORDS)
