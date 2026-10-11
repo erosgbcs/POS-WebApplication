@@ -178,7 +178,17 @@ class NLPEngine:
         if len(text) > MAX_INPUT_CHARS:
             text = text[:MAX_INPUT_CHARS]
         text = text.lower()
-        text = re.sub(r"[^\w\s\?\.\,\-\']", " ", text)
+
+        # Strip punctuation (keep apostrophes inside words).
+        text = re.sub(r"[^\w\s']", " ", text)
+
+        # Split compound words users frequently mash together so phrase
+        # matching can see "next week" instead of "nextweek".
+        for token in ("week", "month", "year", "day"):
+            text = re.sub(rf"\bnext\s*{token}\b", f"next {token}", text)
+            text = re.sub(rf"\blast\s*{token}\b", f"last {token}", text)
+            text = re.sub(rf"\bthis\s*{token}\b", f"this {token}", text)
+
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
