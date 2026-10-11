@@ -89,51 +89,85 @@ let productCache = {};
 let productCatalogLoaded = false;
 let productCatalogLoadPromise = null;
 
-function hasSizeStocks(product) {
-    return Boolean(product?.sizeStocks && typeof product.sizeStocks === 'object' && !Array.isArray(product.sizeStocks));
+/* ============================================================
+   UNIFIED OPTION HANDLING (0/1/2 option groups)
+   ============================================================ */
+
+function hasOptions(product) {
+    return !!(product && Array.isArray(product.options) && product.options.length > 0);
 }
 
-function hasBrandStocks(product) {
-    return Boolean(product?.brandStocks && typeof product.brandStocks === 'object' && !Array.isArray(product.brandStocks));
+function makeVariantKey(values) {
+    return (Array.isArray(values) ? values : []).filter(Boolean).join('::');
 }
 
-function hasVariantMatrix(product) {
-    return Boolean(product?.variants && typeof product.variants === 'object' && !Array.isArray(product.variants));
+/**
+ * Normalize legacy Firestore shapes (sizeStocks / brandStocks /
+ * legacy variants without options) to the new { options, variants }
+ * shape. Safe to call repeatedly.
+ */
+function normalizeProductForPos(raw) {
+    if (!raw || typeof raw !== 'object') return raw;
+    if (raw.options !== undefined) return raw;
+
+    if (raw.variants && typeof raw.variants === 'object' && Object.keys(raw.variants).length) {
+        const keys = Object.keys(raw.variants);
+        const isMatrix = keys.some(k => String(k).includes('::'));
+        let options;
+        if (isMatrix) {
+            const s = new Set(), b = new Set();
+            keys.forEach(k => { const [a, c] = String(k).split('::'); if (a) s.add(a); if (c) b.add(c); });
+            options = [];
+            if (s.size) options.push({ name: 'Size', values: [...s] });
+            if (b.size) options.push({ name: 'Brand', values: [...b] });
+        } else {
+            options = [{ name: 'Variant', values: keys }];
+        }
+        return { ...raw, options, variants: raw.variants };
+    }
+    if (raw.sizeStocks && Object.keys(raw.sizeStocks).length) {
+        const variants = {};
+        Object.entries(raw.sizeStocks).forEach(([v, s]) => {
+            variants[v] = { price: null, stock: Math.max(0, Number(s) || 0) };
+        });
+        return { ...raw, options: [{ name: 'Size', values: Object.keys(raw.sizeStocks) }], variants };
+    }
+    if (raw.brandStocks && Object.keys(raw.brandStocks).length) {
+        const variants = {};
+        Object.entries(raw.brandStocks).forEach(([v, s]) => {
+            variants[v] = { price: null, stock: Math.max(0, Number(s) || 0) };
+        });
+        return { ...raw, options: [{ name: 'Brand', values: Object.keys(raw.brandStocks) }], variants };
+    }
+    return { ...raw, options: null, variants: null };
 }
 
 function getAvailableStock(product, size = '', brand = '') {
     if (!product) return Infinity;
-    if (hasVariantMatrix(product)) {
-        const v = product.variants[`${size}::${brand}`];
-        return Math.max(0, Number(v?.stock) || 0);
-    }
-    if (hasSizeStocks(product)) return Math.max(0, Number(product.sizeStocks[size]) || 0);
-    if (hasBrandStocks(product)) return Math.max(0, Number(product.brandStocks[brand]) || 0);
-    return Math.max(0, Number(product.quantity) || 0);
+    if (!hasOptions(product)) return Math.max(0, Number(product.quantity) || 0);
+    const key = makeVariantKey([size, brand]);
+    const v = (product.variants || {})[key];
+    return Math.max(0, Number(v?.stock) || 0);
 }
 
 function getTotalStock(product) {
-    if (hasVariantMatrix(product)) {
-        return Object.values(product.variants).reduce((t, v) => t + (Number(v.stock) || 0), 0);
-    }
-    if (hasSizeStocks(product)) {
-        return Object.values(product.sizeStocks).reduce((total, stock) => total + (Number(stock) || 0), 0);
-    }
-    if (hasBrandStocks(product)) {
-        return Object.values(product.brandStocks).reduce((total, stock) => total + (Number(stock) || 0), 0);
-    }
-    return Math.max(0, Number(product?.quantity) || 0);
+    if (!product) return 0;
+    if (!hasOptions(product)) return Math.max(0, Number(product.quantity) || 0);
+    return Object.values(product.variants || {}).reduce((t, v) => t + (Number(v?.stock) || 0), 0);
 }
 
-// Returns the effective price for a (size, brand) combination
 function getVariantPrice(product, size = '', brand = '') {
     if (!product) return 0;
-    if (hasVariantMatrix(product)) {
-        const v = product.variants[`${size}::${brand}`];
-        if (!v) return 0;
-        return v.price != null ? Number(v.price) : (Number(product.price) || 0);
-    }
-    return Number(product.price) || 0;
+    if (!hasOptions(product)) return Number(product.price) || 0;
+    const key = makeVariantKey([size, brand]);
+    const v = (product.variants || {})[key];
+    if (!v || v.price == null) return Number(product.price) || 0;
+    return Number(v.price) || 0;
+}
+
+function getOptionGroup(product, index) {
+    if (!hasOptions(product)) return null;
+    return product.options[index] || null;
 }
 
 const PENDING_SALES_KEY = 'pos_order_queue';
@@ -266,19 +300,11 @@ window.addEventListener('pos-queue-flush-request', flushPendingSales);
 function getCartMax(name, size, brand, currentCartKey = '') {
     const product = productCache[name];
     const available = getAvailableStock(product, size, brand);
-    const perSize = hasSizeStocks(product);
-    const perBrand = hasBrandStocks(product);
-    const perVariant = hasVariantMatrix(product);
     const alreadyAllocated = Object.entries(cart).reduce((total, [cartKey, quantity]) => {
         if (cartKey === currentCartKey) return total;
         const item = parseCartKey(cartKey);
         if (item.name !== name) return total;
-        if (perVariant) {
-            if (item.size !== size || item.brand !== brand) return total;
-        } else {
-            if (perSize && item.size !== size) return total;
-            if (perBrand && item.brand !== brand) return total;
-        }
+        if (item.size !== size || item.brand !== brand) return total;
         return total + quantity;
     }, 0);
     return Math.max(0, available - alreadyAllocated);
@@ -290,75 +316,41 @@ function buildStockUpdates(items) {
         const product = productCache[item.name];
         if (!product?.id) continue;
         if (!decrements.has(product.id)) {
-            decrements.set(product.id, { product, quantity: 0, bySize: {}, byBrand: {}, byVariant: {} });
+            decrements.set(product.id, { product, sharedQty: 0, byVariant: {} });
         }
-        const decrement = decrements.get(product.id);
-        if (hasVariantMatrix(product)) {
-            const key = `${item.size}::${item.brand}`;
-            decrement.byVariant[key] = (decrement.byVariant[key] || 0) + item.quantity;
-        } else if (hasSizeStocks(product) && item.size) {
-            decrement.bySize[item.size] = (decrement.bySize[item.size] || 0) + item.quantity;
-        } else if (hasBrandStocks(product) && item.brand) {
-            decrement.byBrand[item.brand] = (decrement.byBrand[item.brand] || 0) + item.quantity;
+        const dec = decrements.get(product.id);
+        if (!hasOptions(product)) {
+            dec.sharedQty += item.quantity;
         } else {
-            decrement.quantity += item.quantity;
+            const key = makeVariantKey([item.size, item.brand]);
+            dec.byVariant[key] = (dec.byVariant[key] || 0) + item.quantity;
         }
     }
 
-    return [...decrements.values()].map(({ product, quantity, bySize, byBrand, byVariant }) => {
-        if (hasVariantMatrix(product)) {
-            const variants = {};
-            for (const [key, v] of Object.entries(product.variants)) {
-                variants[key] = { ...v };
-            }
-            for (const [key, sold] of Object.entries(byVariant)) {
-                if (variants[key]) {
-                    variants[key].stock = Math.max(0, variants[key].stock - sold);
-                }
-            }
+    return [...decrements.values()].map(({ product, sharedQty, byVariant }) => {
+        if (!hasOptions(product)) {
             return {
                 product,
                 productId: product.id,
-                updates: {
-                    variants,
-                    quantity: Object.values(variants).reduce((t, v) => t + (Number(v.stock) || 0), 0)
-                }
+                updates: { quantity: Math.max(0, (Number(product.quantity) || 0) - sharedQty) }
             };
         }
-        if (hasSizeStocks(product)) {
-            const sizeStocks = { ...product.sizeStocks };
-            for (const [size, soldQuantity] of Object.entries(bySize)) {
-                sizeStocks[size] = Math.max(0, (Number(sizeStocks[size]) || 0) - soldQuantity);
+        const variants = {};
+        for (const [key, v] of Object.entries(product.variants || {})) {
+            variants[key] = { ...v };
+        }
+        for (const [key, sold] of Object.entries(byVariant)) {
+            if (variants[key]) {
+                variants[key].stock = Math.max(0, (Number(variants[key].stock) || 0) - sold);
             }
-            return {
-                product,
-                productId: product.id,
-                updates: {
-                    sizeStocks,
-                    quantity: Object.values(sizeStocks).reduce((total, stock) => total + (Number(stock) || 0), 0)
-                }
-            };
         }
-
-        if (hasBrandStocks(product)) {
-            const brandStocks = { ...product.brandStocks };
-            for (const [brand, soldQuantity] of Object.entries(byBrand)) {
-                brandStocks[brand] = Math.max(0, (Number(brandStocks[brand]) || 0) - soldQuantity);
-            }
-            return {
-                product,
-                productId: product.id,
-                updates: {
-                    brandStocks,
-                    quantity: Object.values(brandStocks).reduce((total, stock) => total + (Number(stock) || 0), 0)
-                }
-            };
-        }
-
         return {
             product,
             productId: product.id,
-            updates: { quantity: Math.max(0, (Number(product.quantity) || 0) - quantity) }
+            updates: {
+                variants,
+                quantity: Object.values(variants).reduce((t, v) => t + (Number(v.stock) || 0), 0)
+            }
         };
     });
 }
@@ -408,87 +400,73 @@ function renderProductCatalog(products) {
     if (!productGrid) return;
     productCatalogLoaded = true;
 
-    // Keep the full list around — every filter re-render reads from here
-    posAllProducts = Array.isArray(products) ? products : [];
+    posAllProducts = (Array.isArray(products) ? products : []).map(normalizeProductForPos);
 
-    // Build name -> product lookup from the FULL list (cart pricing,
-    // stock lookups, decrement logic all depend on this).
     productCache = {};
     posAllProducts.forEach(p => { if (p.name) productCache[p.name] = p; });
 
-    // Sync the dropdown (populates once, preserves selection thereafter)
     populatePosCategoryFilter(posAllProducts);
 
-    // Only render the selected slice
     const visible = posCategoryFilter
         ? posAllProducts.filter(p => (p.category || 'uncategorized') === posCategoryFilter)
         : posAllProducts;
 
     productGrid.innerHTML = visible.map(product => {
         const qty = getTotalStock(product);
-        const sizes = String(product.size || '').split(',').map(s => s.trim()).filter(Boolean);
-        const brands = String(product.brand || '').split(',').map(b => b.trim()).filter(Boolean);
+        const opts = Array.isArray(product.options) ? product.options : [];
 
-        // Optional product image thumbnail
         const imageHtml = product.image
             ? `<div class="product-card-image"><img src="${product.image}" alt="${escapeHtml(product.name)}" loading="lazy"></div>`
             : '';
 
-        // Stock badge
         let stockClass = 'in-stock';
         let stockLabel = `${qty} in stock`;
-        if (qty === 0) {
-            stockClass = 'out-of-stock';
-            stockLabel = 'Out of stock';
-        } else if (qty <= 5) {
-            stockClass = 'low-stock';
-            stockLabel = `${qty} left`;
-        }
+        if (qty === 0) { stockClass = 'out-of-stock'; stockLabel = 'Out of stock'; }
+        else if (qty <= 5) { stockClass = 'low-stock'; stockLabel = `${qty} left`; }
 
-        // Meta line: category + SKU
         const category = product.category || 'uncategorized';
         const sku = product.sku || 'N/A';
         const meta = `${escapeHtml(category)} · ${escapeHtml(sku)}`;
 
-        // Size chips
-        const sizesHtml = sizes.length ?
-            `<div class="product-card-chips">${sizes.map(size => `<span class="size-chip">${escapeHtml(size)}${hasSizeStocks(product) ? ` · ${getAvailableStock(product, size)}` : ''}</span>`).join('')}</div>` :
-            '';
+        let chipsHtml = '';
+        if (opts.length === 1) {
+            chipsHtml = `<div class="product-card-chips">${(opts[0].values || []).map(v => {
+                const s = getAvailableStock(product, v, '');
+                const cls = s <= 0 ? ' size-chip-out' : '';
+                const stockBit = s > 0 ? ` · ${s}` : ' · 0';
+                return `<span class="size-chip${cls}">${escapeHtml(v)}${stockBit}</span>`;
+            }).join('')}</div>`;
+        } else if (opts.length >= 2) {
+            chipsHtml =
+                `<div class="product-card-chips">${(opts[0].values || []).map(v =>
+                    `<span class="size-chip">${escapeHtml(v)}</span>`).join('')}</div>` +
+                `<div class="product-card-chips">${(opts[1].values || []).map(v =>
+                    `<span class="size-chip brand-chip"><i class="fas fa-tag"></i> ${escapeHtml(v)}</span>`).join('')}</div>`;
+        }
 
-        // Brand chips
-        const brandsHtml = brands.length ?
-            `<div class="product-card-chips">${brands.map(brand => `<span class="size-chip brand-chip"><i class="fas fa-tag"></i> ${escapeHtml(brand)}${hasBrandStocks(product) ? ` · ${getAvailableStock(product, '', brand)}` : ''}</span>`).join('')}</div>` :
-            '';
-
-        const sizeOptions = sizes.length ? ` data-size-options="${sizes.map(escapeHtml).join(',')}"` : '';
-        const brandOptions = brands.length ? ` data-brand-options="${brands.map(escapeHtml).join(',')}"` : '';
-        const variantPricesAttr = hasVariantMatrix(product)
-            ? ` data-variant-prices="${escapeHtml(JSON.stringify(product.variants))}"`
-            : '';
+        const optionsAttr = opts.length ? ` data-options="${escapeHtml(JSON.stringify(opts))}"` : '';
         const outClass = qty === 0 ? ' is-out-of-stock' : '';
 
-        // Display price: range for matrix, base otherwise
         let displayPrice = formatCurrency(product.price);
-        if (hasVariantMatrix(product)) {
-            const prices = Object.values(product.variants).map(v => v.price).filter(p => p != null);
+        if (hasOptions(product)) {
+            const prices = Object.values(product.variants || {})
+                .map(v => v && v.price != null ? Number(v.price) : null)
+                .filter(p => p != null);
             if (prices.length > 0) {
                 const min = Math.min(...prices);
                 const max = Math.max(...prices);
-                displayPrice = min === max
-                    ? formatCurrency(min)
-                    : `${formatCurrency(min)} – ${formatCurrency(max)}`;
+                displayPrice = min === max ? formatCurrency(min) : `${formatCurrency(min)} – ${formatCurrency(max)}`;
             }
         }
 
-        return `<div class="product-card${outClass}" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-category="${escapeHtml(category)}" data-stock="${qty}"${sizeOptions}${brandOptions}${variantPricesAttr}>
+        return `<div class="product-card${outClass}" data-id="${product.id}" data-name="${escapeHtml(product.name)}" data-price="${product.price}" data-category="${escapeHtml(category)}" data-stock="${qty}"${optionsAttr}>
             ${imageHtml}
             <div class="product-card-header">
                 <h4 class="product-card-name">${escapeHtml(product.name)}</h4>
                 <span class="product-card-stock ${stockClass}">${stockLabel}</span>
             </div>
             <div class="product-card-meta">${meta}</div>
-            ${sizesHtml}
-            ${brandsHtml}
+            ${chipsHtml}
             <div class="product-card-price">${displayPrice}</div>
         </div>`;
     }).join('');
@@ -788,95 +766,65 @@ function getProductPriceByName(name, cartKey = '') {
 }
 
     // --- Event delegation for product cards (click to add) ---
-    function showSizeSelector(card, name, price, sizeOptions, preselectedBrand) {
-        card.querySelector('.pos-size-selector')?.remove();
-        card.querySelector('.pos-brand-selector')?.remove();
-        const selector = document.createElement('select');
-        selector.className = 'pos-size-selector';
-        selector.setAttribute('aria-label', `Choose a size for ${name}`);
-        selector.innerHTML = '<option value="">Choose size</option>' + sizeOptions
-            .map(size => {
-                const available = getAvailableStock(productCache[name], size, preselectedBrand);
-                const stockLabel = hasSizeStocks(productCache[name]) ? ` (${available} left)` : '';
-                return `<option value="${escapeHtml(size)}" ${available <= 0 ? 'disabled' : ''}>${escapeHtml(size)}${stockLabel}</option>`;
-            })
-            .join('');
-        selector.addEventListener('change', () => {
-            if (!selector.value) return;
-            addToCart(name, price, selector.value, preselectedBrand);
-            selector.remove();
-        });
-        card.appendChild(selector);
-        selector.focus();
-    }
 
-    function showBrandSelector(card, name, price, brandOptions, preselectedSize) {
-        card.querySelector('.pos-size-selector')?.remove();
-        card.querySelector('.pos-brand-selector')?.remove();
+    /**
+     * Opens an inline <select> on the card so the cashier can pick
+     * the option value. `chain` is the array of values already chosen
+     * for earlier option groups. `groupIndex` identifies which group
+     * this selector is for.
+     */
+    function showOptionSelector(card, name, price, group, groupIndex, chain) {
+        card.querySelector('.pos-option-selector')?.remove();
+
         const selector = document.createElement('select');
-        selector.className = 'pos-size-selector pos-brand-selector';
-        selector.setAttribute('aria-label', `Choose a brand for ${name}`);
-        selector.innerHTML = '<option value="">Choose brand</option>' + brandOptions
-            .map(brand => {
-                const available = getAvailableStock(productCache[name], preselectedSize, brand);
-                const stockLabel = hasBrandStocks(productCache[name]) ? ` (${available} left)` : '';
-                return `<option value="${escapeHtml(brand)}" ${available <= 0 ? 'disabled' : ''}>${escapeHtml(brand)}${stockLabel}</option>`;
+        selector.className = 'pos-size-selector pos-option-selector';
+        selector.setAttribute('aria-label', `Choose ${group.name} for ${name}`);
+        const label = groupIndex === 0 ? `Choose ${group.name}` : `${groupIndex + 1}. ${group.name}`;
+        selector.innerHTML = `<option value="">${escapeHtml(label)}</option>` + (group.values || [])
+            .map(v => {
+                const testChain = [...chain, v];
+                const stock = getAvailableStock(productCache[name], testChain[0] || '', testChain[1] || '');
+                const disabled = stock <= 0 ? ' disabled' : '';
+                const suffix = stock > 0 ? ` (${stock} left)` : ' (0)';
+                return `<option value="${escapeHtml(v)}"${disabled}>${escapeHtml(v)}${suffix}</option>`;
             })
             .join('');
+
         selector.addEventListener('change', () => {
             if (!selector.value) return;
-            addToCart(name, price, preselectedSize, selector.value);
+            const chosen = selector.value;
+            const nextChain = [...chain, chosen];
             selector.remove();
+
+            const product = productCache[name];
+            const nextGroup = getOptionGroup(product, groupIndex + 1);
+            if (nextGroup) {
+                showOptionSelector(card, name, price, nextGroup, groupIndex + 1, nextChain);
+            } else {
+                addToCart(name, price, nextChain[0] || '', nextChain[1] || '');
+            }
         });
+
         card.appendChild(selector);
         selector.focus();
     }
 
     if (productGrid) {
         productGrid.addEventListener('click', (e) => {
-            if (e.target.closest('.pos-size-selector')) return;
-            if (e.target.closest('.pos-brand-selector')) return;
+            if (e.target.closest('.pos-option-selector')) return;
             const card = e.target.closest('.product-card');
             if (!card) return;
 
             const name = card.dataset.name;
-            const price = parseFloat(card.dataset.price);
-            const sizeOptions = (card.dataset.sizeOptions || '')
-                .split(',').map(s => s.trim()).filter(Boolean);
-            const brandOptions = (card.dataset.brandOptions || '')
-                .split(',').map(b => b.trim()).filter(Boolean);
+            const price = parseFloat(card.dataset.price) || 0;
+            let options = [];
+            try { options = JSON.parse(card.dataset.options || '[]'); } catch (err) { options = []; }
 
-            // Two-step selection when BOTH dimensions exist
-            if (sizeOptions.length > 0 && brandOptions.length > 0) {
-                card.querySelector('.pos-size-selector')?.remove();
-                card.querySelector('.pos-brand-selector')?.remove();
-                const sizeSel = document.createElement('select');
-                sizeSel.className = 'pos-size-selector';
-                sizeSel.setAttribute('aria-label', `Step 1: choose a size for ${name}`);
-                sizeSel.innerHTML = '<option value="">1. Size</option>' + sizeOptions
-                    .map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-                sizeSel.addEventListener('change', () => {
-                    if (!sizeSel.value) return;
-                    const chosenSize = sizeSel.value;
-                    sizeSel.remove();
-                    showBrandSelector(card, name, price, brandOptions, chosenSize);
-                });
-                card.appendChild(sizeSel);
-                sizeSel.focus();
+            if (options.length === 0) {
+                addToCart(name, price);
                 return;
             }
-
-            if (sizeOptions.length > 0) {
-                showSizeSelector(card, name, price, sizeOptions, '');
-                return;
-            }
-
-            if (brandOptions.length > 0) {
-                showBrandSelector(card, name, price, brandOptions, '');
-                return;
-            }
-
-            addToCart(name, price);
+            showOptionSelector(card, name, price, options[0], 0, []);
         });
     }
 
@@ -1434,13 +1382,19 @@ const phone = rawPhone.replace(/\D/g, '');
         for (const item of items) {
             const product = productCache[item.name];
             if (!product) continue;
-            const stockSize = hasSizeStocks(product) ? item.size : '';
-            const stockBrand = hasBrandStocks(product) ? item.brand : '';
-            const stockKey = JSON.stringify([product.id || item.name, stockSize, stockBrand]);
-            const requested = requestedStock.get(stockKey) || { product, size: stockSize, brand: stockBrand, quantity: 0 };
+            const stockKey = hasOptions(product)
+                ? JSON.stringify([product.id || item.name, item.size, item.brand])
+                : JSON.stringify([product.id || item.name, '', '']);
+            const requested = requestedStock.get(stockKey) || {
+                product,
+                size: item.size,
+                brand: item.brand,
+                quantity: 0
+            };
             requested.quantity += item.quantity;
             requestedStock.set(stockKey, requested);
         }
+
         const insufficientStock = [...requestedStock.values()].some(requested =>
             requested.quantity > getAvailableStock(requested.product, requested.size, requested.brand)
         );

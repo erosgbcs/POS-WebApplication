@@ -27,15 +27,6 @@ def _php(amount: float) -> str:
         return "PHP 0.00"
 
 
-def _is_low_stock(product: dict) -> bool:
-    qty = float(product.get("quantity") or 0)
-    min_qty = float(product.get("min_stock") or product.get("minStock") or 0)
-    return 0 < qty <= min_qty
-
-
-def _is_out_of_stock(product: dict) -> bool:
-    return float(product.get("quantity") or 0) <= 0
-
 
 def _order_total(order: dict) -> float:
     try:
@@ -400,36 +391,63 @@ def handle_sales_forecast(ctx):
 
 def _product_slices(product):
     """
-    Return [(size, brand, stock), ...] for every tracked stock slice.
-    Falls back to a single (``,``, total) tuple for non-variant products.
-    Mirrors the browser's getProductStockStatus() slice order.
+    Return [(label, stock), ...] for every tracked stock slice.
+
+    Unified shape:
+      options: [ {name, values}, ... ]   (present, non-empty → per-variant stock)
+      variants: { "v1::v2": {price, stock}, ... }
+
+    Legacy shapes (sizeStocks / brandStocks / variants without options)
+    are accepted for products not yet migrated.
     """
+    options = product.get("options")
+    if isinstance(options, list) and options:
+        variants = product.get("variants") or {}
+        out = []
+        for key, val in variants.items():
+            if not isinstance(val, dict):
+                continue
+            label = str(key).replace("::", " · ")
+            out.append((label, float(val.get("stock") or 0)))
+        return out or [("", float(product.get("quantity") or 0))]
+
+    # Legacy shapes — tolerate until every doc is migrated.
     variants = product.get("variants")
     if isinstance(variants, dict) and variants:
         out = []
         for key, val in variants.items():
             if not isinstance(val, dict):
                 continue
-            size, _, brand = str(key).partition("::")
-            stock = float(val.get("stock") or 0)
-            out.append((size.strip(), brand.strip(), stock))
-        return out or [("", "", float(product.get("quantity") or 0))]
+            label = str(key).replace("::", " · ")
+            out.append((label, float(val.get("stock") or 0)))
+        return out or [("", float(product.get("quantity") or 0))]
 
     size_stocks = product.get("sizeStocks")
     if isinstance(size_stocks, dict) and size_stocks:
-        return [(str(s).strip(), "", float(v or 0)) for s, v in size_stocks.items()]
+        return [(str(s).strip(), float(v or 0)) for s, v in size_stocks.items()]
 
     brand_stocks = product.get("brandStocks")
     if isinstance(brand_stocks, dict) and brand_stocks:
-        return [("", str(b).strip(), float(v or 0)) for b, v in brand_stocks.items()]
+        return [(str(b).strip(), float(v or 0)) for b, v in brand_stocks.items()]
 
-    return [("", "", float(product.get("quantity") or 0))]
+    return [("", float(product.get("quantity") or 0))]
 
 
-def _slice_label(size: str, brand: str) -> str:
-    if size and brand:
-        return f"{size} · {brand}"
-    return size or brand or ""
+def _is_low_stock(product: dict) -> bool:
+    """True when at least one tracked stock slice is 0 < qty <= min_stock."""
+    slices = _product_slices(product)
+    if not slices:
+        return False
+    min_qty = float(product.get("min_stock") or product.get("minStock") or 0)
+    return any(0 < q <= min_qty for _, q in slices)
+
+
+def _is_out_of_stock(product: dict) -> bool:
+    """True when every tracked stock slice is zero."""
+    slices = _product_slices(product)
+    if not slices:
+        return True
+    return all(q <= 0 for _, q in slices)
 
 
 def handle_restock_recommendation(ctx):
@@ -439,9 +457,8 @@ def handle_restock_recommendation(ctx):
     orders = get_orders_in_range(start, today + timedelta(days=1))
     orders = [o for o in orders if not _order_is_cancelled(o)]
 
-    # Bucket sold quantities per (name, size, brand) so the daily rate is
-    # computed against the SAME slice we're restocking. Sales records carry
-    # `size` and `brand` on each item (see pos.js commitSale payload).
+    # Bucket sold quantities per (name, label) using the same label
+    # format as _product_slices so the two sides line up.
     sold_slice = {}
     for o in orders:
         for item in (o.get("items") or []):
@@ -453,7 +470,9 @@ def handle_restock_recommendation(ctx):
                 continue
             size = str(item.get("size") or "").strip()
             brand = str(item.get("brand") or "").strip()
-            key = (name, size, brand)
+            parts = [p for p in (size, brand) if p]
+            label = " · ".join(parts)
+            key = (name, label)
             sold_slice[key] = sold_slice.get(key, 0.0) + qty
 
     candidates = []
@@ -464,13 +483,11 @@ def handle_restock_recommendation(ctx):
         name_lc = name.lower()
         min_stock = float(p.get("min_stock") or 0)
 
-        for (size, brand, stock) in _product_slices(p):
-            sold = sold_slice.get((name_lc, size, brand), 0.0)
+        for (label, stock) in _product_slices(p):
+            sold = sold_slice.get((name_lc, label), 0.0)
             daily_rate = sold / 30.0
             days_left = (stock / daily_rate) if daily_rate > 0 else 999.0
 
-            # Urgency — critical also fires when we're at or below min,
-            # even with no recent sales (someone zeroed a size manually).
             if stock <= 0:
                 urgency = "critical"
             elif min_stock > 0 and stock <= min_stock:
@@ -484,37 +501,28 @@ def handle_restock_recommendation(ctx):
             else:
                 urgency = "low"
 
-            # Skip slices that are healthy and have no signal.
             if sold <= 0 and stock > min_stock * 2:
                 continue
             if urgency == "low" and sold <= 0:
                 continue
 
-            # Order enough for 30 days at current rate, or top up to min.
             target_30d = daily_rate * 30.0
             needed_for_30d = max(0.0, target_30d - stock)
             top_up_to_min = max(0.0, min_stock - stock)
             recommended = int(round(max(needed_for_30d, top_up_to_min)))
-
-            label = _slice_label(size, brand)
 
             reason_bits = []
             if stock <= 0:
                 reason_bits.append("stock out")
             else:
                 reason_bits.append(f"{int(stock)} left")
-            if daily_rate > 0:
-                reason_bits.append(f"{daily_rate:.1f}/day")
-            else:
-                reason_bits.append("no recent sales")
+            reason_bits.append(f"{daily_rate:.1f}/day" if daily_rate > 0 else "no recent sales")
             if min_stock > 0:
                 reason_bits.append(f"min {int(min_stock)}")
 
             candidates.append({
                 "name": name,
                 "label": label,
-                "size": size,
-                "brand": brand,
                 "urgency": urgency,
                 "days_left": round(days_left, 1) if days_left < 999 else None,
                 "sold_30d": int(sold),
@@ -560,8 +568,6 @@ def handle_restock_recommendation(ctx):
         },
         "source": "local",
     }
-
-
 # ----------------------------------------------------------------
 # Dispatch
 # ----------------------------------------------------------------

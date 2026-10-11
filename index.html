@@ -1206,86 +1206,36 @@
                         <label for="productSupplier">Supplier</label>
                         <input type="text" id="productSupplier" placeholder="Supplier name">
                     </div>
-                    <div class="form-group">
-    <label>Specification Type</label>
-    <div class="size-mode-radio">
-        <label class="radio-wrapper">
-            <input type="radio" name="sizeMode" value="spec" id="sizeModeSpec" checked>
-            <span class="radio-mark"></span>
-            <span>Single spec &mdash; e.g., 2 in, 40 kg, 20 A</span>
-        </label>
-        <label class="radio-wrapper">
-            <input type="radio" name="sizeMode" value="variants" id="sizeModeVariants">
-            <span class="radio-mark"></span>
-            <span>Multiple variants &mdash; e.g., S, M, L</span>
-        </label>
-    </div>
-</div>
-
-<div class="form-group">
-    <label for="productSize" id="productSizeLabel">Specification (optional)</label>
-    <input type="text" id="productSize" placeholder="e.g., 2 in, 40 kg, 20 A, or leave blank">
-    <div id="sizePreview" class="size-preview" style="display: none;"></div>
-</div>
-<div class="form-group" id="variantStockGroup" style="display: none;">
-    <label>Stock by size</label>
-    <label class="checkbox-wrapper">
-        <input type="checkbox" id="trackSizeStock" checked>
+<!-- === Simplified options editor (0/1/2 option groups) === -->
+<div class="form-group form-group-full">
+    <label class="checkbox-wrapper checkbox-wrapper-lg">
+        <input type="checkbox" id="productHasOptions">
         <span class="checkmark"></span>
-        <span>Track stock separately for each size</span>
+        <span>This product comes in multiple options (size, brand, weight, etc.)</span>
     </label>
-    <div id="variantStockInputs" class="size-stock-inputs"></div>
+    <small class="form-hint">
+        Leave OFF for products with a single stock count.
+        Turn ON if stock or price differs by size, weight, brand, color, etc.
+    </small>
 </div>
 
-
-
-<!-- NEW: Brand variant block -->
-<div class="form-group">
-    <label>Brand Type</label>
-    <div class="size-mode-radio">
-        <label class="radio-wrapper">
-            <input type="radio" name="brandMode" value="single" id="brandModeSingle" checked>
-            <span class="radio-mark"></span>
-            <span>Single brand &mdash; e.g., Bosny</span>
-        </label>
-        <label class="radio-wrapper">
-            <input type="radio" name="brandMode" value="variants" id="brandModeVariants">
-            <span class="radio-mark"></span>
-            <span>Multiple brands &mdash; e.g., Bosny, Boysen, Davies</span>
-        </label>
-    </div>
+<div class="form-group form-group-full" id="productSpecGroup">
+    <label for="productSpec">Specification <span class="form-hint-inline">(optional)</span></label>
+    <input type="text" id="productSpec" placeholder="e.g., 2 in, 1 kg, Red">
+    <small class="form-hint">A short display label shown on the product card. Does not affect stock.</small>
 </div>
 
-<div class="form-group">
-    <label for="productBrand" id="productBrandLabel">Brand (optional)</label>
-    <input type="text" id="productBrand" placeholder="e.g., Bosny, Stanley, Boysen">
-    <div id="brandPreview" class="size-preview" style="display: none;"></div>
-</div>
-<div class="form-group" id="brandStockGroup" style="display: none;">
-    <label>Stock by brand</label>
-    <label class="checkbox-wrapper">
-        <input type="checkbox" id="trackBrandStock" checked>
-        <span class="checkmark"></span>
-        <span>Track stock separately for each brand</span>
-    </label>
-    <div id="brandStockInputs" class="size-stock-inputs"></div>
+<div class="form-group form-group-full" id="productOptionsEditor" style="display: none;">
+    <div id="optionGroupsContainer"></div>
+    <button type="button" class="link-btn" id="addOptionGroupBtn" style="margin-top: 8px;">
+        <i class="fas fa-plus"></i> Add second option (e.g., brand)
+    </button>
 </div>
 
-<!-- MATRIX: shown when BOTH size and brand are variants -->
-<div class="form-group" id="variantMatrixGroup" style="display: none;">
-    <label>Size × Brand Matrix</label>
-    <p class="matrix-hint">Set price and stock per combination. Leave price blank to use the base price above. Leave the whole cell blank if the store doesn't carry that variant.</p>
-    <div class="matrix-wrap">
-        <table class="matrix-table" id="variantMatrixTable">
-            <thead id="variantMatrixHead"></thead>
-            <tbody id="variantMatrixBody"></tbody>
-        </table>
-    </div>
-    <div class="matrix-footer">
-        <span class="matrix-stat">Variants: <strong id="matrixVariantCount">0</strong></span>
-        <span class="matrix-stat">Total stock: <strong id="matrixTotalStock">0</strong></span>
-        <span class="matrix-stat">Price range: <strong id="matrixPriceRange">—</strong></span>
-    </div>
+<div class="form-group form-group-full" id="productVariantsEditor" style="display: none;">
+    <label>Stock &amp; Price</label>
+    <div id="variantsEditorBody"></div>
+    <div id="variantsEditorSummary" class="variants-summary"></div>
 </div>
                     <div class="form-group">
                         <label for="productDescription">Description</label>

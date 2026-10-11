@@ -1,324 +1,64 @@
-/* inventory.js - Inventory management functionality */
-(function() {
-    let inventoryState = {
-    products: [],
-    filteredProducts: [],
-    currentPage: 1,
-    itemsPerPage: 10,
-    searchTerm: '',
-    categoryFilter: '',
-    stockFilter: '',
-    editingProductId: null,
-    deletingProductId: null,
-    productsLoaded: false,
-    initialized: false
-};
-let variantStockDraft = {};
-let brandStockDraft = {};
-let productImageDraft = null;   // data URL of the current product image
-let inventoryProductsLoadPromise = null;
+/* inventory.js — Inventory management with unified 0/1/2 option groups */
+(function () {
+    'use strict';
 
-/* ============================================================
-   PRODUCT IMAGE — resize + encode as data URL
-   Keeps the base64 payload small enough for Firestore
-   (1 MB per document). Target ≈ 30–60 KB at 400×400 JPEG.
-   ============================================================ */
-function resizeImageFile(file, maxSize = 400, quality = 0.78) {
-    return new Promise((resolve, reject) => {
-        if (!file || !file.type || !file.type.startsWith('image/')) {
-            reject(new Error('Please choose an image file (JPG, PNG, or WebP).'));
-            return;
-        }
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error('Could not read the file.'));
-        reader.onload = () => {
-            const img = new Image();
-            img.onerror = () => reject(new Error('Could not load the image.'));
-            img.onload = () => {
-                try {
-                    const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
-                    const w = Math.max(1, Math.round(img.width * ratio));
-                    const h = Math.max(1, Math.round(img.height * ratio));
-                    const canvas = document.createElement('canvas');
-                    canvas.width = w;
-                    canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    // Fill white first so transparent PNGs don't go black
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, w, h);
-                    ctx.drawImage(img, 0, 0, w, h);
-                    resolve(canvas.toDataURL('image/jpeg', quality));
-                } catch (e) {
-                    reject(new Error('Could not process the image.'));
-                }
-            };
-            img.src = reader.result;
-        };
-        reader.readAsDataURL(file);
-    });
-}
-
-function renderProductImagePreview() {
-    const previewEl = document.getElementById('productImagePreview');
-    const removeBtn = document.getElementById('productImageRemove');
-    if (!previewEl || !removeBtn) return;
-
-    if (productImageDraft) {
-        previewEl.classList.add('has-image');
-        previewEl.innerHTML = `<img src="${productImageDraft}" alt="Product image preview">`;
-        removeBtn.hidden = false;
-    } else {
-        previewEl.classList.remove('has-image');
-        previewEl.innerHTML = '<i class="fas fa-image"></i><span>No image</span>';
-        removeBtn.hidden = true;
-    }
-}
-
-const supabaseApi = window.POS_SUPABASE; // ← ADD THIS LINE
-
-// ---------- CATEGORIES MANAGEMENT (Firestore-backed) ----------
-const CATEGORIES_KEY = 'pos_categories';
-const DEFAULT_CATEGORIES = [
-    'tools', 'hardware', 'electrical', 'plumbing', 'paint',
-    'garden', 'building', 'fasteners', 'safety'
-];
-
-let categoriesCache = null;
-
-function getCategoriesLocal() {
-    try {
-        const stored = JSON.parse(localStorage.getItem(CATEGORIES_KEY) || 'null');
-        if (Array.isArray(stored) && stored.length > 0) return stored;
-    } catch (e) {}
-    return [...DEFAULT_CATEGORIES];
-}
-
-function saveCategoriesLocal(list) {
-    try {
-        localStorage.setItem(CATEGORIES_KEY, JSON.stringify(list));
-    } catch (e) {
-        console.error('Unable to save categories locally', e);
-    }
-}
-
-async function loadCategoriesFromCloud() {
-    try {
-        const { data, error } = await window.POS_SUPABASE.getCategories();
-        if (!error && Array.isArray(data) && data.length > 0) {
-            categoriesCache = data;
-            saveCategoriesLocal(data);
-        } else if (!categoriesCache) {
-            categoriesCache = getCategoriesLocal();
-            if (!error && (!data || data.length === 0)) {
-                await window.POS_SUPABASE.saveCategories(categoriesCache).catch(() => {});
-            }
-        }
-    } catch (e) {
-        categoriesCache = getCategoriesLocal();
-    }
-    renderCategoryOptions();
-}
-
-function getCategories() {
-    return categoriesCache || getCategoriesLocal();
-}
-
-async function saveCategories(list) {
-    categoriesCache = list;
-    saveCategoriesLocal(list);
-    try {
-        await window.POS_SUPABASE.saveCategories(list);
-    } catch (e) {
-        console.warn('Categories cloud sync failed:', e);
-    }
-}
-
-function titleCase(value) {
-    return String(value || '')
-        .split(/[\s_]+/)
-        .filter(Boolean)
-        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
-}
-
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, character => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[character]));
-}
-
-function renderCategoryOptions() {
-    const list = getCategories();
-    const optionsHtml = list.map(c =>
-        `<option value="${escapeHtml(c)}">${escapeHtml(titleCase(c))}</option>`
-    ).join('');
-
-    const filterSel = document.getElementById('categoryFilter');
-    if (filterSel) {
-        const current = filterSel.value;
-        filterSel.innerHTML = `<option value="">All Categories</option>${optionsHtml}`;
-        if (current && list.includes(current)) filterSel.value = current;
-    }
-
-    const formSel = document.getElementById('productCategory');
-    if (formSel) {
-        const current = formSel.value;
-        formSel.innerHTML = `<option value="">Select category</option>${optionsHtml}`;
-        if (current && list.includes(current)) formSel.value = current;
-    }
-}
-
-async function addCategoryPrompt() {
-    const name = window.prompt('New category name:')?.trim();
-    if (!name) return;
-    const normalized = name.toLowerCase();
-    const list = getCategories();
-    if (list.some(c => c.toLowerCase() === normalized)) {
-        showToast('Category already exists', 'error');
-        return;
-    }
-    list.push(normalized);
-    await saveCategories(list);
-    renderCategoryOptions();
-    const formSel = document.getElementById('productCategory');
-    if (formSel) formSel.value = normalized;
-    window.POS_APP_LOG?.('create', 'inventory', `Category "${name}" added`, 'info');
-    showToast(`Category "${name}" added`, 'success');
-}
-    const formatCurrency = value => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value) || 0);
-
-    function mapProduct(product) {
-    const rawSize = String(product.size || '').trim();
-    let inferredMode = product.sizeMode;
-    if (!inferredMode) {
-        inferredMode = rawSize.includes(',') ? 'variants' : 'spec';
-    }
-    const sizeStocks = product.sizeStocks && typeof product.sizeStocks === 'object' && !Array.isArray(product.sizeStocks)
-        ? Object.fromEntries(Object.entries(product.sizeStocks).map(([size, value]) => {
-            const stock = Number(value);
-            return [size, Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : 0];
-        }))
-        : null;
-
-    const rawBrand = String(product.brand || '').trim();
-    let brandMode = product.brandMode;
-    if (!brandMode) {
-        brandMode = rawBrand.includes(',') ? 'variants' : 'single';
-    }
-    const brandStocks = product.brandStocks && typeof product.brandStocks === 'object' && !Array.isArray(product.brandStocks)
-        ? Object.fromEntries(Object.entries(product.brandStocks).map(([brand, value]) => {
-            const stock = Number(value);
-            return [brand, Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : 0];
-        }))
-        : null;
-
-    // NEW: Size × Brand matrix (per-variant price + stock)
-    let variants = null;
-    if (product.variants && typeof product.variants === 'object' && !Array.isArray(product.variants)) {
-        variants = {};
-        for (const [key, val] of Object.entries(product.variants)) {
-            if (!val || typeof val !== 'object') continue;
-            const stock = Number(val.stock);
-            if (!Number.isFinite(stock) || stock < 0) continue;
-            const rawPrice = val.price;
-            const price = rawPrice == null || rawPrice === ''
-                ? null                                // null = fall back to base price
-                : Number(rawPrice);
-            variants[key] = {
-                price: Number.isFinite(price) ? price : null,
-                stock: Math.floor(stock)
-            };
-        }
-        if (Object.keys(variants).length === 0) variants = null;
-    }
-
-    // Total quantity: variants > sizeStocks > brandStocks > shared quantity
-    let quantity;
-    if (variants) {
-        quantity = Object.values(variants).reduce((t, v) => t + v.stock, 0);
-    } else if (sizeStocks) {
-        quantity = Object.values(sizeStocks).reduce((t, s) => t + s, 0);
-    } else if (brandStocks) {
-        quantity = Object.values(brandStocks).reduce((t, s) => t + s, 0);
-    } else {
-        quantity = Number(product.quantity) || 0;
-    }
-
-    return {
-        ...product,
-        size: rawSize,
-        sizeMode: inferredMode,
-        sizeStocks,
-        brand: rawBrand,
-        brandMode,
-        brandStocks,
-        variants,
-        quantity,
-        minStock: product.minStock ?? product.min_stock ?? 0,
-        lastUpdated: product.lastUpdated || product.updated_at || product.created_at || ''
+    /* ============================================================
+       STATE
+       ============================================================ */
+    const inventoryState = {
+        products: [],
+        filteredProducts: [],
+        currentPage: 1,
+        itemsPerPage: 10,
+        searchTerm: '',
+        categoryFilter: '',
+        stockFilter: '',
+        editingProductId: null,
+        deletingProductId: null,
+        productsLoaded: false,
+        initialized: false
     };
-}
-/* ============================================================
-   AUTO SKU + NAME DEDUPLICATION
-   ============================================================ */
 
-// Pattern for auto-generated SKUs: PRD-001, PRD-002, ...
-const AUTO_SKU_PATTERN = /^PRD-(\d+)$/;
+    let productImageDraft = null;
+    let optionGroupsDraft = [];     // [{ name, values: [] }]
+    let variantsDraft = {};         // { "v1::v2": { price, stock } }
+    let inventoryProductsLoadPromise = null;
 
-/**
- * Generate the next auto-increment SKU based on existing products.
- * Scans every SKU for the pattern PRD-### and returns PRD-(max+1).
- * Falls back to PRD-001 if none exist.
- */
-function generateNextSku() {
-    let max = 0;
-    for (const p of inventoryState.products) {
-        const m = AUTO_SKU_PATTERN.exec(String(p.sku || '').trim());
-        if (m) {
-            const n = parseInt(m[1], 10);
-            if (Number.isFinite(n) && n > max) max = n;
-        }
+    /* ============================================================
+       CONSTANTS
+       ============================================================ */
+    const CATEGORIES_KEY = 'pos_categories';
+    const DEFAULT_CATEGORIES = [
+        'tools', 'hardware', 'electrical', 'plumbing', 'paint',
+        'garden', 'building', 'fasteners', 'safety'
+    ];
+    const AUTO_SKU_PATTERN = /^PRD-(\d+)$/;
+    const OPTION_NAME_CHOICES = [
+        'Size', 'Weight', 'Volume', 'Rating', 'Dimension',
+        'Color', 'Pack Size', 'Variant', 'Specification'
+    ];
+    const MAX_OPTION_GROUPS = 2;
+
+    const supabaseApi = window.POS_SUPABASE;
+
+    /* ============================================================
+       SMALL HELPERS
+       ============================================================ */
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
     }
-    return `PRD-${String(max + 1).padStart(3, '0')}`;
-}
 
-/**
- * Find an existing product whose name matches (case-insensitive, trimmed).
- * Returns the product object, or null.
- */
-function findProductByName(name) {
-    const needle = String(name || '').trim().toLowerCase();
-    if (!needle) return null;
-    return inventoryState.products.find(p =>
-        String(p.name || '').trim().toLowerCase() === needle
-    ) || null;
-}
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
+            .format(Number(value) || 0);
+    }
 
-/**
- * True when the product uses variant/size/brand stock tracking.
- * Merging is unsafe for these because quantity alone doesn't describe
- * where the added stock should go.
- */
-function usesVariantStock(product) {
-    return Boolean(
-        (product.variants && Object.keys(product.variants).length) ||
-        (product.sizeStocks && Object.keys(product.sizeStocks).length) ||
-        (product.brandStocks && Object.keys(product.brandStocks).length)
-    );
-}
-
-function specIconClass(spec) {
-    const s = String(spec || '').trim().toLowerCase();
-    if (!s) return 'fas fa-ruler';
-    if (/\d+\s*(kg|kgs|g|lb|lbs|oz|ton|tonne)\b/.test(s)) return 'fas fa-weight-hanging';
-    if (/\d+\s*(v|vac|a|amp|amps|w|watt|watts|volt|volts|awg)\b/.test(s)) return 'fas fa-bolt';
-    if (/\d+\s*(l|ml|gal|gallon|liter|litre|liters|litres)\b/.test(s)) return 'fas fa-flask';
-    if (/\d+\s*(pc|pcs|set|sets|unit|units|pack|packs|pair|pairs)\b/.test(s)) return 'fas fa-list-ol';
-    if (/\d+\s*[x×]\s*\d+/.test(s)) return 'fas fa-ruler-combined';
-    if (/\d+\s*(mm|cm|in|inch|inches|ft|foot|feet|meter|meters)\b/.test(s)) return 'fas fa-ruler-combined';
-    return 'fas fa-ruler';
-}
-
+    function titleCase(value) {
+        return String(value || '').split(/[\s_]+/).filter(Boolean)
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
 
     function showToast(message, type = 'success') {
         const container = document.getElementById('toastContainer');
@@ -336,6 +76,310 @@ function specIconClass(spec) {
         }, 4000);
     }
 
+    function specIconClass(spec) {
+        const s = String(spec || '').trim().toLowerCase();
+        if (!s) return 'fas fa-ruler';
+        if (/\d+\s*(kg|kgs|g|lb|lbs|oz|ton|tonne)\b/.test(s)) return 'fas fa-weight-hanging';
+        if (/\d+\s*(v|vac|a|amp|amps|w|watt|watts|volt|volts|awg)\b/.test(s)) return 'fas fa-bolt';
+        if (/\d+\s*(l|ml|gal|gallon|liter|litre|liters|litres)\b/.test(s)) return 'fas fa-flask';
+        if (/\d+\s*(pc|pcs|set|sets|unit|units|pack|packs|pair|pairs)\b/.test(s)) return 'fas fa-list-ol';
+        if (/\d+\s*[x×]\s*\d+/.test(s)) return 'fas fa-ruler-combined';
+        if (/\d+\s*(mm|cm|in|inch|inches|ft|foot|feet|meter|meters)\b/.test(s)) return 'fas fa-ruler-combined';
+        return 'fas fa-ruler';
+    }
+
+    /* ============================================================
+       PRODUCT SHAPE — normalize + key helpers
+       ============================================================ */
+
+    function hasOptions(product) {
+        return Array.isArray(product?.options) && product.options.length > 0;
+    }
+
+    function makeVariantKey(values) {
+        return (Array.isArray(values) ? values : []).filter(Boolean).join('::');
+    }
+
+    function parseVariantKey(key) {
+        return String(key || '').split('::').filter(Boolean);
+    }
+
+    function computeTotalStock(p) {
+        if (!hasOptions(p)) return Number(p.quantity) || 0;
+        const variants = p.variants && typeof p.variants === 'object' ? p.variants : {};
+        return Object.values(variants).reduce((t, v) => t + (Number(v?.stock) || 0), 0);
+    }
+
+    function getStockForSelection(product, selectedValues) {
+        if (!hasOptions(product)) return Number(product.quantity) || 0;
+        const key = makeVariantKey(selectedValues);
+        const v = (product.variants || {})[key];
+        return Math.max(0, Number(v?.stock) || 0);
+    }
+
+    function getPriceForSelection(product, selectedValues) {
+        if (!product) return 0;
+        if (!hasOptions(product)) return Number(product.price) || 0;
+        const key = makeVariantKey(selectedValues);
+        const v = (product.variants || {})[key];
+        if (!v || v.price == null) return Number(product.price) || 0;
+        return Number(v.price) || 0;
+    }
+
+    /**
+     * Convert legacy shapes to the new { options, variants } model.
+     * Idempotent — new-shape documents pass through untouched.
+     */
+    function normalizeProduct(raw) {
+        if (!raw || typeof raw !== 'object') return raw;
+
+        // Already new shape
+        if (raw.options !== undefined) {
+            return {
+                ...raw,
+                options: Array.isArray(raw.options) && raw.options.length ? raw.options : null,
+                variants: (raw.variants && typeof raw.variants === 'object') ? raw.variants : null,
+                quantity: computeTotalStock(raw)
+            };
+        }
+
+        // Legacy size/brand matrix (variants with `::` keys, plus size/brand strings)
+        if (raw.variants && typeof raw.variants === 'object' && Object.keys(raw.variants).length) {
+            const keys = Object.keys(raw.variants);
+            const isMatrix = keys.some(k => String(k).includes('::'));
+            let options;
+            if (isMatrix) {
+                const sizesSet = new Set();
+                const brandsSet = new Set();
+                keys.forEach(k => {
+                    const [s, b] = String(k).split('::');
+                    if (s) sizesSet.add(s);
+                    if (b) brandsSet.add(b);
+                });
+                options = [];
+                if (sizesSet.size) options.push({ name: 'Size', values: [...sizesSet] });
+                if (brandsSet.size) options.push({ name: 'Brand', values: [...brandsSet] });
+            } else {
+                options = [{ name: raw.size && raw.size.includes(',') ? 'Size' : 'Variant', values: keys }];
+            }
+            const variants = {};
+            for (const [k, v] of Object.entries(raw.variants)) {
+                variants[k] = {
+                    price: v && v.price != null && Number.isFinite(Number(v.price)) ? Number(v.price) : null,
+                    stock: Math.max(0, Math.floor(Number(v?.stock) || 0))
+                };
+            }
+            const out = { ...raw, options, variants };
+            out.quantity = computeTotalStock(out);
+            return out;
+        }
+
+        // Legacy sizeStocks
+        if (raw.sizeStocks && typeof raw.sizeStocks === 'object' && Object.keys(raw.sizeStocks).length) {
+            const values = Object.keys(raw.sizeStocks);
+            const variants = {};
+            values.forEach(v => {
+                variants[v] = { price: null, stock: Math.max(0, Math.floor(Number(raw.sizeStocks[v]) || 0)) };
+            });
+            const out = { ...raw, options: [{ name: 'Size', values }], variants };
+            out.quantity = computeTotalStock(out);
+            return out;
+        }
+
+        // Legacy brandStocks
+        if (raw.brandStocks && typeof raw.brandStocks === 'object' && Object.keys(raw.brandStocks).length) {
+            const values = Object.keys(raw.brandStocks);
+            const variants = {};
+            values.forEach(v => {
+                variants[v] = { price: null, stock: Math.max(0, Math.floor(Number(raw.brandStocks[v]) || 0)) };
+            });
+            const out = { ...raw, options: [{ name: 'Brand', values }], variants };
+            out.quantity = computeTotalStock(out);
+            return out;
+        }
+
+        // Simple product (no options)
+        return {
+            ...raw,
+            options: null,
+            variants: null,
+            quantity: Number(raw.quantity) || 0
+        };
+    }
+
+    function mapProduct(raw) {
+        const p = normalizeProduct(raw);
+        return {
+            ...p,
+            spec: String(p.spec || p.size || '').trim(),
+            minStock: Number(p.minStock ?? p.min_stock ?? 0) || 0,
+            quantity: computeTotalStock(p),
+            lastUpdated: p.lastUpdated || p.updated_at || p.created_at || ''
+        };
+    }
+
+    /* ============================================================
+       PRODUCT IMAGE
+       ============================================================ */
+    function resizeImageFile(file, maxSize = 400, quality = 0.78) {
+        return new Promise((resolve, reject) => {
+            if (!file || !file.type || !file.type.startsWith('image/')) {
+                reject(new Error('Please choose an image file (JPG, PNG, or WebP).'));
+                return;
+            }
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('Could not read the file.'));
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('Could not load the image.'));
+                img.onload = () => {
+                    try {
+                        const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+                        const w = Math.max(1, Math.round(img.width * ratio));
+                        const h = Math.max(1, Math.round(img.height * ratio));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    } catch (e) {
+                        reject(new Error('Could not process the image.'));
+                    }
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function renderProductImagePreview() {
+        const previewEl = document.getElementById('productImagePreview');
+        const removeBtn = document.getElementById('productImageRemove');
+        if (!previewEl || !removeBtn) return;
+        if (productImageDraft) {
+            previewEl.classList.add('has-image');
+            previewEl.innerHTML = `<img src="${productImageDraft}" alt="Product image preview">`;
+            removeBtn.hidden = false;
+        } else {
+            previewEl.classList.remove('has-image');
+            previewEl.innerHTML = '<i class="fas fa-image"></i><span>No image</span>';
+            removeBtn.hidden = true;
+        }
+    }
+
+    /* ============================================================
+       CATEGORIES
+       ============================================================ */
+    let categoriesCache = null;
+
+    function getCategoriesLocal() {
+        try {
+            const stored = JSON.parse(localStorage.getItem(CATEGORIES_KEY) || 'null');
+            if (Array.isArray(stored) && stored.length > 0) return stored;
+        } catch (e) {}
+        return [...DEFAULT_CATEGORIES];
+    }
+
+    function saveCategoriesLocal(list) {
+        try { localStorage.setItem(CATEGORIES_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+
+    async function loadCategoriesFromCloud() {
+        try {
+            const { data, error } = await window.POS_SUPABASE.getCategories();
+            if (!error && Array.isArray(data) && data.length > 0) {
+                categoriesCache = data;
+                saveCategoriesLocal(data);
+            } else if (!categoriesCache) {
+                categoriesCache = getCategoriesLocal();
+                if (!error && (!data || data.length === 0)) {
+                    await window.POS_SUPABASE.saveCategories(categoriesCache).catch(() => {});
+                }
+            }
+        } catch (e) {
+            categoriesCache = getCategoriesLocal();
+        }
+        renderCategoryOptions();
+    }
+
+    function getCategories() {
+        return categoriesCache || getCategoriesLocal();
+    }
+
+    async function saveCategories(list) {
+        categoriesCache = list;
+        saveCategoriesLocal(list);
+        try { await window.POS_SUPABASE.saveCategories(list); } catch (e) {}
+    }
+
+    function renderCategoryOptions() {
+        const list = getCategories();
+        const optionsHtml = list.map(c =>
+            `<option value="${escapeHtml(c)}">${escapeHtml(titleCase(c))}</option>`
+        ).join('');
+
+        const filterSel = document.getElementById('categoryFilter');
+        if (filterSel) {
+            const current = filterSel.value;
+            filterSel.innerHTML = `<option value="">All Categories</option>${optionsHtml}`;
+            if (current && list.includes(current)) filterSel.value = current;
+        }
+
+        const formSel = document.getElementById('productCategory');
+        if (formSel) {
+            const current = formSel.value;
+            formSel.innerHTML = `<option value="">Select category</option>${optionsHtml}`;
+            if (current && list.includes(current)) formSel.value = current;
+        }
+    }
+
+    async function addCategoryPrompt() {
+        const name = window.prompt('New category name:')?.trim();
+        if (!name) return;
+        const normalized = name.toLowerCase();
+        const list = getCategories();
+        if (list.some(c => c.toLowerCase() === normalized)) {
+            showToast('Category already exists', 'error');
+            return;
+        }
+        list.push(normalized);
+        await saveCategories(list);
+        renderCategoryOptions();
+        const formSel = document.getElementById('productCategory');
+        if (formSel) formSel.value = normalized;
+        window.POS_APP_LOG?.('create', 'inventory', `Category "${name}" added`, 'info');
+        showToast(`Category "${name}" added`, 'success');
+    }
+
+    /* ============================================================
+       SKU + DEDUP
+       ============================================================ */
+    function generateNextSku() {
+        let max = 0;
+        for (const p of inventoryState.products) {
+            const m = AUTO_SKU_PATTERN.exec(String(p.sku || '').trim());
+            if (m) {
+                const n = parseInt(m[1], 10);
+                if (Number.isFinite(n) && n > max) max = n;
+            }
+        }
+        return `PRD-${String(max + 1).padStart(3, '0')}`;
+    }
+
+    function findProductByName(name) {
+        const needle = String(name || '').trim().toLowerCase();
+        if (!needle) return null;
+        return inventoryState.products.find(p =>
+            String(p.name || '').trim().toLowerCase() === needle
+        ) || null;
+    }
+
+    /* ============================================================
+       STOCK STATUS
+       ============================================================ */
     function getStockStatus(quantity, minStock) {
         if (quantity === 0) return 'out_of_stock';
         if (quantity <= minStock) return 'low_stock';
@@ -344,29 +388,16 @@ function specIconClass(spec) {
     }
 
     function getProductStockStatus(product) {
-        // Matrix wins if present
-        if (product.variants) {
-            const stocks = Object.values(product.variants).map(v => v.stock);
-            if (!stocks.length || stocks.every(s => s === 0)) return 'out_of_stock';
-            if (stocks.some(s => s <= product.minStock)) return 'low_stock';
-            if (product.quantity > product.minStock * 2) return 'over_stock';
-            return 'in_stock';
+        const minStock = Number(product.minStock) || 0;
+        if (!hasOptions(product)) {
+            return getStockStatus(Number(product.quantity) || 0, minStock);
         }
-        if (product.sizeStocks) {
-            const stocks = Object.values(product.sizeStocks).map(q => Number(q) || 0);
-            if (!stocks.length || stocks.every(q => q === 0)) return 'out_of_stock';
-            if (stocks.some(q => q <= product.minStock)) return 'low_stock';
-            if (product.quantity > product.minStock * 2) return 'over_stock';
-            return 'in_stock';
-        }
-        if (product.brandStocks) {
-            const stocks = Object.values(product.brandStocks).map(q => Number(q) || 0);
-            if (!stocks.length || stocks.every(q => q === 0)) return 'out_of_stock';
-            if (stocks.some(q => q <= product.minStock)) return 'low_stock';
-            if (product.quantity > product.minStock * 2) return 'over_stock';
-            return 'in_stock';
-        }
-        return getStockStatus(product.quantity, product.minStock);
+        const slices = Object.values(product.variants || {}).map(v => Number(v?.stock) || 0);
+        if (!slices.length || slices.every(s => s === 0)) return 'out_of_stock';
+        if (slices.some(s => s <= minStock)) return 'low_stock';
+        const total = slices.reduce((t, s) => t + s, 0);
+        if (total > minStock * 2) return 'over_stock';
+        return 'in_stock';
     }
 
     function getStockBadge(status) {
@@ -378,34 +409,37 @@ function specIconClass(spec) {
         };
         return badges[status] || badges.in_stock;
     }
-    
-function syncFilterCards() {
-    const current = inventoryState.stockFilter || '';
-    document.querySelectorAll('.inv-filter-card').forEach(card => {
-        const filter = card.dataset.stockFilter || '';
-        card.classList.toggle('active', filter === current);
-    });
-}
-    
-    
-    
-    function updateInventoryStats() {
-    const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = value;
-        else console.warn(`[INV] updateInventoryStats: missing #${id}`);
-    };
-    setText('totalProducts', inventoryState.products.length);
-    setText('overStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'over_stock').length);
-    setText('lowStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'low_stock').length);
-    setText('outOfStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'out_of_stock').length);
-}
 
+    function syncFilterCards() {
+        const current = inventoryState.stockFilter || '';
+        document.querySelectorAll('.inv-filter-card').forEach(card => {
+            const filter = card.dataset.stockFilter || '';
+            card.classList.toggle('active', filter === current);
+        });
+    }
+
+    function updateInventoryStats() {
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        setText('totalProducts', inventoryState.products.length);
+        setText('overStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'over_stock').length);
+        setText('lowStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'low_stock').length);
+        setText('outOfStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'out_of_stock').length);
+    }
+
+    /* ============================================================
+       FILTER + RENDER
+       ============================================================ */
     function filterProducts() {
         const { searchTerm, categoryFilter, stockFilter } = inventoryState;
         const search = searchTerm.toLowerCase();
         inventoryState.filteredProducts = inventoryState.products.filter(product => {
-            const matchesSearch = !search || product.name.toLowerCase().includes(search) || product.sku.toLowerCase().includes(search) || (product.supplier || '').toLowerCase().includes(search);
+            const matchesSearch = !search
+                || product.name.toLowerCase().includes(search)
+                || (product.sku || '').toLowerCase().includes(search)
+                || (product.supplier || '').toLowerCase().includes(search);
             const matchesCategory = !categoryFilter || product.category === categoryFilter;
             const matchesStock = !stockFilter || getProductStockStatus(product) === stockFilter;
             return matchesSearch && matchesCategory && matchesStock;
@@ -415,16 +449,39 @@ function syncFilterCards() {
         renderPagination();
     }
 
-    function renderInventoryTable() {
-    const tbody = document.getElementById('inventoryTableBody');
-    const table = document.getElementById('inventoryTable');
-    const emptyState = document.getElementById('inventoryEmpty');
-    const loading = document.getElementById('inventoryLoading');
-    if (!tbody) return;
-    if (loading) loading.style.display = 'none';
-    if (table) table.style.display = 'table';
+    function renderQuantityCell(product) {
+        if (!hasOptions(product)) {
+            return `<input type="number" class="quantity-input" value="${Number(product.quantity) || 0}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)">`;
+        }
+        const variants = product.variants || {};
+        const rows = Object.entries(variants).map(([key, v]) => {
+            const stock = Number(v?.stock) || 0;
+            const cls = stock === 0 ? 'out-of-stock' : (stock <= product.minStock ? 'low-stock' : '');
+            return `<div><span>${escapeHtml(key.replace(/::/g, ' · '))}</span><strong class="size-stock-count ${cls}">${stock}</strong></div>`;
+        }).join('');
+        return `<div class="size-stock-summary">${rows}<strong class="size-stock-total">Total: ${computeTotalStock(product)}</strong></div>`;
+    }
 
-    {
+    function renderPriceCell(product) {
+        if (!hasOptions(product)) return formatCurrency(product.price);
+        const prices = Object.values(product.variants || {})
+            .map(v => v && v.price != null ? Number(v.price) : null)
+            .filter(p => p != null);
+        if (!prices.length) return formatCurrency(product.price);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        return min === max ? formatCurrency(min) : `${formatCurrency(min)} – ${formatCurrency(max)}`;
+    }
+
+    function renderInventoryTable() {
+        const tbody = document.getElementById('inventoryTableBody');
+        const table = document.getElementById('inventoryTable');
+        const emptyState = document.getElementById('inventoryEmpty');
+        const loading = document.getElementById('inventoryLoading');
+        if (!tbody) return;
+        if (loading) loading.style.display = 'none';
+        if (table) table.style.display = 'table';
+
         const products = inventoryState.filteredProducts;
         if (!products.length) {
             if (emptyState) emptyState.style.display = 'block';
@@ -433,44 +490,39 @@ function syncFilterCards() {
             return;
         }
         if (emptyState) emptyState.style.display = 'none';
+
         const start = (inventoryState.currentPage - 1) * inventoryState.itemsPerPage;
         const pageProducts = products.slice(start, start + inventoryState.itemsPerPage);
+
         tbody.innerHTML = pageProducts.map(product => {
             const status = getProductStockStatus(product);
-            const sizeLabel = product.size ? `<span class="product-sku"><i class="${specIconClass(product.size)}"></i> ${escapeHtml(product.size)}</span>` : '';
-            const brandLabel = product.brand ? `<span class="product-sku"><i class="fas fa-tag"></i> ${escapeHtml(product.brand)}</span>` : '';
+            const specLabel = product.spec
+                ? `<span class="product-sku"><i class="${specIconClass(product.spec)}"></i> ${escapeHtml(product.spec)}</span>`
+                : '';
+            const optionHint = hasOptions(product)
+                ? `<span class="product-sku"><i class="fas fa-layer-group"></i> ${product.options.map(o => escapeHtml(o.name)).join(' · ')}</span>`
+                : '';
             const thumbHtml = product.image
                 ? `<img class="inventory-thumb" src="${product.image}" alt="">`
                 : `<div class="inventory-thumb inventory-thumb-empty"><i class="fas fa-box"></i></div>`;
-            const quantityCell = product.variants
-                ? `<div class="size-stock-summary"><div><span>${Object.keys(product.variants).length} variants</span><strong class="size-stock-total" style="border:none;padding:0;">Total: ${product.quantity}</strong></div></div>`
-                : product.sizeStocks
-                    ? `<div class="size-stock-summary">${Object.entries(product.sizeStocks).map(([size, quantity]) => `<div><span>${escapeHtml(size)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
-                    : product.brandStocks
-                        ? `<div class="size-stock-summary">${Object.entries(product.brandStocks).map(([brand, quantity]) => `<div><span>${escapeHtml(brand)}</span><strong class="size-stock-count ${quantity === 0 ? 'out-of-stock' : quantity <= product.minStock ? 'low-stock' : ''}">${quantity}</strong></div>`).join('')}<strong class="size-stock-total">Total: ${product.quantity}</strong></div>`
-                        : `<input type="number" class="quantity-input" value="${product.quantity}" min="0" data-product-id="${product.id}" onchange="updateQuantity('${product.id}', this.value)">`;
+
             return `<tr>
                 <td>
                     <div class="product-info">
+                        ${thumbHtml}
                         <div class="product-details">
-                            <p class="product-name">${product.name}</p>
-                            ${sizeLabel}
-                            ${brandLabel}
-                            <span class="product-sku">Product Code: ${product.sku}</span>
+                            <p class="product-name">${escapeHtml(product.name)}</p>
+                            ${specLabel}
+                            ${optionHint}
+                            <span class="product-sku">Product Code: ${escapeHtml(product.sku || '')}</span>
                         </div>
                     </div>
                 </td>
-                <td>${product.category}</td>
-                <td>${product.variants ? (() => {
-                    const prices = Object.values(product.variants).map(v => v.price).filter(p => p != null);
-                    if (prices.length === 0) return formatCurrency(product.price);
-                    const min = Math.min(...prices);
-                    const max = Math.max(...prices);
-                    return min === max ? formatCurrency(min) : `${formatCurrency(min)} – ${formatCurrency(max)}`;
-                })() : formatCurrency(product.price)}</td>
-                <td>${quantityCell}</td>
+                <td>${escapeHtml(product.category || '')}</td>
+                <td>${renderPriceCell(product)}</td>
+                <td>${renderQuantityCell(product)}</td>
                 <td>${getStockBadge(status)}</td>
-                <td>${product.lastUpdated}</td>
+                <td>${escapeHtml(product.lastUpdated || '')}</td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon edit" type="button" onclick="editProduct('${product.id}')" title="Edit"><i class="fas fa-edit"></i></button>
@@ -480,7 +532,6 @@ function syncFilterCards() {
             </tr>`;
         }).join('');
     }
-}
 
     function renderPagination() {
         const pagination = document.getElementById('inventoryPagination');
@@ -488,312 +539,352 @@ function syncFilterCards() {
         const totalPages = Math.ceil(inventoryState.filteredProducts.length / inventoryState.itemsPerPage);
         if (totalPages <= 1) { pagination.innerHTML = ''; return; }
         let html = `<button class="page-btn" type="button" onclick="changePage(${inventoryState.currentPage - 1})" ${inventoryState.currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>`;
-        for (let page = 1; page <= totalPages; page++) html += `<button class="page-btn ${inventoryState.currentPage === page ? 'active' : ''}" type="button" onclick="changePage(${page})">${page}</button>`;
+        for (let page = 1; page <= totalPages; page++) {
+            html += `<button class="page-btn ${inventoryState.currentPage === page ? 'active' : ''}" type="button" onclick="changePage(${page})">${page}</button>`;
+        }
         html += `<button class="page-btn" type="button" onclick="changePage(${inventoryState.currentPage + 1})" ${inventoryState.currentPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`;
         pagination.innerHTML = html;
     }
 
+    /* ============================================================
+       MODAL — open / close
+       ============================================================ */
     function openProductModal(productId = null) {
         inventoryState.editingProductId = productId;
         const modal = document.getElementById('productModal');
         const title = document.getElementById('productModalTitle');
         const form = document.getElementById('productForm');
         if (!modal || !title || !form) return;
+
         form.reset();
-        variantStockDraft = {};
+        optionGroupsDraft = [];
+        variantsDraft = {};
+        productImageDraft = null;
+
+        const hasOptionsCb = document.getElementById('productHasOptions');
+
         if (productId) {
             const product = inventoryState.products.find(p => p.id === productId);
             if (product) {
                 title.textContent = 'Edit Product';
-                document.getElementById('productName').value = product.name;
-                document.getElementById('productSKU').value = product.sku;
-                document.getElementById('productCategory').value = product.category;
-                document.getElementById('productPrice').value = product.price;
-                document.getElementById('productQuantity').value = product.quantity;
-                document.getElementById('productMinStock').value = product.minStock;
+                document.getElementById('productName').value = product.name || '';
+                document.getElementById('productSKU').value = product.sku || '';
+                document.getElementById('productCategory').value = product.category || '';
+                document.getElementById('productPrice').value = product.price ?? '';
+                document.getElementById('productQuantity').value = product.quantity ?? 0;
+                document.getElementById('productMinStock').value = product.minStock ?? 1;
                 document.getElementById('productSupplier').value = product.supplier || '';
-                const trackSizeStock = document.getElementById('trackSizeStock');
-                if (trackSizeStock) trackSizeStock.checked = Boolean(product.sizeStocks);
-                variantStockDraft = product.sizeStocks ? { ...product.sizeStocks } : {};
-                document.getElementById('productSize').value = product.size || '';
-const mode = product.sizeMode || 'spec';
-const modeRadio = document.querySelector(`input[name="sizeMode"][value="${mode}"]`);
-if (modeRadio) modeRadio.checked = true;
-updateSizePreview();
+                document.getElementById('productSpec').value = product.spec || '';
 
-                // Brand fields
-                document.getElementById('productBrand').value = product.brand || '';
-                const brandMode = product.brandMode || 'single';
-                const brandRadio = document.querySelector(`input[name="brandMode"][value="${brandMode}"]`);
-                if (brandRadio) brandRadio.checked = true;
-                const trackBrandStock = document.getElementById('trackBrandStock');
-                if (trackBrandStock) trackBrandStock.checked = Boolean(product.brandStocks);
-                brandStockDraft = product.brandStocks ? { ...product.brandStocks } : {};
+                if (hasOptions(product)) {
+                    hasOptionsCb.checked = true;
+                    optionGroupsDraft = product.options.map(o => ({ name: o.name, values: [...o.values] }));
+                    variantsDraft = JSON.parse(JSON.stringify(product.variants || {}));
+                } else {
+                    hasOptionsCb.checked = false;
+                }
 
-                // Seed the matrix draft from any existing variants
-                matrixDraft = product.variants ? { ...product.variants } : {};
-
-                updateBrandPreview();
-                renderVariantMatrix();
-                document.getElementById('productDescription').value = product.description || '';
-
-                // Product image
                 productImageDraft = product.image || null;
-                renderProductImagePreview();
             }
         } else {
-    title.textContent = 'Add Product';
+            title.textContent = 'Add Product';
+            const skuInput = document.getElementById('productSKU');
+            if (skuInput) skuInput.value = generateNextSku();
+            hasOptionsCb.checked = false;
+        }
 
-    // Auto-fill the SKU with the next PRD-### in sequence.
-    // Users can still overwrite it with a custom code.
-    const skuInput = document.getElementById('productSKU');
-    if (skuInput) skuInput.value = generateNextSku();
-
-    const trackSizeStock = document.getElementById('trackSizeStock');
-    if (trackSizeStock) trackSizeStock.checked = true;
-    const specRadio = document.querySelector('input[name="sizeMode"][value="spec"]');
-    if (specRadio) specRadio.checked = true;
-    updateSizePreview();
-
-    const trackBrandStock = document.getElementById('trackBrandStock');
-    if (trackBrandStock) trackBrandStock.checked = true;
-    const brandSingleRadio = document.querySelector('input[name="brandMode"][value="single"]');
-    if (brandSingleRadio) brandSingleRadio.checked = true;
-    brandStockDraft = {};
-    matrixDraft = {};
-    productImageDraft = null;
-    renderProductImagePreview();
-    updateBrandPreview();
-    renderVariantMatrix();
-}
-modal.classList.add('active');
+        renderProductImagePreview();
+        updateOptionsUI();
+        modal.classList.add('active');
     }
 
     function closeProductModal() {
         document.getElementById('productModal')?.classList.remove('active');
         inventoryState.editingProductId = null;
+        optionGroupsDraft = [];
+        variantsDraft = {};
     }
 
+    /* ============================================================
+       MODAL — options editor
+       ============================================================ */
+    function updateOptionsUI() {
+        const hasOptions = document.getElementById('productHasOptions')?.checked || false;
+        const editor = document.getElementById('productOptionsEditor');
+        const variantsEditor = document.getElementById('productVariantsEditor');
+        const sharedQty = document.getElementById('sharedQuantityGroup');
+        const specGroup = document.getElementById('productSpecGroup');
+        const qtyInput = document.getElementById('productQuantity');
+
+        if (!hasOptions) {
+            if (editor) editor.style.display = 'none';
+            if (variantsEditor) variantsEditor.style.display = 'none';
+            if (sharedQty) sharedQty.style.display = '';
+            if (specGroup) specGroup.style.display = '';
+            if (qtyInput) qtyInput.required = true;
+            return;
+        }
+
+        if (editor) editor.style.display = '';
+        if (variantsEditor) variantsEditor.style.display = '';
+        if (sharedQty) sharedQty.style.display = 'none';
+        if (specGroup) specGroup.style.display = 'none';
+        if (qtyInput) qtyInput.required = false;
+
+        if (optionGroupsDraft.length === 0) {
+            optionGroupsDraft.push({ name: 'Size', values: [] });
+        }
+        renderOptionGroups();
+        renderVariantsEditor();
+    }
+
+    function renderOptionGroups() {
+        const container = document.getElementById('optionGroupsContainer');
+        const addBtn = document.getElementById('addOptionGroupBtn');
+        if (!container) return;
+
+        container.innerHTML = optionGroupsDraft.map((group, idx) => {
+            const nameOptions = OPTION_NAME_CHOICES
+                .map(n => `<option value="${escapeHtml(n)}" ${n === group.name ? 'selected' : ''}>${escapeHtml(n)}</option>`)
+                .join('');
+            const chips = group.values.length
+                ? group.values.map(v => `<span class="size-chip">${escapeHtml(v)}</span>`).join('')
+                : '';
+            return `
+                <div class="option-group" data-option-index="${idx}">
+                    <div class="option-group-header">
+                        <span class="option-group-label">Option ${idx + 1}</span>
+                        <select class="option-name-select" data-option-index="${idx}">
+                            ${nameOptions}
+                        </select>
+                        ${idx > 0 ? `<button type="button" class="option-remove-btn" data-remove-option="${idx}"><i class="fas fa-times"></i> Remove</button>` : ''}
+                    </div>
+                    <input type="text" class="option-values-input" data-option-index="${idx}"
+                           placeholder="Comma-separated, e.g., 2 in, 4 in, 6 in"
+                           value="${escapeHtml(group.values.join(', '))}">
+                    <div class="option-values-preview">${chips}</div>
+                </div>
+            `;
+        }).join('');
+
+        if (addBtn) {
+            addBtn.style.display = optionGroupsDraft.length >= MAX_OPTION_GROUPS ? 'none' : '';
+        }
+    }
+
+    function renderVariantsEditor() {
+        const body = document.getElementById('variantsEditorBody');
+        const summary = document.getElementById('variantsEditorSummary');
+        if (!body) return;
+
+        const groups = optionGroupsDraft.filter(g => g.values.length > 0);
+        if (groups.length === 0) {
+            body.innerHTML = '<p class="form-hint">Type at least one option value above to see the stock editor.</p>';
+            if (summary) summary.innerHTML = '';
+            return;
+        }
+
+        if (groups.length === 1) {
+            renderVariantList(body, summary, groups[0]);
+        } else {
+            renderVariantMatrix(body, summary, groups[0], groups[1]);
+        }
+    }
+
+    function renderVariantList(body, summary, group) {
+        const basePrice = parseFloat(document.getElementById('productPrice')?.value) || 0;
+        body.innerHTML = `<div class="variant-list">${group.values.map(v => {
+            const vd = variantsDraft[v] || {};
+            const price = vd.price != null ? vd.price : '';
+            const stock = vd.stock != null ? vd.stock : '';
+            return `
+                <div class="variant-row">
+                    <div class="variant-row-label">${escapeHtml(v)}</div>
+                    <input type="number" min="0" step="1" placeholder="stock"
+                           data-variant-key="${escapeHtml(v)}" data-variant-field="stock"
+                           value="${escapeHtml(stock)}">
+                    <input type="number" min="0" step="0.01" placeholder="${basePrice || 'price'}"
+                           data-variant-key="${escapeHtml(v)}" data-variant-field="price"
+                           value="${escapeHtml(price)}">
+                </div>`;
+        }).join('')}</div>`;
+        updateVariantsSummary(summary);
+    }
+
+    function renderVariantMatrix(body, summary, g1, g2) {
+        const basePrice = parseFloat(document.getElementById('productPrice')?.value) || 0;
+        const header = `<tr><th class="matrix-row-label">${escapeHtml(g1.name)}</th>`
+            + g2.values.map(v => `<th>${escapeHtml(v)}</th>`).join('') + '</tr>';
+        const rows = g1.values.map(v1 => {
+            const cells = g2.values.map(v2 => {
+                const key = `${v1}::${v2}`;
+                const vd = variantsDraft[key] || {};
+                const price = vd.price != null ? vd.price : '';
+                const stock = vd.stock != null ? vd.stock : '';
+                return `<td><div class="variant-cell-input">
+                    <input class="matrix-stock" type="number" min="0" step="1" placeholder="stock"
+                           data-variant-key="${escapeHtml(key)}" data-variant-field="stock"
+                           value="${escapeHtml(stock)}">
+                    <input class="matrix-price" type="number" min="0" step="0.01" placeholder="₱"
+                           data-variant-key="${escapeHtml(key)}" data-variant-field="price"
+                           value="${escapeHtml(price)}">
+                </div></td>`;
+            }).join('');
+            return `<tr><th class="matrix-row-label">${escapeHtml(v1)}</th>${cells}</tr>`;
+        }).join('');
+        body.innerHTML = `<div class="matrix-wrap"><table class="matrix-table">
+            <thead>${header}</thead>
+            <tbody>${rows}</tbody>
+        </table></div>`;
+        updateVariantsSummary(summary);
+    }
+
+    function updateVariantsSummary(summaryEl) {
+        if (!summaryEl) return;
+        const keys = getAllVariantKeys();
+        let count = 0, totalStock = 0;
+        let minPrice = Infinity, maxPrice = -Infinity;
+        keys.forEach(k => {
+            const vd = variantsDraft[k] || {};
+            const stock = Number(vd.stock);
+            if (Number.isFinite(stock) && stock >= 0) {
+                count++;
+                totalStock += stock;
+                if (vd.price != null && Number.isFinite(Number(vd.price))) {
+                    const p = Number(vd.price);
+                    if (p < minPrice) minPrice = p;
+                    if (p > maxPrice) maxPrice = p;
+                }
+            }
+        });
+        const rangeStr = count === 0 || !Number.isFinite(minPrice)
+            ? '—'
+            : (minPrice === maxPrice ? formatCurrency(minPrice) : `${formatCurrency(minPrice)} – ${formatCurrency(maxPrice)}`);
+        summaryEl.innerHTML = `
+            <span>Variants:<strong>${count}</strong></span>
+            <span>Total stock:<strong>${totalStock}</strong></span>
+            <span>Price range:<strong>${rangeStr}</strong></span>
+        `;
+    }
+
+    function getAllVariantKeys() {
+        const groups = optionGroupsDraft.filter(g => g.values.length > 0);
+        if (groups.length === 0) return [];
+        if (groups.length === 1) return [...groups[0].values];
+        const keys = [];
+        for (const v1 of groups[0].values) {
+            for (const v2 of groups[1].values) keys.push(`${v1}::${v2}`);
+        }
+        return keys;
+    }
+
+    function syncVariantsDraftFromDOM() {
+        document.querySelectorAll('[data-variant-key]').forEach(input => {
+            const key = input.dataset.variantKey;
+            const field = input.dataset.variantField;
+            if (!variantsDraft[key]) variantsDraft[key] = { price: null, stock: null };
+            const raw = input.value.trim();
+            variantsDraft[key][field] = raw === '' ? null : Number(raw);
+        });
+    }
+
+    function pruneVariantsDraft() {
+        const valid = new Set(getAllVariantKeys());
+        for (const k of Object.keys(variantsDraft)) {
+            if (!valid.has(k)) delete variantsDraft[k];
+        }
+    }
+
+    /* ============================================================
+       MODAL — save
+       ============================================================ */
     async function saveProduct(event) {
         event.preventDefault();
+        syncVariantsDraftFromDOM();
+        pruneVariantsDraft();
 
-        // ---------- Size ----------
-        const sizeMode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
-        const rawSize = document.getElementById('productSize').value.trim();
-        const normalizedSize = sizeMode === 'spec'
-            ? rawSize
-            : [...new Set(rawSize.split(',').map(v => v.trim()).filter(Boolean))].join(',');
-        const tracksSizeStock = sizeMode === 'variants' && document.getElementById('trackSizeStock').checked;
+        const name = document.getElementById('productName').value.trim();
+        const sku = document.getElementById('productSKU').value.trim();
+        const category = document.getElementById('productCategory').value;
+        const price = parseFloat(document.getElementById('productPrice').value);
+        const minStock = parseInt(document.getElementById('productMinStock').value, 10);
+        const supplier = document.getElementById('productSupplier').value.trim();
+        const description = document.getElementById('productDescription').value.trim();
+        const spec = document.getElementById('productSpec').value.trim();
+        const hasOptionsCb = document.getElementById('productHasOptions').checked;
 
-        // ---------- Brand ----------
-        const brandMode = document.querySelector('input[name="brandMode"]:checked')?.value || 'single';
-        const rawBrand = document.getElementById('productBrand').value.trim();
-        const normalizedBrand = brandMode === 'single'
-            ? rawBrand
-            : [...new Set(rawBrand.split(',').map(v => v.trim()).filter(Boolean))].join(',');
-        const tracksBrandStock = brandMode === 'variants' && document.getElementById('trackBrandStock').checked;
+        if (!name) { showToast('Product name is required', 'error'); return; }
+        if (!category) { showToast('Category is required', 'error'); return; }
+        if (!Number.isFinite(price) || price < 0) { showToast('Enter a valid price', 'error'); return; }
+        if (!Number.isFinite(minStock) || minStock < 1) { showToast('Minimum stock level is required', 'error'); return; }
 
-        // ---------- Matrix mode ----------
-        const useMatrix = sizeMode === 'variants' && brandMode === 'variants';
+        let options = null;
         let variants = null;
-
-        if (useMatrix) {
-            const readResult = readVariantMatrix();
-            if (readResult.error) {
-                showToast(readResult.error, 'error');
-                return;
-            }
-            variants = readResult.variants;
-        } else {
-            // Old guard — only one dimension can track stock
-            if (tracksSizeStock && tracksBrandStock) {
-                showToast('Only one dimension (size or brand) can track stock per product', 'error');
-                return;
-            }
-        }
-
-        // ---------- Size stocks (only when not using matrix) ----------
-        const sizes = normalizedSize.split(',').map(s => s.trim()).filter(Boolean);
-        let sizeStocks = null;
-        if (!useMatrix && tracksSizeStock) {
-            if (!sizes.length) {
-                showToast('Add at least one size before setting stock', 'error');
-                return;
-            }
-            const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
-            const removedStockedSize = Object.entries(existingProduct?.sizeStocks || {})
-                .some(([size, stock]) => !sizes.includes(size) && stock > 0);
-            if (removedStockedSize) {
-                showToast('Set removed size stock to zero before removing that size', 'error');
-                return;
-            }
-            sizeStocks = {};
-            for (const size of sizes) {
-                const input = [...document.querySelectorAll('[data-size-stock]')].find(f => f.dataset.sizeStock === size);
-                const value = input?.value.trim() || '';
-                const stock = Number(value);
-                if (value === '' || !Number.isInteger(stock) || stock < 0) {
-                    showToast(`Enter a whole stock quantity for size ${size}`, 'error');
-                    input?.focus();
-                    return;
-                }
-                sizeStocks[size] = stock;
-            }
-        }
-
-        // ---------- Brand stocks (only when not using matrix) ----------
-        const brands = normalizedBrand.split(',').map(b => b.trim()).filter(Boolean);
-        let brandStocks = null;
-        if (!useMatrix && tracksBrandStock) {
-            if (!brands.length) {
-                showToast('Add at least one brand before setting stock', 'error');
-                return;
-            }
-            const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
-            const removedStockedBrand = Object.entries(existingProduct?.brandStocks || {})
-                .some(([brand, stock]) => !brands.includes(brand) && stock > 0);
-            if (removedStockedBrand) {
-                showToast('Set removed brand stock to zero before removing that brand', 'error');
-                return;
-            }
-            brandStocks = {};
-            for (const brand of brands) {
-                const input = [...document.querySelectorAll('[data-brand-stock]')].find(f => f.dataset.brandStock === brand);
-                const value = input?.value.trim() || '';
-                const stock = Number(value);
-                if (value === '' || !Number.isInteger(stock) || stock < 0) {
-                    showToast(`Enter a whole stock quantity for brand ${brand}`, 'error');
-                    input?.focus();
-                    return;
-                }
-                brandStocks[brand] = stock;
-            }
-        }
-
-        // ---------- Total quantity ----------
         let quantity;
-        if (variants) quantity = Object.values(variants).reduce((t, v) => t + v.stock, 0);
-        else if (sizeStocks) quantity = Object.values(sizeStocks).reduce((t, s) => t + s, 0);
-        else if (brandStocks) quantity = Object.values(brandStocks).reduce((t, s) => t + s, 0);
-        else quantity = parseInt(document.getElementById('productQuantity').value, 10);
+
+        if (!hasOptionsCb) {
+            quantity = parseInt(document.getElementById('productQuantity').value, 10);
+            if (!Number.isFinite(quantity) || quantity < 0) {
+                showToast('Enter a valid initial quantity', 'error');
+                return;
+            }
+        } else {
+            const groups = optionGroupsDraft.filter(g => g.values.length > 0);
+            if (groups.length === 0) {
+                showToast('Add at least one option value', 'error');
+                return;
+            }
+            options = groups.map(g => ({ name: g.name || 'Option', values: [...g.values] }));
+            variants = {};
+            let total = 0;
+            const keys = getAllVariantKeys();
+            for (const key of keys) {
+                const vd = variantsDraft[key] || {};
+                const stock = Number(vd.stock);
+                if (!Number.isFinite(stock) || stock < 0 || !Number.isInteger(stock)) {
+                    showToast(`Enter a whole-number stock for "${key.replace(/::/g, ' · ')}"`, 'error');
+                    return;
+                }
+                let vPrice = null;
+                if (vd.price != null && vd.price !== '') {
+                    const p = Number(vd.price);
+                    if (!Number.isFinite(p) || p < 0) {
+                        showToast(`Enter a valid price for "${key.replace(/::/g, ' · ')}" or leave blank`, 'error');
+                        return;
+                    }
+                    vPrice = p;
+                }
+                variants[key] = { price: vPrice, stock };
+                total += stock;
+            }
+            if (Object.keys(variants).length === 0) {
+                showToast('Add at least one variant with stock', 'error');
+                return;
+            }
+            quantity = total;
+        }
 
         const productData = {
-            name: document.getElementById('productName').value.trim(),
-            sku: document.getElementById('productSKU').value.trim(),
-            category: document.getElementById('productCategory').value,
-            price: parseFloat(document.getElementById('productPrice').value),
-            quantity,
-            minStock: parseInt(document.getElementById('productMinStock').value),
-            supplier: document.getElementById('productSupplier').value.trim(),
-            size: normalizedSize,
-            sizeMode: sizeMode,
-            brand: normalizedBrand,
-            brandMode: brandMode,
-            description: document.getElementById('productDescription').value.trim(),
-            image: productImageDraft || null
+            name, sku, category, price, quantity, minStock, supplier, spec,
+            description, image: productImageDraft || null,
+            options, variants
         };
 
-        const existingProduct = inventoryState.products.find(p => p.id === inventoryState.editingProductId);
-
-        // Matrix replaces both stocks — write variants and clear the old shapes
-        if (variants) {
-            productData.variants = variants;
-            productData.sizeStocks = null;
-            productData.brandStocks = null;
-        } else {
-            if (sizeStocks) productData.sizeStocks = sizeStocks;
-            else if (existingProduct?.sizeStocks) productData.sizeStocks = null;
-
-            if (brandStocks) productData.brandStocks = brandStocks;
-            else if (existingProduct?.brandStocks) productData.brandStocks = null;
-
-            // Clear any leftover variants from a previous edit
-            if (existingProduct?.variants) productData.variants = null;
-        }
-
-        // ---------- NAME-BASED DEDUPLICATION ----------
-        // Only applies when creating a NEW product. If the name already
-        // exists, offer to merge the quantity into the existing product
-        // instead of creating a second card with the same name.
+        // ---------- Name dedup (new products only) ----------
         if (!inventoryState.editingProductId) {
-            const existingByName = findProductByName(productData.name);
-
-            if (existingByName) {
-                if (usesVariantStock(existingByName)) {
-                    showToast(
-                        `"${existingByName.name}" already exists and uses size/brand stock. ` +
-                        `Edit that product directly to adjust its stock.`,
-                        'error'
-                    );
-                    return;
-                }
-
-                const existingQty = Number(existingByName.quantity) || 0;
-                const addQty = Number(productData.quantity) || 0;
-                const mergedQty = existingQty + addQty;
-
-                const confirmed = window.confirm(
-                    `A product named "${existingByName.name}" already exists.\n\n` +
-                    `Current stock: ${existingQty}\n` +
-                    `You are adding: ${addQty}\n` +
-                    `New total will be: ${mergedQty}\n\n` +
-                    `Click OK to ADD this stock to the existing product and ` +
-                    `update its price/details.\n` +
-                    `Click Cancel to go back and edit the existing product instead.`
-                );
-                if (!confirmed) return;
-
-                // Merge: keep the original id + sku; update everything else.
-                const mergedPayload = {
-                    ...productData,
-                    sku: existingByName.sku,   // preserve original code
-                    quantity: mergedQty
-                };
-                mergedPayload.min_stock = productData.minStock;
-                delete mergedPayload.minStock;
-
-                const mergeResult = await supabaseApi.updateInventoryProduct(
-                    existingByName.id, mergedPayload
-                );
-                if (mergeResult.error) {
-                    showToast(mergeResult.error.message, 'error');
-                    return;
-                }
-
-                const idx = inventoryState.products.findIndex(p => p.id === existingByName.id);
-                if (idx !== -1) {
-                    inventoryState.products[idx] = mapProduct({
-                        ...inventoryState.products[idx],
-                        ...productData,
-                        sku: existingByName.sku,
-                        quantity: mergedQty,
-                        id: existingByName.id
-                    });
-                }
-
-                window.POS_APP_LOG?.('update', 'inventory',
-                    `Stock added to existing product "${existingByName.name}" (+${addQty})`,
-                    'info');
-                showToast(`Added ${addQty} to existing "${existingByName.name}" (stock now ${mergedQty})`, 'success');
-
-                matrixDraft = {};
-                productImageDraft = null;
-                updateInventoryStats();
-                filterProducts();
-                closeProductModal();
-                window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+            const existing = findProductByName(name);
+            if (existing) {
+                showToast(`A product named "${existing.name}" already exists. Edit that one instead.`, 'error');
                 return;
             }
         }
 
-        // ---------- SKU uniqueness (existing behaviour) ----------
-        // For new products, if the auto-generated SKU somehow collides
-        // (e.g. two users adding at the same time), bump to the next one.
-        if (productData.sku) {
-            const skuExists = inventoryState.products.some(
-                p => p.sku === productData.sku && p.id !== inventoryState.editingProductId
+        // ---------- SKU uniqueness ----------
+        if (sku) {
+            const conflict = inventoryState.products.some(
+                p => p.sku === sku && p.id !== inventoryState.editingProductId
             );
-            if (skuExists) {
+            if (conflict) {
                 if (!inventoryState.editingProductId) {
                     productData.sku = generateNextSku();
                 } else {
@@ -807,624 +898,265 @@ modal.classList.add('active');
 
         const payload = { ...productData, min_stock: productData.minStock };
         delete payload.minStock;
+        // Persist explicit nulls so Firestore stores the shape consistently
+        payload.options = productData.options;
+        payload.variants = productData.variants;
 
         let result;
         if (inventoryState.editingProductId) {
             result = await supabaseApi.updateInventoryProduct(inventoryState.editingProductId, payload);
-            const index = inventoryState.products.findIndex(p => p.id === inventoryState.editingProductId);
-            if (!result.error && index !== -1) inventoryState.products[index] = mapProduct(result.data?.[0] || { ...inventoryState.products[index], ...productData });
-            window.POS_APP_LOG?.('update', 'inventory', `Product ${productData.name} updated`, 'info');
+            const idx = inventoryState.products.findIndex(p => p.id === inventoryState.editingProductId);
+            if (!result.error && idx !== -1) {
+                inventoryState.products[idx] = mapProduct({
+                    ...inventoryState.products[idx],
+                    ...productData,
+                    min_stock: productData.minStock,
+                    id: inventoryState.editingProductId
+                });
+            }
+            window.POS_APP_LOG?.('update', 'inventory', `Product ${name} updated`, 'info');
             showToast(result.error ? result.error.message : 'Product updated successfully', result.error ? 'error' : 'success');
         } else {
             result = await supabaseApi.addInventoryProduct(payload);
-            if (!result.error && result.data?.[0]) inventoryState.products.unshift(mapProduct(result.data[0]));
-            window.POS_APP_LOG?.('create', 'inventory', `Product ${productData.name} added`, 'info');
+            if (!result.error && result.data?.[0]) {
+                inventoryState.products.unshift(mapProduct(result.data[0]));
+            }
+            window.POS_APP_LOG?.('create', 'inventory', `Product ${name} added`, 'info');
             showToast(result.error ? result.error.message : 'Product added successfully', result.error ? 'error' : 'success');
         }
         if (result.error) return;
-        matrixDraft = {};
+
         productImageDraft = null;
-        updateInventoryStats(); filterProducts(); closeProductModal();
+        optionGroupsDraft = [];
+        variantsDraft = {};
+        updateInventoryStats();
+        filterProducts();
+        closeProductModal();
         window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
     }
 
+    /* ============================================================
+       DELETE + EXPORT
+       ============================================================ */
     function closeDeleteModal() {
         document.getElementById('deleteModal')?.classList.remove('active');
         inventoryState.deletingProductId = null;
     }
 
     async function confirmDelete() {
-        if (inventoryState.deletingProductId) {
-            const result = await supabaseApi.deleteInventoryProduct(inventoryState.deletingProductId);
-            if (result.error) {
-                showToast(result.error.message, 'error');
-                return;
-            }
-            inventoryState.products = inventoryState.products.filter(p => p.id !== inventoryState.deletingProductId);
-            updateInventoryStats(); filterProducts();
-            window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
-            window.POS_APP_LOG?.('delete', 'inventory', `Product ${inventoryState.deletingProductId} deleted`, 'warning');
-            showToast('Product deleted successfully', 'success');
-        }
+        if (!inventoryState.deletingProductId) return;
+        const result = await supabaseApi.deleteInventoryProduct(inventoryState.deletingProductId);
+        if (result.error) { showToast(result.error.message, 'error'); return; }
+        inventoryState.products = inventoryState.products.filter(p => p.id !== inventoryState.deletingProductId);
+        updateInventoryStats();
+        filterProducts();
+        window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+        window.POS_APP_LOG?.('delete', 'inventory', `Product ${inventoryState.deletingProductId} deleted`, 'warning');
+        showToast('Product deleted successfully', 'success');
         closeDeleteModal();
     }
 
     function exportInventory() {
         if (!inventoryState.products.length) { showToast('No products to export', 'error'); return; }
-        const headers = ['ID', 'Name', 'Product Code', 'Category', 'Price', 'Quantity', 'Min Stock', 'Supplier', 'Size', 'Stock by Size', 'Description', 'Last Updated'];
+        const headers = ['ID', 'Name', 'Product Code', 'Category', 'Price', 'Total Stock', 'Min Stock', 'Supplier', 'Spec', 'Options', 'Variants', 'Description', 'Last Updated'];
         const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-        const rows = inventoryState.products.map(product => [product.id, product.name, product.sku, product.category, product.price, product.quantity, product.minStock, product.supplier, product.size || '', product.sizeStocks ? JSON.stringify(product.sizeStocks) : '', product.description, product.lastUpdated]);
-        const blob = new Blob([[headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const rows = inventoryState.products.map(p => [
+            p.id, p.name, p.sku, p.category, p.price, p.quantity, p.minStock, p.supplier,
+            p.spec || '',
+            p.options ? p.options.map(o => `${o.name}: ${o.values.join('/')}`).join(' | ') : '',
+            p.variants ? JSON.stringify(p.variants) : '',
+            p.description, p.lastUpdated
+        ]);
+        const blob = new Blob([[headers, ...rows].map(r => r.map(escapeCsv).join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.href = url; link.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`; link.click(); URL.revokeObjectURL(url);
         window.POS_APP_LOG?.('export', 'inventory', 'Inventory CSV exported', 'info');
         showToast('Inventory exported successfully', 'success');
     }
-/* ============================================================
-   SPEC AUTO-DETECTION
-   Reads the Specification/Variants input and returns a
-   semantic category so the label reads naturally.
-   Weight → "Weight", Length → "Size", etc.
-   ============================================================ */
-function detectSpecCategory(raw) {
-    const s = String(raw || '').toLowerCase().trim();
-    if (!s) return null;
 
-    // Weight: kg, g, mg, lb, oz, ton
-    if (/\b\d+(\.\d+)?\s*(kgs?|g|mgs?|lbs?|oz|tons?|tonnes?)\b/.test(s)) {
-        return { key: 'weight', label: 'Weight', plural: 'Weights', example: '1 kg, 2 kg, 5 kg', stockLabel: 'Stock by weight' };
-    }
-
-    // Volume: L, ml, gal, liter, fl oz
-    if (/\b\d+(\.\d+)?\s*(l|ml|liters?|litres?|gals?|gallons?|fl\s*oz)\b/.test(s)) {
-        return { key: 'volume', label: 'Volume', plural: 'Volumes', example: '250 ml, 500 ml, 1 L', stockLabel: 'Stock by volume' };
-    }
-
-    // Electrical: V, A, W, AWG, volt, amp, watt
-    if (/\b\d+(\.\d+)?\s*(v|volts?|a|amps?|amperes?|w|watts?|awg|kva|hp)\b/.test(s)) {
-        return { key: 'rating', label: 'Rating', plural: 'Ratings', example: '10 A, 20 A, 30 A', stockLabel: 'Stock by rating' };
-    }
-
-    // Length/dimension: mm, cm, m, in, ft, yd, meters
-    if (/\b\d+(\.\d+)?\s*(mm|cms?|m|in|inch(es)?|ft|foot|feet|yd|yards?|meters?|metres?)\b/.test(s)) {
-        return { key: 'size', label: 'Size', plural: 'Sizes', example: '2 in, 4 in, 6 in', stockLabel: 'Stock by size' };
-    }
-
-    // Dimension × dimension (e.g. "2x4", "10 x 20")
-    if (/\d+\s*[x×]\s*\d+/.test(s)) {
-        return { key: 'dimension', label: 'Dimension', plural: 'Dimensions', example: '2x4, 4x8', stockLabel: 'Stock by dimension' };
-    }
-
-    // Count: pcs, sets, packs, units, pairs, boxes, bags, rolls
-    if (/\b\d+(\.\d+)?\s*(pcs?|pieces?|sets?|packs?|units?|pairs?|boxes?|bags?|rolls?)\b/.test(s)) {
-        return { key: 'count', label: 'Pack Size', plural: 'Pack Sizes', example: '10 pcs, 50 pcs, 100 pcs', stockLabel: 'Stock by pack size' };
-    }
-
-    // Color names
-    if (/\b(red|blue|green|yellow|black|white|gray|grey|brown|orange|pink|purple|silver|gold|beige|maroon|navy|teal|cyan|magenta|violet|indigo)\b/.test(s)) {
-        return { key: 'color', label: 'Color', plural: 'Colors', example: 'Red, Blue, Green', stockLabel: 'Stock by color' };
-    }
-
-    // Apparel/numeric sizing: S, M, L, XL, 3XL, 8, 10, 12
-    if (/^\s*(xxs|xs|s|m|l|xl|xxl|xxxl|[2-9]xl|\d{1,2})(\s*,\s*(xxs|xs|s|m|l|xl|xxl|xxxl|[2-9]xl|\d{1,2}))+\s*$/.test(s)) {
-        return { key: 'size', label: 'Size', plural: 'Sizes', example: 'S, M, L, XL', stockLabel: 'Stock by size' };
-    }
-
-    // Fallback — anything with commas is a generic variant list
-    if (/^[^,]+(\s*,\s*[^,]+)+$/.test(s)) {
-        return { key: 'variant', label: 'Variant', plural: 'Variants', example: '', stockLabel: 'Stock by variant' };
-    }
-
-    // Single-word spec we don't recognize
-    return { key: 'spec', label: 'Specification', plural: 'Specs', example: '', stockLabel: 'Stock' };
-}
-function updateSizePreview() {
-    const previewEl = document.getElementById('sizePreview');
-    const inputEl = document.getElementById('productSize');
-    const labelEl = document.getElementById('productSizeLabel');
-    const mode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
-
-    if (!previewEl || !inputEl || !labelEl) return;
-
-    const raw = inputEl.value.trim();
-    const detected = detectSpecCategory(raw);
-
-    // ---- Single spec mode ----
-    if (mode === 'spec') {
-        const labelText = detected ? detected.label : 'Specification';
-        labelEl.textContent = `${labelText} (optional)`;
-
-        // Show a category-appropriate example in the placeholder
-        inputEl.placeholder = detected && detected.example
-            ? `e.g., ${detected.example}, or leave blank`
-            : 'e.g., 2 in, 40 kg, 20 A, or leave blank';
-
-        previewEl.style.display = 'none';
-        previewEl.innerHTML = '';
-        renderVariantStockControls();
-        return;
-    }
-
-    // ---- Variants mode ----
-    const pluralLabel = detected ? detected.plural : 'Variants';
-    labelEl.textContent = `${pluralLabel} (separated by comma)`;
-    inputEl.placeholder = detected && detected.example
-        ? `e.g., ${detected.example}`
-        : 'e.g., S, M, L, XL';
-
-    const parts = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
-
-    if (parts.length === 0) {
-        previewEl.style.display = 'none';
-        previewEl.innerHTML = '';
-        renderVariantStockControls();
-        return;
-    }
-
-    // Show the detected label above the chips for extra clarity
-    const previewHeading = detected ? `${detected.plural}:` : 'Preview:';
-    previewEl.style.display = 'flex';
-    previewEl.innerHTML =
-        `<span class="size-preview-label">${escapeHtml(previewHeading)}</span> ` +
-        parts.map(p => `<span class="size-chip">${escapeHtml(p)}</span>`).join('');
-
-    renderVariantStockControls();
-}
-function updateBrandPreview() {
-    const previewEl = document.getElementById('brandPreview');
-    const inputEl = document.getElementById('productBrand');
-    const labelEl = document.getElementById('productBrandLabel');
-    const mode = document.querySelector('input[name="brandMode"]:checked')?.value || 'single';
-
-    if (!previewEl || !inputEl || !labelEl) return;
-
-    if (mode === 'single') {
-        labelEl.textContent = 'Brand (optional)';
-        inputEl.placeholder = 'e.g., Bosny, Stanley, Boysen';
-        previewEl.style.display = 'none';
-        previewEl.innerHTML = '';
-        renderBrandStockControls();
-        return;
-    }
-
-    labelEl.textContent = 'Brands (separated by comma)';
-    inputEl.placeholder = 'e.g., Bosny, Boysen, Davies';
-
-    const raw = inputEl.value.trim();
-    const parts = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
-
-    if (parts.length === 0) {
-        previewEl.style.display = 'none';
-        previewEl.innerHTML = '';
-        renderBrandStockControls();
-        return;
-    }
-
-    previewEl.style.display = 'flex';
-    previewEl.innerHTML =
-        '<span class="size-preview-label">Preview:</span> ' +
-        parts.map(p => `<span class="size-chip">${escapeHtml(p)}</span>`).join('');
-    renderBrandStockControls();
-}
-
-function renderBrandStockControls() {
-    const mode = document.querySelector('input[name="brandMode"]:checked')?.value || 'single';
-    const group = document.getElementById('brandStockGroup');
-    const inputContainer = document.getElementById('brandStockInputs');
-    const trackBrandStock = document.getElementById('trackBrandStock');
-    if (!group || !inputContainer || !trackBrandStock) return;
-
-    const enabled = mode === 'variants' && trackBrandStock.checked;
-    group.style.display = mode === 'variants' ? '' : 'none';
-
-    const currentValues = {};
-    inputContainer.querySelectorAll('[data-brand-stock]').forEach(input => {
-        currentValues[input.dataset.brandStock] = input.value;
-    });
-    brandStockDraft = { ...brandStockDraft, ...currentValues };
-
-    if (!enabled) {
-        inputContainer.innerHTML = '';
-        // Re-show the shared quantity field if neither dimension tracks stock
-        const sharedQty = document.getElementById('sharedQuantityGroup');
-        const sizeTracks = document.querySelector('input[name="sizeMode"]:checked')?.value === 'variants'
-            && document.getElementById('trackSizeStock')?.checked;
-        if (sharedQty) sharedQty.style.display = sizeTracks ? 'none' : '';
-        return;
-    }
-
-    const brands = [...new Set(document.getElementById('productBrand').value.split(',').map(b => b.trim()).filter(Boolean))];
-    inputContainer.innerHTML = brands.map(brand => {
-        const value = Object.hasOwn(brandStockDraft, brand) ? brandStockDraft[brand] : '';
-        return `<label class="size-stock-row"><span>${escapeHtml(brand)}</span><input class="quantity-input" type="number" min="0" step="1" required data-brand-stock="${escapeHtml(brand)}" value="${escapeHtml(value)}" aria-label="Stock for ${escapeHtml(brand)}"></label>`;
-    }).join('');
-
-    // Hide the shared quantity field while brand stock tracking is active
-    const sharedQty = document.getElementById('sharedQuantityGroup');
-    if (sharedQty) sharedQty.style.display = 'none';
-}
-
-/* ============================================================
-   SIZE × BRAND MATRIX
-   ============================================================ */
-
-function shouldShowMatrix() {
-    const sizeMode = document.querySelector('input[name="sizeMode"]:checked')?.value;
-    const brandMode = document.querySelector('input[name="brandMode"]:checked')?.value;
-    return sizeMode === 'variants' && brandMode === 'variants';
-}
-
-// In-memory draft so values survive re-renders when the user edits
-// sizes or brands while the modal is open.
-let matrixDraft = {};
-
-function renderVariantMatrix() {
-    const group = document.getElementById('variantMatrixGroup');
-    const head = document.getElementById('variantMatrixHead');
-    const body = document.getElementById('variantMatrixBody');
-    if (!group || !head || !body) return;
-
-    if (!shouldShowMatrix()) {
-        group.style.display = 'none';
-        // Hide the two alternate stock panels while the matrix is visible
-        document.getElementById('variantStockGroup')?.style.setProperty('display', 'none');
-        document.getElementById('brandStockGroup')?.style.setProperty('display', 'none');
-        return;
-    }
-
-    // Hide the two alternative stock panels — the matrix replaces them
-    document.getElementById('variantStockGroup')?.style.setProperty('display', 'none');
-    document.getElementById('brandStockGroup')?.style.setProperty('display', 'none');
-    const sharedQty = document.getElementById('sharedQuantityGroup');
-    if (sharedQty) sharedQty.style.display = 'none';
-
-    group.style.display = '';
-
-    const sizes = [...new Set(
-        document.getElementById('productSize').value
-            .split(',').map(s => s.trim()).filter(Boolean)
-    )];
-    const brands = [...new Set(
-        document.getElementById('productBrand').value
-            .split(',').map(b => b.trim()).filter(Boolean)
-    )];
-
-    if (sizes.length === 0 || brands.length === 0) {
-        head.innerHTML = '';
-        body.innerHTML = '<tr><td style="text-align:center;padding:14px;color:var(--text-muted);">Add sizes and brands above to see the matrix</td></tr>';
-        updateMatrixSummary();
-        return;
-    }
-
-    // Preserve any values already typed in the current DOM
-    body.querySelectorAll('[data-variant-key]').forEach(input => {
-        const key = input.dataset.variantKey;
-        const field = input.dataset.variantField;
-        if (!matrixDraft[key]) matrixDraft[key] = {};
-        matrixDraft[key][field] = input.value;
-    });
-
-    head.innerHTML = '<tr><th class="matrix-row-label">Size</th>'
-        + brands.map(b => `<th>${escapeHtml(b)}</th>`).join('')
-        + '</tr>';
-
-    body.innerHTML = sizes.map(size => {
-        const cells = brands.map(brand => {
-            const key = `${size}::${brand}`;
-            const draft = matrixDraft[key] || {};
-            const price = draft.price ?? '';
-            const stock = draft.stock ?? '';
-            return `<td>
-                <div class="variant-cell-input">
-                    <input class="matrix-price" type="number" min="0" step="0.01" placeholder="₱"
-                        data-variant-key="${escapeHtml(key)}" data-variant-field="price"
-                        value="${escapeHtml(price)}"
-                        aria-label="Price for ${escapeHtml(size)} ${escapeHtml(brand)}">
-                    <input class="matrix-stock" type="number" min="0" step="1" placeholder="stock"
-                        data-variant-key="${escapeHtml(key)}" data-variant-field="stock"
-                        value="${escapeHtml(stock)}"
-                        aria-label="Stock for ${escapeHtml(size)} ${escapeHtml(brand)}">
-                </div>
-            </td>`;
-        }).join('');
-        return `<tr><th class="matrix-row-label">${escapeHtml(size)}</th>${cells}</tr>`;
-    }).join('');
-
-    updateMatrixSummary();
-}
-
-function updateMatrixSummary() {
-    const body = document.getElementById('variantMatrixBody');
-    if (!body) return;
-
-    let count = 0, totalStock = 0;
-    let minPrice = Infinity, maxPrice = -Infinity;
-
-    body.querySelectorAll('[data-variant-field="stock"]').forEach(stockInput => {
-        const key = stockInput.dataset.variantKey;
-        const priceInput = body.querySelector(`[data-variant-field="price"][data-variant-key="${CSS.escape(key)}"]`);
-        const stock = parseInt(stockInput.value, 10);
-        const priceRaw = priceInput?.value?.trim() || '';
-        const price = priceRaw === '' ? null : parseFloat(priceRaw);
-
-        if (Number.isInteger(stock) && stock >= 0) {
-            count++;
-            totalStock += stock;
-            if (price !== null && Number.isFinite(price)) {
-                if (price < minPrice) minPrice = price;
-                if (price > maxPrice) maxPrice = price;
-            }
-        }
-    });
-
-    const countEl = document.getElementById('matrixVariantCount');
-    const stockEl = document.getElementById('matrixTotalStock');
-    const rangeEl = document.getElementById('matrixPriceRange');
-
-    if (countEl) countEl.textContent = count;
-    if (stockEl) stockEl.textContent = totalStock;
-    if (rangeEl) {
-        if (count === 0 || !Number.isFinite(minPrice)) {
-            rangeEl.textContent = '—';
-        } else if (minPrice === maxPrice) {
-            rangeEl.textContent = formatCurrency(minPrice);
-        } else {
-            rangeEl.textContent = `${formatCurrency(minPrice)} – ${formatCurrency(maxPrice)}`;
-        }
-    }
-}
-
-function readVariantMatrix() {
-    const body = document.getElementById('variantMatrixBody');
-    if (!body) return { error: 'Matrix not found' };
-
-    const pairs = {};
-    body.querySelectorAll('[data-variant-key]').forEach(input => {
-        const key = input.dataset.variantKey;
-        const field = input.dataset.variantField;
-        if (!pairs[key]) pairs[key] = {};
-        pairs[key][field] = input.value.trim();
-    });
-
-    const out = {};
-    for (const [key, val] of Object.entries(pairs)) {
-        const stockRaw = val.stock ?? '';
-        const priceRaw = val.price ?? '';
-
-        // Fully empty cell → combination doesn't exist, skip
-        if (stockRaw === '' && priceRaw === '') continue;
-
-        if (stockRaw === '') {
-            return { error: `Enter stock for ${key} (or leave price blank to skip this combination)` };
-        }
-
-        const stock = Number(stockRaw);
-        if (!Number.isInteger(stock) || stock < 0) {
-            return { error: `Enter a whole-number stock for ${key}` };
-        }
-
-        let price = null;
-        if (priceRaw !== '') {
-            const p = Number(priceRaw);
-            if (!Number.isFinite(p) || p < 0) {
-                return { error: `Enter a valid price for ${key}, or leave blank to use base price` };
-            }
-            price = p;
-        }
-
-        out[key] = { price, stock };
-    }
-
-    if (Object.keys(out).length === 0) {
-        return { error: 'Add at least one variant with stock' };
-    }
-
-    return { variants: out };
-}
-
-
-function renderVariantStockControls() {
-    const mode = document.querySelector('input[name="sizeMode"]:checked')?.value || 'spec';
-    const group = document.getElementById('variantStockGroup');
-    const inputContainer = document.getElementById('variantStockInputs');
-    const sharedQuantityGroup = document.getElementById('sharedQuantityGroup');
-    const trackSizeStock = document.getElementById('trackSizeStock');
-    const sharedQuantityInput = document.getElementById('productQuantity');
-    if (!group || !inputContainer || !sharedQuantityGroup || !trackSizeStock || !sharedQuantityInput) return;
-
-    // Compute enabled FIRST — everything below depends on it
-    const enabled = mode === 'variants' && trackSizeStock.checked;
-    group.style.display = mode === 'variants' ? '' : 'none';
-    sharedQuantityGroup.style.display = enabled ? 'none' : '';
-
-    // Make the section heading match whatever the user typed
-    const groupLabel = group.querySelector('label');
-    if (groupLabel) {
-        const raw = document.getElementById('productSize')?.value || '';
-        const detected = detectSpecCategory(raw);
-        groupLabel.textContent = detected ? detected.stockLabel : 'Stock by size';
-    }
-    sharedQuantityInput.required = !enabled;
-
-    const currentValues = {};
-    inputContainer.querySelectorAll('[data-size-stock]').forEach(input => {
-        currentValues[input.dataset.sizeStock] = input.value;
-    });
-    variantStockDraft = { ...variantStockDraft, ...currentValues };
-
-    if (!enabled) {
-        inputContainer.innerHTML = '';
-        return;
-    }
-
-    const sizes = [...new Set(document.getElementById('productSize').value.split(',').map(size => size.trim()).filter(Boolean))];
-    inputContainer.innerHTML = sizes.map(size => {
-        const value = Object.hasOwn(variantStockDraft, size) ? variantStockDraft[size] : '';
-        return `<label class="size-stock-row"><span>${escapeHtml(size)}</span><input class="quantity-input" type="number" min="0" step="1" required data-size-stock="${escapeHtml(size)}" value="${escapeHtml(value)}" aria-label="Stock for ${escapeHtml(size)}"></label>`;
-    }).join('');
-}
-
-function setupInventoryEventListeners() {
-    if (inventoryState.initialized) return;
-    inventoryState.initialized = true;
-
-    document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
-
-    // Size mode radios + live preview
-    document.querySelectorAll('input[name="sizeMode"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            updateSizePreview();
-            renderVariantMatrix();
+    /* ============================================================
+       EVENT LISTENERS
+       ============================================================ */
+    function setupInventoryEventListeners() {
+        if (inventoryState.initialized) return;
+        inventoryState.initialized = true;
+
+        document.getElementById('addProductBtn')?.addEventListener('click', () => openProductModal());
+
+        // Has options toggle
+        document.getElementById('productHasOptions')?.addEventListener('change', updateOptionsUI);
+
+        // Add second option group
+        document.getElementById('addOptionGroupBtn')?.addEventListener('click', () => {
+            if (optionGroupsDraft.length >= MAX_OPTION_GROUPS) return;
+            optionGroupsDraft.push({ name: 'Brand', values: [] });
+            renderOptionGroups();
+            renderVariantsEditor();
         });
-    });
-    document.getElementById('productSize')?.addEventListener('input', () => {
-        updateSizePreview();
-        renderVariantMatrix();
-    });
-    document.getElementById('trackSizeStock')?.addEventListener('change', renderVariantStockControls);
-    document.getElementById('variantStockInputs')?.addEventListener('input', () => {
-        const inputs = [...document.querySelectorAll('[data-size-stock]')];
-        const values = inputs.map(input => input.value.trim());
-        if (!inputs.length || values.some(value => value === '' || !Number.isInteger(Number(value)) || Number(value) < 0)) return;
-        document.getElementById('productQuantity').value = values.reduce((total, value) => total + Number(value), 0);
-    });
 
-    // Brand mode radios + live preview
-    document.querySelectorAll('input[name="brandMode"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            updateBrandPreview();
-            renderVariantMatrix();
-        });
-    });
-    document.getElementById('productBrand')?.addEventListener('input', () => {
-        updateBrandPreview();
-        renderVariantMatrix();
-    });
-    document.getElementById('trackBrandStock')?.addEventListener('change', renderBrandStockControls);
-    document.getElementById('brandStockInputs')?.addEventListener('input', () => {
-        const inputs = [...document.querySelectorAll('[data-brand-stock]')];
-        const values = inputs.map(input => input.value.trim());
-        if (!inputs.length || values.some(value => value === '' || !Number.isInteger(Number(value)) || Number(value) < 0)) return;
-        document.getElementById('productQuantity').value = values.reduce((total, value) => total + Number(value), 0);
-    });
+        // Option groups — delegation
+        const optionsContainer = document.getElementById('optionGroupsContainer');
+        if (optionsContainer) {
+            optionsContainer.addEventListener('input', (e) => {
+                const idx = Number(e.target.dataset.optionIndex);
+                if (!Number.isFinite(idx) || !optionGroupsDraft[idx]) return;
 
-    // Matrix live updates — recalc footer summary on cell edit
-    document.getElementById('variantMatrixBody')?.addEventListener('input', (e) => {
-        if (e.target.matches('[data-variant-key]')) {
-            updateMatrixSummary();
+                if (e.target.matches('.option-values-input')) {
+                    const values = [...new Set(
+                        e.target.value.split(',').map(v => v.trim()).filter(Boolean)
+                    )];
+                    optionGroupsDraft[idx].values = values;
+                    renderVariantsEditor();
+                }
+            });
+            optionsContainer.addEventListener('change', (e) => {
+                const idx = Number(e.target.dataset.optionIndex);
+                if (!Number.isFinite(idx) || !optionGroupsDraft[idx]) return;
+                if (e.target.matches('.option-name-select')) {
+                    optionGroupsDraft[idx].name = e.target.value;
+                    renderVariantsEditor();
+                }
+            });
+            optionsContainer.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('[data-remove-option]');
+                if (!removeBtn) return;
+                const idx = Number(removeBtn.dataset.removeOption);
+                if (!Number.isFinite(idx) || idx <= 0) return;
+                optionGroupsDraft.splice(idx, 1);
+                pruneVariantsDraft();
+                renderOptionGroups();
+                renderVariantsEditor();
+            });
         }
-    });
 
-    document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
+        // Variants editor — capture input into draft, re-render summary
+        const variantsBody = document.getElementById('variantsEditorBody');
+        if (variantsBody) {
+            variantsBody.addEventListener('input', (e) => {
+                if (!e.target.matches('[data-variant-key]')) return;
+                const key = e.target.dataset.variantKey;
+                const field = e.target.dataset.variantField;
+                if (!variantsDraft[key]) variantsDraft[key] = { price: null, stock: null };
+                const raw = e.target.value.trim();
+                variantsDraft[key][field] = raw === '' ? null : Number(raw);
+                updateVariantsSummary(document.getElementById('variantsEditorSummary'));
+            });
+        }
 
-    // ---- Product image: choose / remove ----
-    document.getElementById('productImageInput')?.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            productImageDraft = await resizeImageFile(file);
+        // Category
+        document.getElementById('addCategoryBtn')?.addEventListener('click', addCategoryPrompt);
+
+        // Product image
+        document.getElementById('productImageInput')?.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            try {
+                productImageDraft = await resizeImageFile(file);
+                renderProductImagePreview();
+            } catch (err) {
+                showToast(err.message || 'Could not load image', 'error');
+            } finally {
+                e.target.value = '';
+            }
+        });
+        document.getElementById('productImageRemove')?.addEventListener('click', () => {
+            productImageDraft = null;
             renderProductImagePreview();
-        } catch (err) {
-            showToast(err.message || 'Could not load image', 'error');
-        } finally {
-            // Reset the input so choosing the same file twice re-fires change
-            e.target.value = '';
-        }
-    });
-
-    document.getElementById('productImageRemove')?.addEventListener('click', () => {
-        productImageDraft = null;
-        renderProductImagePreview();
-    });
-
-    document.getElementById('exportInventoryBtn')?.addEventListener('click', exportInventory);
-    (() => {
-        const searchEl = document.getElementById('inventorySearch');
-        if (!searchEl) return;
-        let __invSearchTimer = null;
-        searchEl.addEventListener('input', (event) => {
-            inventoryState.searchTerm = event.target.value;
-            clearTimeout(__invSearchTimer);
-            __invSearchTimer = setTimeout(() => filterProducts(), 150);
         });
-    })();
-    document.getElementById('categoryFilter')?.addEventListener('change', event => { inventoryState.categoryFilter = event.target.value; filterProducts(); });
-    document.getElementById('stockFilter')?.addEventListener('change', event => {
-    inventoryState.stockFilter = event.target.value;
-    syncFilterCards();
-    filterProducts();
-});
 
-// Filter cards — click / keyboard to filter inventory
-document.querySelectorAll('.inv-filter-card').forEach(card => {
-    const apply = () => {
-        const filter = card.dataset.stockFilter || '';
-        inventoryState.stockFilter = filter;
-        const select = document.getElementById('stockFilter');
-        if (select) select.value = filter;
-        syncFilterCards();
-        filterProducts();
-    };
-    card.addEventListener('click', apply);
-    card.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            apply();
-        }
-    });
-});
-    document.getElementById('closeProductModal')?.addEventListener('click', closeProductModal);
-    document.getElementById('cancelProductBtn')?.addEventListener('click', closeProductModal);
-    document.getElementById('productForm')?.addEventListener('submit', saveProduct);
-    document.getElementById('closeDeleteModal')?.addEventListener('click', closeDeleteModal);
-    document.getElementById('cancelDeleteBtn')?.addEventListener('click', closeDeleteModal);
-    document.getElementById('confirmDeleteBtn')?.addEventListener('click', confirmDelete);
-    window.addEventListener('click', event => {
-        if (event.target === document.getElementById('productModal')) closeProductModal();
-        if (event.target === document.getElementById('deleteModal')) closeDeleteModal();
-    });
-}
+        // Export
+        document.getElementById('exportInventoryBtn')?.addEventListener('click', exportInventory);
 
+        // Search + filters
+        (() => {
+            const searchEl = document.getElementById('inventorySearch');
+            if (!searchEl) return;
+            let t = null;
+            searchEl.addEventListener('input', (event) => {
+                inventoryState.searchTerm = event.target.value;
+                clearTimeout(t);
+                t = setTimeout(() => filterProducts(), 150);
+            });
+        })();
+        document.getElementById('categoryFilter')?.addEventListener('change', e => {
+            inventoryState.categoryFilter = e.target.value; filterProducts();
+        });
+        document.getElementById('stockFilter')?.addEventListener('change', e => {
+            inventoryState.stockFilter = e.target.value; syncFilterCards(); filterProducts();
+        });
 
-    window.initInventory = function() {
-    // Always load categories from cloud (realtime-safe)
-    if (categoriesCache === null) loadCategoriesFromCloud();
-    
-    if (!supabaseApi?.isConfigured?.()) {
-        inventoryState.products = [];
-        inventoryState.productsLoaded = true;
-        showToast('Firebase is not configured', 'error');
-        renderCategoryOptions();
-        updateInventoryStats();
-        filterProducts();
-        setupInventoryEventListeners();
-        return;
+        // Filter cards
+        document.querySelectorAll('.inv-filter-card').forEach(card => {
+            const apply = () => {
+                const filter = card.dataset.stockFilter || '';
+                inventoryState.stockFilter = filter;
+                const select = document.getElementById('stockFilter');
+                if (select) select.value = filter;
+                syncFilterCards();
+                filterProducts();
+            };
+            card.addEventListener('click', apply);
+            card.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apply(); }
+            });
+        });
+
+        // Modal close
+        document.getElementById('closeProductModal')?.addEventListener('click', closeProductModal);
+        document.getElementById('cancelProductBtn')?.addEventListener('click', closeProductModal);
+        document.getElementById('productForm')?.addEventListener('submit', saveProduct);
+
+        // Delete modal
+        document.getElementById('closeDeleteModal')?.addEventListener('click', closeDeleteModal);
+        document.getElementById('cancelDeleteBtn')?.addEventListener('click', closeDeleteModal);
+        document.getElementById('confirmDeleteBtn')?.addEventListener('click', confirmDelete);
+
+        // Outside click
+        window.addEventListener('click', event => {
+            if (event.target === document.getElementById('productModal')) closeProductModal();
+            if (event.target === document.getElementById('deleteModal')) closeDeleteModal();
+        });
     }
-    if (!inventoryState.productsLoaded && !inventoryProductsLoadPromise) {
-        inventoryProductsLoadPromise = supabaseApi.getInventoryProducts().then(result => {
-            if (result.error) {
-                showToast(result.error.message, 'error');
-                inventoryState.products = [];
-            } else {
-                inventoryState.products = (result.data || []).map(mapProduct);
-            }
+
+    /* ============================================================
+       PUBLIC API
+       ============================================================ */
+    window.initInventory = function () {
+        if (categoriesCache === null) loadCategoriesFromCloud();
+
+        if (!supabaseApi?.isConfigured?.()) {
+            inventoryState.products = [];
             inventoryState.productsLoaded = true;
+            showToast('Firebase is not configured', 'error');
             renderCategoryOptions();
             updateInventoryStats();
             filterProducts();
             setupInventoryEventListeners();
-            window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
-        }).finally(() => {
-            inventoryProductsLoadPromise = null;
-        });
-    }
-    updateInventoryStats();
-    filterProducts();
-    setupInventoryEventListeners();
-};
+            return;
+        }
+        if (!inventoryState.productsLoaded && !inventoryProductsLoadPromise) {
+            inventoryProductsLoadPromise = supabaseApi.getInventoryProducts().then(result => {
+                if (result.error) {
+                    showToast(result.error.message, 'error');
+                    inventoryState.products = [];
+                } else {
+                    inventoryState.products = (result.data || []).map(mapProduct);
+                }
+                inventoryState.productsLoaded = true;
+                renderCategoryOptions();
+                updateInventoryStats();
+                filterProducts();
+                setupInventoryEventListeners();
+                window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+            }).finally(() => { inventoryProductsLoadPromise = null; });
+        }
+        updateInventoryStats();
+        filterProducts();
+        setupInventoryEventListeners();
+    };
 
-    window.setInventoryProducts = function(products) {
+    window.setInventoryProducts = function (products) {
         inventoryState.products = (products || []).map(mapProduct);
         inventoryState.productsLoaded = true;
         renderCategoryOptions();
@@ -1433,37 +1165,45 @@ document.querySelectorAll('.inv-filter-card').forEach(card => {
         window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
     };
 
-    window.filterInventoryByStock = function(stockFilter) {
+    window.filterInventoryByStock = function (stockFilter) {
         inventoryState.stockFilter = stockFilter || '';
-        const stockFilterSelect = document.getElementById('stockFilter');
-        if (stockFilterSelect) stockFilterSelect.value = inventoryState.stockFilter;
+        const sel = document.getElementById('stockFilter');
+        if (sel) sel.value = inventoryState.stockFilter;
         filterProducts();
     };
-    window.getInventorySnapshot = function() {
-        return inventoryState.products.map(product => ({ ...product }));
+
+    window.getInventorySnapshot = function () {
+        return inventoryState.products.map(p => ({ ...p }));
     };
-    window.changePage = function(page) {
-        const totalPages = Math.ceil(inventoryState.filteredProducts.length / inventoryState.itemsPerPage);
-        if (page < 1 || page > totalPages) return;
-        inventoryState.currentPage = page; renderInventoryTable(); renderPagination();
+
+    window.changePage = function (page) {
+        const total = Math.ceil(inventoryState.filteredProducts.length / inventoryState.itemsPerPage);
+        if (page < 1 || page > total) return;
+        inventoryState.currentPage = page;
+        renderInventoryTable();
+        renderPagination();
     };
-    window.updateQuantity = function(productId, newQuantity) {
-        const quantity = parseInt(newQuantity);
+
+    window.updateQuantity = function (productId, newQuantity) {
+        const quantity = parseInt(newQuantity, 10);
         if (Number.isNaN(quantity) || quantity < 0) return;
         const product = inventoryState.products.find(p => p.id === productId);
-        if (!product) return;
-        product.quantity = quantity; product.lastUpdated = new Date().toISOString().split('T')[0];
+        if (!product || hasOptions(product)) return;
+        product.quantity = quantity;
+        product.lastUpdated = new Date().toISOString();
         supabaseApi.updateInventoryProduct(productId, { quantity }).then(result => {
             if (result.error) { showToast(result.error.message, 'error'); return; }
-            product.lastUpdated = new Date().toISOString();
-            updateInventoryStats(); filterProducts();
+            updateInventoryStats();
+            filterProducts();
             window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
             window.POS_APP_LOG?.('update', 'inventory', `Quantity updated for product ${productId}`, 'info');
             showToast('Quantity updated successfully', 'success');
         });
     };
+
     window.editProduct = openProductModal;
-    window.showDeleteModal = function(productId) {
+
+    window.showDeleteModal = function (productId) {
         inventoryState.deletingProductId = productId;
         const product = inventoryState.products.find(p => p.id === productId);
         const name = document.getElementById('deleteProductName');
