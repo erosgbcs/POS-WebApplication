@@ -26,15 +26,25 @@ class NLPEngine:
     # ----------------------------------------------------------------
     INTENTS = {
         "greeting": {
-            "keywords": {"hello": 3, "hi": 3, "hey": 3, "greetings": 2, "yo": 1},
-            "phrases": ["good morning", "good afternoon", "good evening", "good day"],
+            "keywords": {
+                "hello": 3, "hi": 3, "hey": 3, "greetings": 2, "yo": 1,
+                "kumusta": 3, "kamusta": 3, "musta": 2,
+            },
+            "phrases": [
+                "good morning", "good afternoon", "good evening", "good day",
+                "magandang umaga", "magandang hapon", "magandang gabi",
+            ],
             "min_score": 3,
         },
         "help": {
-            "keywords": {"help": 3, "ask": 1, "capable": 2, "support": 2},
+            "keywords": {
+                "help": 3, "ask": 1, "capable": 2, "support": 2,
+                "tulong": 3, "tulungan": 3,
+            },
             "phrases": [
                 "what can you do", "help me", "what can i ask",
                 "how do you work", "what are your features",
+                "ano ang kaya mo", "paano ka gumagana",
             ],
             "min_score": 4,
         },
@@ -42,19 +52,28 @@ class NLPEngine:
             "keywords": {
                 "low": 3, "restock": 3, "reorder": 3, "running": 2,
                 "stock": 2, "replenish": 3, "almost": 2,
+                "kulang": 3, "kaunti": 2, "paubos": 3, "ubos": 2,
+                "restockin": 3, "dagdagan": 3, "punuin": 2,
             },
             "phrases": [
                 "low stock", "running low", "need restock", "need reorder",
                 "running out", "low on stock", "which items need restocking",
                 "what should i restock",
+                "paubos na", "kulang na", "kaunti na lang",
+                "kailangan i-restock", "ano ang kailangan i-restock",
+                "anong paubos na",
             ],
             "min_score": 5,
         },
         "out_of_stock": {
-            "keywords": {"out": 3, "zero": 2, "none": 2, "empty": 2, "unavailable": 2},
+            "keywords": {
+                "out": 3, "zero": 2, "none": 2, "empty": 2, "unavailable": 2,
+                "ubos": 3, "wala": 2,
+            },
             "phrases": [
                 "out of stock", "no stock", "zero stock", "sold out",
                 "what products are out of stock", "which products are out of stock",
+                "wala nang stock", "ubos na ang stock", "ubos na lahat",
             ],
             "min_score": 5,
         },
@@ -62,26 +81,41 @@ class NLPEngine:
             "keywords": {
                 "have": 3, "left": 3, "stock": 2, "quantity": 2, "available": 2,
                 "much": 1, "many": 1,
+                "magkano": 3, "ilan": 3, "may": 2, "meron": 2,
+                "natitira": 3, "presyo": 3, "halaga": 2,
             },
             "phrases": [
                 "how many", "how much", "do we have", "is there", "in stock",
                 "how many hammers are left",
+                "ilan pa", "meron pa ba", "may stock ba",
+                "magkano ang", "ilan ang", "ilan na lang",
             ],
             "min_score": 4,
         },
         "product_search": {
-            "keywords": {"find": 3, "search": 3, "product": 2, "item": 2, "price": 2},
+            "keywords": {
+                "find": 3, "search": 3, "product": 2, "item": 2, "price": 2,
+                "hanapin": 3, "hanap": 3, "tingnan": 2,
+                "magkano": 2, "presyo": 3,
+            },
             "phrases": [
                 "find product", "search product", "look for",
                 "price of", "how much is", "how much does",
+                "hanapin ang", "hanapin ang presyo",
+                "magkano ang presyo",
             ],
             "min_score": 4,
         },
         "daily_sales": {
-            "keywords": {"today": 3, "sales": 3, "revenue": 2, "earned": 2, "sold": 2},
+            "keywords": {
+                "today": 3, "sales": 3, "revenue": 2, "earned": 2, "sold": 2,
+                "ngayon": 3, "benta": 3, "kita": 3, "kumita": 2,
+            },
             "phrases": [
                 "today's sales", "sales today", "earned today",
                 "sold today", "revenue today", "how much did we sell today",
+                "benta ngayon", "kita ngayon", "magkano ang benta ngayon",
+                "kumita tayo ngayon",
             ],
             "min_score": 5,
         },
@@ -89,12 +123,17 @@ class NLPEngine:
             "keywords": {
                 "week": 2, "month": 2, "year": 2, "summary": 2,
                 "total": 2, "sales": 2, "revenue": 2,
+                "linggo": 2, "buwan": 2, "taon": 2,
+                "benta": 2, "kita": 2, "kabuuang": 3,
             },
             "phrases": [
                 "this week", "this month", "this year",
                 "last week", "last month", "last year",
                 "sales summary", "total sales",
                 "how much did we earn this week",
+                "ngayong linggo", "ngayong buwan", "ngayong taon",
+                "nakaraang linggo", "nakaraang buwan",
+                "kabuuang benta", "kabuuang kita",
             ],
             "min_score": 5,
         },
@@ -102,10 +141,12 @@ class NLPEngine:
             "keywords": {
                 "history": 3, "past": 2, "previous": 2, "daily": 2,
                 "weekly": 2, "sales": 2,
+                "nakaraan": 2, "nakalipas": 2,
             },
             "phrases": [
                 "sales history", "past sales", "previous sales",
                 "daily sales", "weekly sales",
+                "kasaysayan ng benta", "nakaraang benta",
             ],
             "min_score": 4,
         },
@@ -114,6 +155,7 @@ class NLPEngine:
                 "best": 3, "top": 3, "seller": 2, "sellers": 2,
                 "selling": 2, "popular": 2, "most": 2,
                 "sold": 2, "sell": 2, "sells": 2,
+                "mabenta": 3, "pinaka": 2, "sikat": 2,
             },
             "phrases": [
                 "best seller", "best sellers", "best selling",
@@ -128,14 +170,17 @@ class NLPEngine:
                 "best seller today",
                 "best seller this week",
                 "best seller this month",
+                "pinaka-mabenta", "pinakamabenta",
+                "anong mabenta", "ano ang mabenta",
             ],
             "min_score": 5,
         },
-            "transaction_history": {
+        "transaction_history": {
             "keywords": {
                 "transaction": 3, "receipt": 3, "order": 2,
                 "history": 2, "recent": 2, "latest": 2,
                 "last": 2, "show": 1,
+                "resibo": 3, "huling": 2, "nakaraan": 2,
             },
             "phrases": [
                 "transaction history", "recent transactions",
@@ -144,6 +189,8 @@ class NLPEngine:
                 "show orders", "show my orders",
                 "show recent orders", "show transactions",
                 "list orders", "list transactions",
+                "huling order", "huling transaksyon",
+                "ipakita ang mga order",
             ],
             "min_score": 4,
         },
@@ -151,11 +198,14 @@ class NLPEngine:
             "keywords": {
                 "forecast": 3, "predict": 3, "projection": 3,
                 "future": 2, "next": 1,
+                "hulaan": 3, "hula": 3, "susunod": 2,
             },
             "phrases": [
                 "predict sales", "sales forecast", "next week",
                 "next month", "future sales", "project sales",
                 "predict sales for next week",
+                "hulaan ang benta", "susunod na linggo",
+                "susunod na buwan", "hinaharap na benta",
             ],
             "min_score": 5,
         },
@@ -163,16 +213,18 @@ class NLPEngine:
             "keywords": {
                 "recommend": 3, "restock": 3, "reorder": 3,
                 "suggest": 2, "should": 2, "order": 2, "buy": 2,
+                "irekomenda": 3, "bilhin": 2, "dagdagan": 3,
             },
             "phrases": [
                 "what should i restock", "recommend restock",
                 "what to order", "restock recommendation",
                 "should i buy", "recommend products to restock",
+                "ano ang dapat i-restock",
+                "anong dapat bilhin", "ano ang kailangan bilhin",
             ],
             "min_score": 5,
         },
     }
-
     def __init__(self, product_names: Optional[list] = None):
         self.update_products(product_names or [])
 
@@ -203,6 +255,11 @@ class NLPEngine:
             text = re.sub(rf"\bnext\s*{token}\b", f"next {token}", text)
             text = re.sub(rf"\blast\s*{token}\b", f"last {token}", text)
             text = re.sub(rf"\bthis\s*{token}\b", f"this {token}", text)
+        for a, b in (
+            ("ngayong", "linggo"), ("ngayong", "buwan"), ("ngayong", "taon"),
+            ("nakaraang", "linggo"), ("nakaraang", "buwan"), ("nakaraang", "taon"),
+        ):
+            text = re.sub(rf"\b{a}\s*{b}\b", f"{a} {b}", text)
 
         text = re.sub(r"\s+", " ", text)
         return text.strip()
@@ -285,16 +342,21 @@ class NLPEngine:
     # Period extraction
     # ------------------------------------------------------------
     PERIODS = {
-        "today":     ["today", "today's"],
-        "yesterday": ["yesterday", "yesterday's"],
-        "this_week": ["this week", "current week"],
-        "last_week": ["last week", "previous week"],
-        "this_month": ["this month", "current month"],
-        "last_month": ["last month", "previous month"],
-        "this_year": ["this year", "current year"],
-        "last_year": ["last year", "previous year"],
-        "last_7_days": ["last 7 days", "past week", "last seven days"],
-        "last_30_days": ["last 30 days", "past month", "last thirty days"],
+        "today":     ["today", "today's", "ngayon", "ngayong araw"],
+        "yesterday": ["yesterday", "yesterday's", "kahapon"],
+        "this_week": ["this week", "current week", "ngayong linggo"],
+        "last_week": ["last week", "previous week",
+                      "nakaraang linggo", "nakalipas na linggo"],
+        "this_month": ["this month", "current month", "ngayong buwan"],
+        "last_month": ["last month", "previous month",
+                       "nakaraang buwan", "nakalipas na buwan"],
+        "this_year": ["this year", "current year", "ngayong taon"],
+        "last_year": ["last year", "previous year",
+                      "nakaraang taon", "nakalipas na taon"],
+        "last_7_days": ["last 7 days", "past week", "last seven days",
+                        "nakaraang 7 araw"],
+        "last_30_days": ["last 30 days", "past month", "last thirty days",
+                         "nakaraang 30 araw"],
     }
 
     def extract_period(self, text: str) -> Optional[str]:
