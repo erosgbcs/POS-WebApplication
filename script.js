@@ -1923,9 +1923,13 @@ function formatAiMessage(rawText, meta) {
 
     // ---- 2. Money values → green ----
     // Matches "PHP 1,234.56", "PHP1,234", "₱1,234.56"
+    // Normalizes "PHP X" → "₱X" so the AI chat reads with a peso sign.
     safe = safe.replace(
         /(PHP\s?[\d,]+(?:\.\d{1,2})?|₱\s?[\d,]+(?:\.\d{1,2})?)/g,
-        m => stash(`<span class="ai-money">${m}</span>`)
+        m => {
+            const normalized = m.replace(/^PHP\s?/i, '₱');
+            return stash(`<span class="ai-money">${normalized}</span>`);
+        }
     );
 
     // ---- 3. Stock status keywords ----
