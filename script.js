@@ -787,13 +787,20 @@ function renderSalesByCategoryChart() {
         previousTotal = Object.values(prevRevenue).reduce((s, v) => s + v, 0);
     }
 
-    // Subtitle
+    // Subtitle — leads with the top category so the "one look" reading
+    // is "Paint is 42% of revenue" instead of just a raw total.
     const subtitleEl = document.getElementById('ovCategorySubtitle');
     if (subtitleEl) {
         if (total === 0) {
             subtitleEl.textContent = `No sales in the ${getTopProductsPeriodLabel(period).toLowerCase()}`;
         } else {
-            let text = `${sorted.length} categor${sorted.length === 1 ? 'y' : 'ies'} · ${formatAppCurrency(total)} total`;
+            const topIdx = data.indexOf(Math.max(...data));
+            const topLabel = labels[topIdx];
+            const topPct = total > 0 ? ((data[topIdx] / total) * 100).toFixed(1) : '0.0';
+
+            let text = `<strong>${topLabel}</strong> leads at ${topPct}% · `;
+            text += `${sorted.length} categor${sorted.length === 1 ? 'y' : 'ies'} · `;
+            text += `${formatAppCurrency(total)} total`;
             if (compareEnabled && previousTotal > 0) {
                 const delta = ((total - previousTotal) / previousTotal) * 100;
                 const sign = delta >= 0 ? '+' : '';
@@ -808,6 +815,45 @@ function renderSalesByCategoryChart() {
 
     const isLight = document.documentElement.dataset.theme === 'light';
     const legendColor = isLight ? '#334155' : '#cbd5e1';
+    const centerTitleColor = isLight ? '#100e0a' : '#fef9e7';
+    const centerSubColor   = isLight ? '#756c5e' : '#8a8275';
+
+    // Custom plugin — writes "42%\nPaint" inside the donut hole.
+    const categoryCenterText = {
+        id: 'categoryCenterText',
+        afterDraw(chart) {
+            const data = chart.data?.datasets?.[0]?.data || [];
+            if (!data.length) return;
+            const totalLocal = data.reduce((s, v) => s + (Number(v) || 0), 0);
+            if (totalLocal === 0) return;
+
+            const maxVal = Math.max(...data.map(v => Number(v) || 0));
+            const topIdx = data.findIndex(v => (Number(v) || 0) === maxVal);
+            if (topIdx < 0) return;
+
+            const topLabel = chart.data.labels[topIdx] || '';
+            const topPct = ((maxVal / totalLocal) * 100).toFixed(0);
+
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            const cx = (chartArea.left + chartArea.right) / 2;
+            const cy = (chartArea.top + chartArea.bottom) / 2;
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            ctx.fillStyle = centerTitleColor;
+            ctx.font = '800 22px Inter, system-ui, sans-serif';
+            ctx.fillText(`${topPct}%`, cx, cy - 10);
+
+            ctx.fillStyle = centerSubColor;
+            ctx.font = '600 11px Inter, system-ui, sans-serif';
+            ctx.fillText(topLabel, cx, cy + 12);
+
+            ctx.restore();
+        }
+    };
 
     ovCategoryChartInstance = new Chart(canvas, {
         type: 'doughnut',
@@ -821,6 +867,7 @@ function renderSalesByCategoryChart() {
                 hoverOffset: 8
             }]
         },
+        plugins: [categoryCenterText],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -833,7 +880,25 @@ function renderSalesByCategoryChart() {
                         boxWidth: 12,
                         boxHeight: 12,
                         padding: 12,
-                        font: { size: 12 }
+                        font: { size: 12 },
+                        generateLabels: (chart) => {
+                            const ds = chart.data?.datasets?.[0];
+                            if (!ds) return [];
+                            const vals = ds.data || [];
+                            const sum = vals.reduce((s, v) => s + (Number(v) || 0), 0);
+                            return (chart.data.labels || []).map((label, i) => {
+                                const v = Number(vals[i]) || 0;
+                                const pct = sum > 0 ? ((v / sum) * 100).toFixed(1) : '0.0';
+                                return {
+                                    text: `${label}  ${pct}%`,
+                                    fillStyle: ds.backgroundColor[i],
+                                    strokeStyle: ds.backgroundColor[i],
+                                    lineWidth: 0,
+                                    hidden: false,
+                                    index: i
+                                };
+                            });
+                        }
                     }
                 },
                 tooltip: {
