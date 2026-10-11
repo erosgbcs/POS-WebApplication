@@ -1337,16 +1337,16 @@
         
         <!-- Customer Information -->
         <div style="text-align: left; margin: 1.5rem 0;">
-            <h3 style="margin-bottom: 1rem;">Customer Information (Optional)</h3>
+            <h3 id="customerInfoHeading" style="margin-bottom: 1rem;">Customer Information (Optional)</h3>
             <div class="form-group">
-                <label>Customer Name</label>
+                <label for="customerName">Customer Name</label>
                 <div class="input-wrapper">
                     <span class="input-icon"><i class="fas fa-user"></i></span>
                     <input type="text" id="customerName" placeholder="Enter customer name">
                 </div>
             </div>
             <div class="form-group">
-    <label>Phone Number</label>
+    <label for="customerPhone">Phone Number</label>
     <div class="input-wrapper">
         <span class="input-icon"><i class="fas fa-phone"></i></span>
         <input type="tel"
@@ -1380,21 +1380,45 @@
         </div>
         
         <div class="gcash-qr-group" id="gcashQrGroup" style="display: none;">
-            <p class="gcash-qr-label">Scan to pay via GCash</p>
-            <div class="gcash-qr-frame">
-                <img id="gcashQrImage" alt="GCash payment QR code" width="200" height="200">
-            </div>
-                        <div class="gcash-qr-details">
-                <div class="gcash-qr-row gcash-qr-amount"><span>Amount to pay</span><strong id="gcashAmountToPay">₱0.00</strong></div>
-                <div class="gcash-qr-row"><span>Number</span><strong>0993 591 7971</strong></div>
-                <div class="gcash-qr-row"><span>Name</span><strong>Gabriel A</strong></div>
-            </div>
-            <label class="gcash-confirm">
-                <input type="checkbox" id="gcashConfirmCheck">
-                <span class="checkmark"></span>
-                <span>I've received the payment</span>
-            </label>
+    <p class="gcash-qr-label">Scan to pay via GCash</p>
+    <div class="gcash-qr-frame">
+        <img id="gcashQrImage" alt="GCash payment QR code" width="200" height="200">
+    </div>
+    <div class="gcash-qr-details">
+        <div class="gcash-qr-row gcash-qr-amount"><span>Amount to pay</span><strong id="gcashAmountToPay">₱0.00</strong></div>
+        <div class="gcash-qr-row"><span>Number</span><strong>0993 591 7971</strong></div>
+        <div class="gcash-qr-row"><span>Name</span><strong>Gabriel A</strong></div>
+    </div>
+
+    <div class="gcash-reference-field">
+        <label for="gcashReference" class="gcash-reference-label">
+            <i class="fas fa-receipt"></i>
+            GCash Reference Number <span class="required-star">*</span>
+        </label>
+        <div class="input-wrapper">
+            <span class="input-icon"><i class="fas fa-hashtag"></i></span>
+            <input
+                type="text"
+                id="gcashReference"
+                inputmode="numeric"
+                maxlength="13"
+                pattern="[0-9]{13}"
+                placeholder="13-digit reference number"
+                autocomplete="off"
+                aria-describedby="gcashReferenceHelp">
         </div>
+        <small id="gcashReferenceHelp" class="gcash-reference-help">
+            Found on the sender's GCash receipt — 13 digits, e.g. 1234567890123
+        </small>
+        <small id="gcashReferenceError" class="gcash-reference-error" style="display:none;"></small>
+    </div>
+
+    <label class="gcash-confirm">
+        <input type="checkbox" id="gcashConfirmCheck">
+        <span class="checkmark"></span>
+        <span>I've received the payment and the reference number is correct</span>
+    </label>
+</div>
         
         <button class="submit-btn" id="confirmPaymentBtn" style="width: 100%;">
             <i class="fas fa-check"></i> Complete Payment

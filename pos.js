@@ -41,20 +41,24 @@
    
    
    
-            function showGcashQr() {
-        if (!gcashQrImage) return;
-        gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GCASH_QR_CONTENT)}`;
-        
-        // Read the total fresh from the modal — never rely on a stale value
-        if (gcashAmountToPay) {
-            const freshTotalEl = document.getElementById('paymentTotal');
-            gcashAmountToPay.textContent = freshTotalEl?.textContent?.trim() || '₱0.00';
-        }
-        
-        if (gcashQrGroup) gcashQrGroup.style.display = 'block';
-        if (gcashConfirmCheck) gcashConfirmCheck.checked = false;
-        if (confirmPaymentBtn) confirmPaymentBtn.disabled = true;
+        function showGcashQr() {
+    if (!gcashQrImage) return;
+    gcashQrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(GCASH_QR_CONTENT)}`;
+
+    // Read the total fresh from the modal — never rely on a stale value
+    if (gcashAmountToPay) {
+        const freshTotalEl = document.getElementById('paymentTotal');
+        gcashAmountToPay.textContent = freshTotalEl?.textContent?.trim() || '₱0.00';
     }
+
+    // Reset the reference field and its error
+    if (gcashReference) gcashReference.value = '';
+    if (gcashReferenceError) gcashReferenceError.style.display = 'none';
+
+    if (gcashQrGroup) gcashQrGroup.style.display = 'block';
+    if (gcashConfirmCheck) gcashConfirmCheck.checked = false;
+    if (confirmPaymentBtn) confirmPaymentBtn.disabled = true;
+}
     
     function hideGcashQr() {
         if (gcashQrGroup) gcashQrGroup.style.display = 'none';
@@ -1127,7 +1131,12 @@ if (cartItems) {
         <div class="receipt-total-line"><span>Tax (8%)</span><span>${formatCurrency(tax)}</span></div>
         <div class="receipt-total-line receipt-grand-total"><strong>Total</strong><strong>${formatCurrency(total)}</strong></div>
         <div class="receipt-meta">Payment: ${paymentLabel}</div>
-        ${paymentMethod === 'cash' ? `<div class="receipt-total-line"><span>Cash received</span><span>${formatCurrency(cash)}</span></div><div class="receipt-total-line"><span>Change</span><span>${formatCurrency(change)}</span></div>` : ''}
+        ${paymentMethod === 'cash'
+            ? `<div class="receipt-total-line"><span>Cash received</span><span>${formatCurrency(cash)}</span></div><div class="receipt-total-line"><span>Change</span><span>${formatCurrency(change)}</span></div>`
+            : ''}
+        ${paymentMethod === 'gcash' && window.__lastGcashRef
+            ? `<div class="receipt-total-line"><span>GCash Ref No.</span><span style="font-family:monospace;">${escapeHtml(window.__lastGcashRef)}</span></div>`
+            : ''}
         <div class="receipt-meta">Date: ${escapeHtml(receiptDate)}</div>
         <div class="receipt-meta">Cashier: ${escapeHtml(cashierName)}</div>
     `;
@@ -1189,24 +1198,51 @@ if (cartItems) {
 
     // --- Payment method selection ---
         paymentMethods.forEach(method => {
-        method.addEventListener('click', () => {
-            paymentMethods.forEach(m => m.classList.remove('selected'));
-            method.classList.add('selected');
-            selectedPaymentMethod = method.dataset.method;
-            
-            // Show/hide cash input
-            if (cashInputGroup) {
-                cashInputGroup.style.display = selectedPaymentMethod === 'cash' ? 'block' : 'none';
+    method.addEventListener('click', () => {
+        paymentMethods.forEach(m => m.classList.remove('selected'));
+        method.classList.add('selected');
+        selectedPaymentMethod = method.dataset.method;
+
+        // Show/hide cash input
+        if (cashInputGroup) {
+            cashInputGroup.style.display = selectedPaymentMethod === 'cash' ? 'block' : 'none';
+        }
+
+        // Toggle required attributes on customer fields based on method
+        const nameInput = document.getElementById('customerName');
+        const phoneInput = document.getElementById('customerPhone');
+        const phoneLabelStar = document.querySelector('label[for="customerPhone"] .required-star');
+
+        if (selectedPaymentMethod === 'gcash') {
+            if (nameInput) nameInput.required = true;
+            if (phoneInput) phoneInput.required = true;
+
+            // Mark the customer name label with a required star
+            const nameLabel = document.querySelector('label[for="customerName"]');
+            if (nameLabel && !nameLabel.querySelector('.required-star')) {
+                nameLabel.insertAdjacentHTML('beforeend', ' <span class="required-star">*</span>');
             }
-            
-            // Show/hide GCash QR + confirmation gate
-            if (selectedPaymentMethod === 'gcash') {
-                showGcashQr();
-            } else {
-                hideGcashQr();
+            if (phoneInput) {
+                const phoneLabel = document.querySelector('label[for="customerPhone"]');
+                if (phoneLabel && !phoneLabel.querySelector('.required-star')) {
+                    phoneLabel.insertAdjacentHTML('beforeend', ' <span class="required-star">*</span>');
+                }
             }
-        });
+        } else {
+            if (nameInput) nameInput.required = false;
+            if (phoneInput) phoneInput.required = false;
+            document.querySelectorAll('label[for="customerName"] .required-star, label[for="customerPhone"] .required-star')
+                .forEach(el => el.remove());
+        }
+
+        // Show/hide GCash QR + confirmation gate
+        if (selectedPaymentMethod === 'gcash') {
+            showGcashQr();
+        } else {
+            hideGcashQr();
+        }
     });
+});
 
     // --- Cash received input: calculate change ---
     if (cashReceived) {
@@ -1222,11 +1258,61 @@ if (cartItems) {
         });
     }
 
-        if (gcashConfirmCheck) {
-        gcashConfirmCheck.addEventListener('change', () => {
-            if (confirmPaymentBtn) confirmPaymentBtn.disabled = !gcashConfirmCheck.checked;
-        });
-    }
+        /* ============================================================
+   GCash reference number — live formatting + validation
+   ============================================================ */
+const gcashReference = document.getElementById('gcashReference');
+const gcashReferenceError = document.getElementById('gcashReferenceError');
+
+function validateGcashReference(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return { ok: false, reason: 'Reference number is required.' };
+    if (digits.length !== 13) return { ok: false, reason: `Reference must be exactly 13 digits (you entered ${digits.length}).` };
+    return { ok: true, normalized: digits };
+}
+
+if (gcashReference) {
+    // Strip non-digits as the user types — GCash refs are always numeric
+    gcashReference.addEventListener('input', () => {
+        const before = gcashReference.value.length;
+        gcashReference.value = gcashReference.value.replace(/\D/g, '').slice(0, 13);
+        const after = gcashReference.value.length;
+        if (before !== after) {
+            try {
+                const pos = gcashReference.selectionStart + (after - before);
+                gcashReference.setSelectionRange(pos, pos);
+            } catch (e) {}
+        }
+
+        // Live error feedback
+        if (gcashReferenceError) {
+            const v = validateGcashReference(gcashReference.value);
+            if (gcashReference.value.length === 0) {
+                gcashReferenceError.style.display = 'none';
+            } else if (!v.ok) {
+                gcashReferenceError.textContent = v.reason;
+                gcashReferenceError.style.display = 'block';
+            } else {
+                gcashReferenceError.style.display = 'none';
+            }
+        }
+    });
+
+    gcashReference.addEventListener('blur', () => {
+        if (!gcashReference.value) return;
+        const v = validateGcashReference(gcashReference.value);
+        if (!v.ok && gcashReferenceError) {
+            gcashReferenceError.textContent = v.reason;
+            gcashReferenceError.style.display = 'block';
+        }
+    });
+}
+
+if (gcashConfirmCheck) {
+    gcashConfirmCheck.addEventListener('change', () => {
+        if (confirmPaymentBtn) confirmPaymentBtn.disabled = !gcashConfirmCheck.checked;
+    });
+}
     // --- Confirm payment ---
 if (confirmPaymentBtn) {
     confirmPaymentBtn.addEventListener('click', async () => {
@@ -1239,20 +1325,75 @@ if (confirmPaymentBtn) {
                     
                     const totalText = paymentTotal.textContent.replace(/[^\d.-]/g, '');
         const total = parseFloat(totalText) || 0;
-                const name = customerName ? customerName.value.trim() : '';
-        const rawPhone = customerPhone ? customerPhone.value.trim() : '';
-        
-        // Guard rail: phone must be exactly 11 digits if provided
-            if (rawPhone && !isValidPhone(rawPhone)) {
-            showToast('Phone must be exactly 11 digits (e.g., 0917 123 4567)', 'error');
-            if (customerPhoneError) customerPhoneError.style.display = 'block';
-            if (customerPhone) customerPhone.focus();
-            confirmPaymentBtn.innerHTML = __origBtnHtml;
-            confirmPaymentBtn.disabled = false;
-            return;
+       const name = customerName ? customerName.value.trim() : '';
+const rawPhone = customerPhone ? customerPhone.value.trim() : '';
+let gcashRefDigits = '';
+
+// ---- GCash-specific validation ----
+if (selectedPaymentMethod === 'gcash') {
+    // Full name required
+    if (!name) {
+        showToast('Customer full name is required for GCash payments.', 'error');
+        customerName?.focus();
+        confirmPaymentBtn.innerHTML = __origBtnHtml;
+        confirmPaymentBtn.disabled = false;
+        return;
+    }
+
+    // Phone required + valid
+    const phoneDigits = rawPhone.replace(/\D/g, '');
+    if (!phoneDigits) {
+        showToast('Contact number is required for GCash payments.', 'error');
+        if (customerPhoneError) {
+            customerPhoneError.textContent = 'Contact number is required for GCash.';
+            customerPhoneError.style.display = 'block';
         }
-        // Normalize: strip spaces before saving to the order
-        const phone = rawPhone.replace(/\D/g, '');
+        customerPhone?.focus();
+        confirmPaymentBtn.innerHTML = __origBtnHtml;
+        confirmPaymentBtn.disabled = false;
+        return;
+    }
+    if (phoneDigits.length !== 11) {
+        showToast('Phone must be exactly 11 digits (e.g., 0917 123 4567)', 'error');
+        if (customerPhoneError) {
+            customerPhoneError.textContent = 'Phone must be 11 digits (e.g., 0917 123 4567)';
+            customerPhoneError.style.display = 'block';
+        }
+        customerPhone?.focus();
+        confirmPaymentBtn.innerHTML = __origBtnHtml;
+        confirmPaymentBtn.disabled = false;
+        return;
+    }
+
+    // Reference number required + 13 digits
+    const refInput = document.getElementById('gcashReference');
+    const refCheck = validateGcashReference(refInput?.value || '');
+    if (!refCheck.ok) {
+        showToast(refCheck.reason, 'error');
+        if (gcashReferenceError) {
+            gcashReferenceError.textContent = refCheck.reason;
+            gcashReferenceError.style.display = 'block';
+        }
+        refInput?.focus();
+        confirmPaymentBtn.innerHTML = __origBtnHtml;
+        confirmPaymentBtn.disabled = false;
+        return;
+    }
+    gcashRefDigits = refCheck.normalized;
+} else {
+    // ---- Cash payment: phone is optional but must be valid if provided ----
+    if (rawPhone && !isValidPhone(rawPhone)) {
+        showToast('Phone must be exactly 11 digits (e.g., 0917 123 4567)', 'error');
+        if (customerPhoneError) customerPhoneError.style.display = 'block';
+        if (customerPhone) customerPhone.focus();
+        confirmPaymentBtn.innerHTML = __origBtnHtml;
+        confirmPaymentBtn.disabled = false;
+        return;
+    }
+}
+
+// Normalize: strip spaces before saving to the order
+const phone = rawPhone.replace(/\D/g, '');
         
         
         
@@ -1314,18 +1455,22 @@ if (confirmPaymentBtn) {
             showToast(message, 'success');
         }
 
-               const order = {
-            id: receiptNumber,
-            createdAt: new Date().toISOString(),
-            customerName: name,
-            customerPhone: phone,
-            items,
-            subtotal,
-            tax,
-            total,
-            paymentMethod: selectedPaymentMethod,
-            status: 'Completed'
-        };
+        const order = {
+    id: receiptNumber,
+    createdAt: new Date().toISOString(),
+    customerName: name,
+    customerPhone: phone,
+    items,
+    subtotal,
+    tax,
+    total,
+    paymentMethod: selectedPaymentMethod,
+    status: 'Completed',
+    // Only set for GCash — undefined for cash keeps Firestore docs clean
+    ...(selectedPaymentMethod === 'gcash' && gcashRefDigits ? {
+        gcashReference: gcashRefDigits
+    } : {})
+};
 
         // ============================================================
         // FIX: show the receipt IMMEDIATELY — before any network calls.
@@ -1349,6 +1494,9 @@ if (confirmPaymentBtn) {
         // animation frame. Prevents the Chromium backdrop-filter
         // compositing bug where two blur layers toggle in one tick
         // and the second one is never painted until the next click.
+        // Stash the GCash reference so the receipt template can render it.
+        window.__lastGcashRef = order.gcashReference || '';
+
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 showReceipt(receiptNumber, items, subtotal, tax, total, name, phone, selectedPaymentMethod, cash, change, order.createdAt);
@@ -1390,7 +1538,10 @@ if (confirmPaymentBtn) {
 
             if (saleCommitted) await syncSaleCustomer(order);
 
-            const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${selectedPaymentMethod === 'gcash' ? 'GCash' : 'Cash'} · ${items.length} item${items.length === 1 ? '' : 's'}`;
+            const payLabel = selectedPaymentMethod === 'gcash'
+    ? `GCash (Ref ${order.gcashReference})`
+    : 'Cash';
+const txnDesc = `Sale ${receiptNumber} · ${formatCurrency(total)} · ${payLabel} · ${items.length} item${items.length === 1 ? '' : 's'}`;
             window.POS_APP_LOG?.('transaction', 'pos', txnDesc, 'info', {
                 id: receiptNumber,
                 items: items.length,
