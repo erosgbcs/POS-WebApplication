@@ -800,6 +800,34 @@
        ============================================================ */
     async function saveProduct(event) {
         event.preventDefault();
+
+        // Guard: block re-entry while a save is already in flight. Prevents
+        // a fast double-click from creating two Firestore documents.
+        const saveBtn = document.getElementById('saveProductBtn');
+        if (saveBtn?.dataset.saving === '1') return;
+        const originalBtnHtml = saveBtn?.innerHTML;
+        if (saveBtn) {
+            saveBtn.dataset.saving = '1';
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+        }
+
+        const restoreSaveBtn = () => {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnHtml || '<i class="fas fa-save"></i> Save Product';
+                delete saveBtn.dataset.saving;
+            }
+        };
+
+        try {
+            await _saveProductInner(event);
+        } finally {
+            restoreSaveBtn();
+        }
+    }
+
+    async function _saveProductInner(event) {
         syncVariantsDraftFromDOM();
         pruneVariantsDraft();
 
@@ -919,7 +947,15 @@
         } else {
             result = await supabaseApi.addInventoryProduct(payload);
             if (!result.error && result.data?.[0]) {
-                inventoryState.products.unshift(mapProduct(result.data[0]));
+                // Guard against a race with the Firestore onSnapshot subscription:
+                // the snapshot can fire before addDoc() resolves and already
+                // inserted the new product into inventoryState.products.
+                // If the id already exists, skip the local unshift.
+                const newProduct = mapProduct(result.data[0]);
+                const alreadyPresent = inventoryState.products.some(p => String(p.id) === String(newProduct.id));
+                if (!alreadyPresent) {
+                    inventoryState.products.unshift(newProduct);
+                }
             }
             window.POS_APP_LOG?.('create', 'inventory', `Product ${name} added`, 'info');
             showToast(result.error ? result.error.message : 'Product added successfully', result.error ? 'error' : 'success');
