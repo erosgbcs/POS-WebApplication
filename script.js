@@ -382,29 +382,251 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
         URL.revokeObjectURL(link.href);
     }
 
-    function generateReport(type) {
-        let headers;
-        let rows;
+    // Shared builder — returns { title, headers, rows, totals } for both
+    // CSV and PDF exporters so the two never drift apart.
+    function buildReportData(type) {
         if (type === 'customers') {
-            headers = ['Name', 'Email', 'Phone', 'Orders', 'Total Spent'];
-            rows = getCustomers().map(customer => [customer.name, customer.email, customer.phone, customer.orders, customer.totalSpent]);
-        } else if (type === 'inventory') {
-            const products = window.getInventorySnapshot?.() || [];
-            headers = ['ID', 'Name', 'SKU', 'Category', 'Price', 'Quantity', 'Min Stock'];
-            rows = products.map(product => [product.id, product.name, product.sku, product.category, product.price, product.quantity, product.minStock]);
-        } else {
-            const orders = readStoredRecords(ORDERS_KEY);
-            headers = ['Order ID', 'Customer', 'Subtotal', 'Tax', 'Total', 'Payment', 'Date'];
-            rows = orders.map(order => [order.id, order.customerName, order.subtotal, order.tax, order.total, order.paymentMethod, order.createdAt]);
+            const customers = getCustomers();
+            const totalSpent = customers.reduce((s, c) => s + (Number(c.totalSpent) || 0), 0);
+            const totalOrders = customers.reduce((s, c) => s + (Number(c.orders) || 0), 0);
+            return {
+                title: 'Customer Report',
+                headers: ['Name', 'Email', 'Phone', 'Orders', 'Total Spent'],
+                rows: customers.map(c => [
+                    c.name || '', c.email || '', c.phone || '',
+                    Number(c.orders) || 0,
+                    `₱${(Number(c.totalSpent) || 0).toFixed(2)}`
+                ]),
+                totals: { 'Total customers': customers.length, 'Total orders': totalOrders, 'Total spent': `₱${totalSpent.toFixed(2)}` }
+            };
         }
-        downloadCsv(`${type}_report_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
-    window.POS_APP_LOG?.('export', 'reports', `${type} report exported`, 'info');
-    showToast(`${type[0].toUpperCase()}${type.slice(1)} report exported`, 'success');
+
+        if (type === 'inventory') {
+            const products = window.getInventorySnapshot?.() || [];
+            const totalValue = products.reduce((s, p) => s + ((Number(p.quantity) || 0) * (Number(p.price) || 0)), 0);
+            const lowStock = products.filter(p => (Number(p.quantity) || 0) > 0 && (Number(p.quantity) || 0) <= (Number(p.minStock) || 0)).length;
+            const outOfStock = products.filter(p => (Number(p.quantity) || 0) === 0).length;
+            return {
+                title: 'Inventory Report',
+                headers: ['ID', 'Name', 'SKU', 'Category', 'Price', 'Quantity', 'Min Stock'],
+                rows: products.map(p => [
+                    p.id, p.name || '', p.sku || '', p.category || '',
+                    `₱${(Number(p.price) || 0).toFixed(2)}`,
+                    Number(p.quantity) || 0,
+                    Number(p.minStock) || 0
+                ]),
+                totals: { 'Total products': products.length, 'Low stock': lowStock, 'Out of stock': outOfStock, 'Inventory value': `₱${totalValue.toFixed(2)}` }
+            };
+        }
+
+        // Default: sales / financial → order listing
+        const orders = readStoredRecords(ORDERS_KEY);
+        const totalRevenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+        return {
+            title: type === 'financial' ? 'Financial Report' : 'Sales Report',
+            headers: ['Order ID', 'Customer', 'Subtotal', 'Tax', 'Total', 'Payment', 'Date'],
+            rows: orders.map(o => [
+                o.id, o.customerName || 'Walk-in',
+                `₱${(Number(o.subtotal) || 0).toFixed(2)}`,
+                `₱${(Number(o.tax) || 0).toFixed(2)}`,
+                `₱${(Number(o.total) || 0).toFixed(2)}`,
+                o.paymentMethod || 'cash',
+                o.createdAt ? new Date(o.createdAt).toLocaleString() : ''
+            ]),
+            totals: { 'Total orders': orders.length, 'Total revenue': `₱${totalRevenue.toFixed(2)}` }
+        };
+    }
+
+    function generateReport(type) {
+        const data = buildReportData(type);
+        downloadCsv(`${type}_report_${new Date().toISOString().split('T')[0]}.csv`, data.headers, data.rows);
+        window.POS_APP_LOG?.('export', 'reports', `${type} report exported (CSV)`, 'info');
+        showToast(`${type[0].toUpperCase()}${type.slice(1)} report exported as CSV`, 'success');
+    }
+
+    // PDF export — builds a print-ready document in a new window and
+    // triggers the browser's print dialog. Users choose "Save as PDF".
+    function generateReportPdf(type) {
+        const data = buildReportData(type);
+        if (!data.rows.length) {
+            showToast('No data to export', 'error');
+            return;
+        }
+
+        const storeName = settingStoreName?.value?.trim() || "Kirby's Hardware";
+        const generatedAt = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+        const cashierName = window.POS_CURRENT_USER?.user_metadata?.full_name
+            || window.POS_CURRENT_USER?.displayName
+            || window.POS_CURRENT_USER?.email
+            || 'System';
+
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => (
+            { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+        ));
+
+        const totalsRows = Object.entries(data.totals || {})
+            .map(([k, v]) => `<div class="sum-row"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`)
+            .join('');
+
+        const headerCells = data.headers.map(h => `<th>${esc(h)}</th>`).join('');
+        const bodyRows = data.rows.map(row =>
+            `<tr>${row.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`
+        ).join('');
+
+        const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${esc(data.title)} — ${esc(storeName)}</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        color: #111;
+        padding: 32px 36px;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .header {
+        border-bottom: 3px solid #E0A300;
+        padding-bottom: 14px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+    .store-name {
+        font-size: 22px;
+        font-weight: 800;
+        color: #111;
+        letter-spacing: -0.01em;
+    }
+    .report-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #8a5a00;
+        margin-top: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .meta {
+        text-align: right;
+        font-size: 11px;
+        color: #555;
+        line-height: 1.6;
+    }
+    .meta strong { color: #111; }
+    .totals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 24px;
+        margin-bottom: 18px;
+        padding: 12px 14px;
+        background: #fbf5e6;
+        border-left: 3px solid #E0A300;
+        border-radius: 4px;
+    }
+    .sum-row {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 12px;
+    }
+    .sum-row span { color: #555; }
+    .sum-row strong { color: #111; font-size: 13px; font-weight: 800; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+    }
+    thead th {
+        background: #f5efe0;
+        color: #111;
+        text-align: left;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 10px;
+        padding: 9px 10px;
+        border-bottom: 2px solid #E0A300;
+        white-space: nowrap;
+    }
+    tbody td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #ece6d8;
+        color: #222;
+        vertical-align: top;
+    }
+    tbody tr:nth-child(even) td { background: #faf8f3; }
+    tbody tr:last-child td { border-bottom: 1px solid #d6cfc0; }
+    .footer {
+        margin-top: 20px;
+        padding-top: 12px;
+        border-top: 1px dashed #d6cfc0;
+        font-size: 10px;
+        color: #777;
+        text-align: center;
+    }
+    @media print {
+        body { padding: 16px 20px; }
+        thead th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        tbody tr:nth-child(even) td { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        .totals { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+    @page { margin: 12mm; }
+</style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="store-name">${esc(storeName)}</div>
+            <div class="report-title">${esc(data.title)}</div>
+        </div>
+        <div class="meta">
+            <div><strong>Generated:</strong> ${esc(generatedAt)}</div>
+            <div><strong>By:</strong> ${esc(cashierName)}</div>
+            <div><strong>Rows:</strong> ${data.rows.length}</div>
+        </div>
+    </div>
+
+    ${totalsRows ? `<div class="totals">${totalsRows}</div>` : ''}
+
+    <table>
+        <thead><tr>${headerCells}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+    </table>
+
+    <div class="footer">
+        Kirby's Hardware — ${esc(data.title)} · Generated ${esc(generatedAt)}
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => window.print(), 250);
+        });
+    </script>
+</body>
+</html>`;
+
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) {
+            showToast('Allow pop-ups to export PDF', 'error');
+            return;
+        }
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+
+        window.POS_APP_LOG?.('export', 'reports', `${type} report exported (PDF)`, 'info');
+        showToast(`${type[0].toUpperCase()}${type.slice(1)} report ready — choose "Save as PDF"`, 'success');
     }
     
     function setupReportFeatures() {
         document.querySelectorAll('.report-generate-btn').forEach(button => {
             button.addEventListener('click', () => generateReport(button.dataset.report));
+        });
+        document.querySelectorAll('.report-pdf-btn').forEach(button => {
+            button.addEventListener('click', () => generateReportPdf(button.dataset.report));
         });
     }
 
