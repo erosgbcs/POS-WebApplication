@@ -1233,6 +1233,11 @@ function renderVariantStockControls() {
     const sharedQuantityInput = document.getElementById('productQuantity');
     if (!group || !inputContainer || !sharedQuantityGroup || !trackSizeStock || !sharedQuantityInput) return;
 
+    // Compute enabled FIRST — everything below depends on it
+    const enabled = mode === 'variants' && trackSizeStock.checked;
+    group.style.display = mode === 'variants' ? '' : 'none';
+    sharedQuantityGroup.style.display = enabled ? 'none' : '';
+
     // Make the section heading match whatever the user typed
     const groupLabel = group.querySelector('label');
     if (groupLabel) {
