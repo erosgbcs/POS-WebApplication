@@ -5584,30 +5584,30 @@ body.is-logged-in .theme-toggle-login {
 
 /* ---------- Warm charcoal canvas ---------- */
 html:not([data-theme="light"]) body {
-    background-color: #141210;
+    background-color: #24201b;
     background-image: url('bg.jpg');
-    --glass-surface: rgba(30, 27, 23, 0.75);
-    --glass-deep: rgba(20, 18, 16, 0.72);
-    --glass-soft: rgba(250, 204, 21, 0.05);
-    --glass-border: rgba(250, 204, 21, 0.1);
+    --glass-surface: rgba(42, 37, 31, 0.75);
+    --glass-deep: rgba(30, 26, 22, 0.78);
+    --glass-soft: rgba(250, 204, 21, 0.06);
+    --glass-border: rgba(250, 204, 21, 0.11);
     --text-primary: #fef9e7;
     --text-secondary: #d6cfc0;
-    --text-muted: #8a8275;
+    --text-muted: #9a9083;
 }
 
 html:not([data-theme="light"]) #dashboardContainer {
-    background-color: #141210;
+    background-color: #24201b;
     background-image: none;
 }
 
 html:not([data-theme="light"]) .dashboard-nav {
-    background: rgba(20, 18, 16, 0.95);
-    border-bottom-color: rgba(250, 204, 21, 0.08);
+    background: rgba(30, 26, 22, 0.95);
+    border-bottom-color: rgba(250, 204, 21, 0.09);
 }
 
 html:not([data-theme="light"]) .sidebar {
-    background: rgba(20, 18, 16, 0.92);
-    border-right-color: rgba(250, 204, 21, 0.08);
+    background: rgba(30, 26, 22, 0.92);
+    border-right-color: rgba(250, 204, 21, 0.09);
 }
 
 html:not([data-theme="light"]) .bg-overlay {
@@ -5656,13 +5656,13 @@ html:not([data-theme="light"]) :where(
     .pos-cart,
     .activity-item:hover
 ) {
-    background: rgba(30, 27, 23, 0.65);
-    border-color: rgba(250, 204, 21, 0.08);
+    background: rgba(42, 37, 31, 0.72);
+    border-color: rgba(250, 204, 21, 0.1);
 }
 
 html:not([data-theme="light"]) .inventory-stats .stat-card {
-    background: rgba(30, 27, 23, 0.65);
-    border-color: rgba(250, 204, 21, 0.08);
+    background: rgba(42, 37, 31, 0.72);
+    border-color: rgba(250, 204, 21, 0.1);
 }
 
 html:not([data-theme="light"]) .stat-card:hover,
@@ -5679,16 +5679,16 @@ html:not([data-theme="light"]) :where(
     .notifications-panel,
     .toast
 ) {
-    background: #1e1b17;
-    border-color: rgba(250, 204, 21, 0.12);
+    background: #2b2620;
+    border-color: rgba(250, 204, 21, 0.14);
 }
 
 html:not([data-theme="light"]) .modal {
-    background: rgba(20, 18, 16, 0.78);
+    background: rgba(20, 17, 14, 0.75);
 }
 
 html:not([data-theme="light"]) .modal-overlay {
-    background: rgba(20, 18, 16, 0.82);
+    background: rgba(20, 17, 14, 0.8);
 }
 
 /* ---------- Sidebar nav ---------- */
@@ -5966,7 +5966,7 @@ html:not([data-theme="light"]) input:-webkit-autofill:focus,
 html:not([data-theme="light"]) input:-webkit-autofill:active,
 html:not([data-theme="light"]) select:-webkit-autofill,
 html:not([data-theme="light"]) textarea:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0 1000px #1e1b17 inset !important;
+    -webkit-box-shadow: 0 0 0 1000px #2b2620 inset !important;
     -webkit-text-fill-color: #fef9e7 !important;
     caret-color: #FACC15;
     transition: background-color 5000s ease-in-out 0s;
@@ -5992,7 +5992,7 @@ html:not([data-theme="light"]) .input-wrapper select,
 html:not([data-theme="light"]) .form-group input,
 html:not([data-theme="light"]) .form-group select,
 html:not([data-theme="light"]) .form-group textarea {
-    background-color: rgba(255, 255, 255, 0.06) !important;
+    background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Light mode autofill — neutralize the yellow tint too */
