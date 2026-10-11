@@ -193,7 +193,17 @@ return state.fb;
             return { error };
         }
     }
-
+// ---- ADD inside firebase.js, near getCurrentUser ----
+async function getIdToken() {
+    const fb = await getFirebase();
+    if (!fb || !fb.auth.currentUser) return null;
+    try {
+        return await fb.auth.currentUser.getIdToken();
+    } catch (e) {
+        console.warn('getIdToken failed:', e);
+        return null;
+    }
+}
     async function getCurrentUser() {
         const fb = await getFirebase();
         if (!fb) return { user: null, error: new Error('Firebase is not configured.') };
@@ -966,6 +976,7 @@ async function updateLastLogin(uid) {
         isConfigured,
         getClient,
         getFirebase,
+        getIdToken,
         // Auth
         signUpUser,
         signInUser,

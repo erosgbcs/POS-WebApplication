@@ -1,12 +1,27 @@
-/* ai.js — Client wrapper for the AI proxy (Gemini primary, Groq fallback) */
+/* ai.js — Client wrapper for the POS chatbot backend.
+ *
+ * Backend endpoints (Python on Vercel):
+ *   POST /api/chat      { message, history } -> { success, intent, source, response, data }
+ *   POST /api/forecast  { type }             -> { success, type, data }
+ *   GET  /api/health
+ *
+ * Requires a Firebase ID token in the Authorization header. The token
+ * is fetched lazily from window.POS_FIREBASE.getIdToken(). If Firebase
+ * has not exposed that helper yet, the request proceeds without the
+ * header and the backend responds with 401 — the UI shows the error.
+ */
 (function () {
     'use strict';
 
-    const PROXY_URL = '/api/ai';
+    const CHAT_URL = '/api/chat';
+    const FORECAST_URL = '/api/forecast';
 
     const CACHE_PREFIX = 'pos_ai_cache_';
     const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
+    // ------------------------------------------------------------
+    // Cache helpers (kept from the original implementation)
+    // ------------------------------------------------------------
     function readCache(key) {
         try {
             const raw = localStorage.getItem(CACHE_PREFIX + key);
@@ -35,35 +50,57 @@
         } catch (e) {}
     }
 
-    async function callProxy(prompt, task) {
-        const res = await fetch(PROXY_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, task })
-        });
-
-        if (!res.ok) {
-            let msg = '';
-            try { msg = (await res.json()).error || ''; } catch (e) {}
-            throw new Error(msg || `AI is temporarily unavailable (${res.status}). Try again in a moment.`);
-        }
-
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error || 'AI proxy failed');
-
-        let parsed = null;
+    // ------------------------------------------------------------
+    // Auth token
+    // ------------------------------------------------------------
+    async function getAuthToken() {
         try {
-            parsed = JSON.parse(json.text);
+            const helper = window.POS_FIREBASE?.getIdToken;
+            if (typeof helper === 'function') {
+                return await helper();
+            }
+            // Fallback: reach through the client SDK directly.
+            const fb = await window.POS_FIREBASE?.getFirebase?.();
+            const user = fb?.auth?.currentUser;
+            if (user && typeof user.getIdToken === 'function') {
+                return await user.getIdToken();
+            }
         } catch (e) {
-            const m = String(json.text).match(/\{[\s\S]*\}/);
-            if (m) { try { parsed = JSON.parse(m[0]); } catch (e2) {} }
+            console.warn('[AI] Could not obtain Firebase ID token:', e);
         }
-        return { raw: json.text, parsed };
+        return null;
     }
 
-    // =================================================================
-    // FORECAST
-    // =================================================================
+    // ------------------------------------------------------------
+    // Generic POST helper
+    // ------------------------------------------------------------
+    async function postJson(url, body) {
+        const token = await getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body)
+        });
+
+        let payload = null;
+        try { payload = await res.json(); } catch (e) {}
+
+        if (!res.ok) {
+            const msg = payload?.error || `Request failed (${res.status}). Try again in a moment.`;
+            throw new Error(msg);
+        }
+        if (!payload || payload.success !== true) {
+            throw new Error(payload?.error || 'AI proxy returned an unexpected response.');
+        }
+        return payload;
+    }
+
+    // ------------------------------------------------------------
+    // FORECAST — GET /api/forecast { type: 'sales' }
+    // ------------------------------------------------------------
     let __forecastInflight = null;
 
     async function forecastSales({ forceRefresh = false } = {}) {
@@ -72,46 +109,35 @@
             const cached = readCache(cacheKey);
             if (cached) return cached;
         }
-
-        // Share one network request across concurrent callers. Bursts
-        // from Firestore snapshots otherwise fire N parallel calls; this
-        // collapses them to 1 and returns the same promise to all.
         if (__forecastInflight) return __forecastInflight;
 
         __forecastInflight = (async () => {
             try {
-                const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-                const byDay = {};
-                // 45 days is plenty for weekday + trend inference and
-                // halves the daily-array prompt vs. the old 90-day window.
-                const cutoff = Date.now() - 45 * 24 * 60 * 60 * 1000;
+                const json = await postJson(FORECAST_URL, { type: 'sales' });
+                const data = json.data || {};
 
-                orders.forEach(o => {
-                    const ts = new Date(o.createdAt).getTime();
-                    if (isNaN(ts) || ts < cutoff) return;
-                    const key = new Date(ts).toISOString().split('T')[0];
-                    byDay[key] = (byDay[key] || 0) + (Number(o.total) || 0);
-                });
+                // Shape the Python payload into what the overview cards expect.
+                const list = Array.isArray(data.forecast) ? data.forecast : [];
+                const shaped = list.map(d => ({
+                    date: d.date,
+                    revenue: Number(d.predicted_revenue) || 0,
+                    confidence: 'medium'
+                }));
 
-                const daily = Object.entries(byDay)
-                    .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([date, revenue]) => ({ date, revenue: Math.round(revenue * 100) / 100 }));
-
-                if (daily.length < 7) {
-                    return {
-                        forecast: [],
-                        summary: 'Not enough sales history yet — need at least 7 days of data.',
-                        trend: 'stable'
-                    };
+                let summary = data.message || '';
+                if (!summary && data.available === false) {
+                    summary = 'Not enough sales history yet to produce a reliable forecast.';
                 }
+                const trend = (() => {
+                    if (!data.available || shaped.length < 2) return 'stable';
+                    const first = shaped[0].revenue;
+                    const last = shaped[shaped.length - 1].revenue;
+                    if (last > first * 1.05) return 'up';
+                    if (last < first * 0.95) return 'down';
+                    return 'stable';
+                })();
 
-                const prompt = buildForecastPrompt(daily);
-                const { parsed } = await callProxy(prompt, 'forecast');
-
-                const result = parsed && Array.isArray(parsed.forecast) && parsed.forecast.length > 0
-                    ? parsed
-                    : { forecast: [], summary: 'AI returned an unexpected response.', trend: 'stable' };
-
+                const result = { forecast: shaped, summary, trend, _raw: data };
                 writeCache(cacheKey, result);
                 return result;
             } finally {
@@ -122,53 +148,9 @@
         return __forecastInflight;
     }
 
-    function buildForecastPrompt(daily) {
-        const total = daily.reduce((s, d) => s + d.revenue, 0);
-        const avg = total / daily.length;
-
-        const byWeekday = {};
-        daily.forEach(d => {
-            const wd = new Date(d.date).toLocaleDateString('en-PH', { weekday: 'long' });
-            (byWeekday[wd] = byWeekday[wd] || []).push(d.revenue);
-        });
-        const weekdayAverages = Object.fromEntries(
-            Object.entries(byWeekday).map(([wd, arr]) => [
-                wd,
-                Math.round(arr.reduce((s, v) => s + v, 0) / arr.length)
-            ])
-        );
-
-        // Compact "MM-DD:revenue" strings instead of full ISO dates.
-        // ~40% smaller daily block than the JSON equivalent.
-        const compactDaily = daily
-            .map(d => `${d.date.slice(5)}:${Math.round(d.revenue)}`)
-            .join(' ');
-
-        return `You are analyzing sales data for a small hardware store POS.
-
-Historical daily revenue (last ${daily.length} days, oldest first, format M-D:revenue):
-${compactDaily}
-
-Total: PHP ${total.toFixed(2)} across ${daily.length} days
-Average: PHP ${avg.toFixed(2)}/day
-Weekday averages: ${JSON.stringify(weekdayAverages)}
-
-Forecast the next 14 days. Consider weekday patterns and any visible trend.
-Return ONLY valid JSON in this exact shape (no markdown, no extra text):
-{
-  "forecast": [
-    {"date": "YYYY-MM-DD", "revenue": <number>, "confidence": "low"|"medium"|"high"}
-  ],
-  "summary": "One short sentence summarizing the trend",
-  "trend": "up" | "down" | "stable"
-}
-
-The forecast array must contain exactly 14 entries, starting tomorrow.`;
-    }
-
-    // =================================================================
-    // RESTOCK
-    // =================================================================
+    // ------------------------------------------------------------
+    // RESTOCK — GET /api/forecast { type: 'restock' }
+    // ------------------------------------------------------------
     let __restockInflight = null;
 
     async function restockPriority({ forceRefresh = false } = {}) {
@@ -177,50 +159,23 @@ The forecast array must contain exactly 14 entries, starting tomorrow.`;
             const cached = readCache(cacheKey);
             if (cached) return cached;
         }
-
         if (__restockInflight) return __restockInflight;
 
         __restockInflight = (async () => {
             try {
-                const products = window.getInventorySnapshot?.() || [];
-                const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
-                const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-
-                const sold30d = {};
-                orders.forEach(o => {
-                    const ts = new Date(o.createdAt).getTime();
-                    if (isNaN(ts) || ts < cutoff) return;
-                    (o.items || []).forEach(item => {
-                        const name = String(item.name || '').toLowerCase();
-                        if (!name) return;
-                        sold30d[name] = (sold30d[name] || 0) + (Number(item.quantity) || 0);
-                    });
-                });
-
-                const candidates = products
-                    .map(p => ({
-                        name: p.name,
-                        stock: Number(p.quantity) || 0,
-                        minStock: Number(p.minStock ?? p.min_stock ?? 0) || 0,
-                        sold30d: sold30d[String(p.name).toLowerCase()] || 0
-                    }))
-                    .filter(p => p.sold30d > 0 || p.stock <= p.minStock * 2)
-                    .sort((a, b) => b.sold30d - a.sold30d)
-                    .slice(0, 20);
-
-                if (candidates.length === 0) {
-                    const empty = { items: [] };
-                    writeCache(cacheKey, empty);
-                    return empty;
-                }
-
-                const prompt = buildRestockPrompt(candidates);
-                const { parsed } = await callProxy(prompt, 'restock');
-
-                const result = parsed && Array.isArray(parsed.items)
-                    ? parsed
-                    : { items: [] };
-
+                const json = await postJson(FORECAST_URL, { type: 'restock' });
+                const data = json.data || {};
+                const items = Array.isArray(data.items) ? data.items : [];
+                const result = {
+                    items: items.map(i => ({
+                        name: i.name,
+                        urgency: i.urgency || 'low',
+                        daysLeft: i.days_left != null ? Number(i.days_left) : null,
+                        recommendedOrder: i.recommended_order != null ? Number(i.recommended_order) : 0,
+                        reason: i.reason || ''
+                    })),
+                    summary: json.response || ''
+                };
                 writeCache(cacheKey, result);
                 return result;
             } finally {
@@ -231,245 +186,49 @@ The forecast array must contain exactly 14 entries, starting tomorrow.`;
         return __restockInflight;
     }
 
-    function buildRestockPrompt(candidates) {
-        // CSV-style rows: name|stock|minStock|sold30d
-        // ~40% smaller than the JSON equivalent.
-        const rows = candidates.map(c => {
-            const name = String(c.name || '').replace(/\|/g, '/');
-            return `${name}|${c.stock}|${c.minStock}|${c.sold30d}`;
-        }).join('\n');
-
-        return `Rank these hardware store products by restock urgency.
-
-Products (format: name|stock|minStock|sold30d):
-${rows}
-
-Rules:
-- dailyRate = sold30d / 30
-- daysLeft = stock / dailyRate  (if dailyRate is 0, daysLeft = 999)
-- Urgency:
-  - "critical" if daysLeft <= 3 OR stock === 0
-  - "high"     if daysLeft <= 7
-  - "medium"   if daysLeft <= 14
-  - "low"      otherwise
-- recommendedOrder = round up to enough for 30 days at current rate, to a sensible number (5, 10, 25, 50, 100, etc.)
-
-Return ONLY valid JSON (no markdown):
-{
-  "items": [
-    {
-      "name": "<product name>",
-      "urgency": "critical"|"high"|"medium"|"low",
-      "daysLeft": <number>,
-      "recommendedOrder": <number>,
-      "reason": "<short reason, e.g. 'Sells 1.4/day, 4 days left'>"
-    }
-  ]
-}
-
-Sort by urgency (critical first), then by daysLeft ascending. Return at most 6 items.`;
-    }
-    /* ============================================================
-       STORE SNAPSHOT — reads all relevant localStorage keys,
-       computes summary numbers once, and returns a compact
-       payload for the AI prompt. Keeps the chat prompt under
-       Groq's 8,000 TPM free-tier limit (~2,200 tokens).
-       ============================================================ */
-    function buildStoreSnapshot() {
-        const read = (key, fallback) => {
-            try {
-                const raw = localStorage.getItem(key);
-                if (!raw) return fallback;
-                const parsed = JSON.parse(raw);
-                return parsed ?? fallback;
-            } catch (e) {
-                return fallback;
-            }
-        };
-
-        const orders = read('pos_orders', []);
-        const customers = read('pos_customers', []);
-        const audit = read('pos_audit_logs', []);
-        const categories = read('pos_categories', []);
-        const settings = read('pos_settings', {});
-        const products = window.getInventorySnapshot?.() || [];
-
-        // Date keys — match the app's existing KPI logic (UTC-based)
-        // so the AI and the dashboard never disagree on "today".
-        const todayKey = new Date().toISOString().split('T')[0];
-        const monthKey = todayKey.slice(0, 7);
-        const yearKey  = todayKey.slice(0, 4);
-
-        const sumTotal = (list) =>
-            list.reduce((s, o) => s + (Number(o.total) || 0), 0);
-
-        const todayOrders = orders.filter(o => String(o.createdAt || '').startsWith(todayKey));
-        const monthOrders = orders.filter(o => String(o.createdAt || '').startsWith(monthKey));
-        const yearOrders  = orders.filter(o => String(o.createdAt || '').startsWith(yearKey));
-
-        const inStockCount = products.filter(p => (Number(p.quantity) || 0) > 0).length;
-        const lowStockCount = products.filter(p => {
-            const q = Number(p.quantity) || 0;
-            const m = Number(p.minStock ?? p.min_stock ?? 0) || 0;
-            return q > 0 && q <= m;
-        }).length;
-        const outOfStockCount = products.filter(p => (Number(p.quantity) || 0) === 0).length;
-
-        // Top 10 customers by lifetime spend — answers "top customers?" questions
-        const topCustomers = [...customers]
-            .sort((a, b) => (Number(b.totalSpent) || 0) - (Number(a.totalSpent) || 0))
-            .slice(0, 10)
-            .map(c => ({
-                name: c.name || 'Unknown',
-                orders: Number(c.orders) || 0,
-                totalSpent: Number(c.totalSpent) || 0
-            }));
-
-        // 10 newest orders — enough context for "what sold recently?"
-        const recentOrders = orders.slice(0, 10).map(o => ({
-            id: o.id,
-            date: o.createdAt,
-            customer: o.customerName || 'Walk-in',
-            total: o.total,
-            payment: o.paymentMethod || 'cash',
-            itemCount: (o.items || []).length,
-            itemSummary: (o.items || []).slice(0, 3)
-                .map(i => `${i.name} x${i.quantity}`)
-                .join(', ')
-        }));
-
-        // 30 products with category, price, stock — enough for most catalog questions
-        const catalog = products.slice(0, 30).map(p => ({
-            name: p.name,
-            category: p.category,
-            stock: p.quantity,
-            price: p.price,
-            size: p.size || '',
-            brand: p.brand || ''
-        }));
-
-        // 8 newest audit entries — enough for "what happened today?"
-        const recentAudit = audit.slice(0, 8).map(l => ({
-            when: l.timestamp,
-            who: l.user,
-            action: l.action,
-            module: l.module,
-            description: l.description
-        }));
-
-        // Categories in use — from config or derived from products
-        const categoryList = Array.isArray(categories) && categories.length
-            ? categories
-            : [...new Set(products.map(p => p.category).filter(Boolean))];
-
-        return {
-            summary: {
-                today:     { date: todayKey, revenue: sumTotal(todayOrders), orders: todayOrders.length },
-                thisMonth: { month: monthKey, revenue: sumTotal(monthOrders), orders: monthOrders.length },
-                thisYear:  { year: yearKey,  revenue: sumTotal(yearOrders),  orders: yearOrders.length  },
-                allTime:   { revenue: sumTotal(orders), orders: orders.length },
-                inventory: {
-                    totalProducts: products.length,
-                    inStock: inStockCount,
-                    lowStock: lowStockCount,
-                    outOfStock: outOfStockCount
-                },
-                customers: { total: customers.length }
-            },
-            topCustomers,
-            recentOrders,
-            catalog,
-            recentAudit,
-            categories: categoryList,
-            settings: {
-                storeName: settings.storeName || "Kirby's Hardware",
-                currency: settings.currency || 'PHP'
-            }
-        };
-    }
-
-    // =================================================================
-    // CHAT — askQuestion
-    // =================================================================
+    // ------------------------------------------------------------
+    // CHAT — POST /api/chat { message, history }
+    // ------------------------------------------------------------
     async function askQuestion(question, history = []) {
         const trimmed = String(question || '').trim();
         if (!trimmed) return { answer: 'Please type a question.' };
 
-        // Read everything the store knows from localStorage + in-memory snapshot
-        const snapshot = buildStoreSnapshot();
+        const payload = {
+            message: trimmed,
+            history: Array.isArray(history)
+                ? history.slice(-8).map(m => ({
+                    role: m.role === 'user' ? 'user' : 'ai',
+                    text: String(m.text || '').slice(0, 300)
+                }))
+                : []
+        };
 
-        // ---- Conversation memory ----
-        const HISTORY_TURNS = 8;
-        const trimmedHistory = Array.isArray(history)
-            ? history
-                .filter(m => m && typeof m.text === 'string' && m.text.trim())
-                .slice(-HISTORY_TURNS)
-            : [];
-
-        const historyBlock = trimmedHistory.length
-            ? trimmedHistory
-                .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`)
-                .join('\n')
-            : '(no previous turns — this is the first question)';
-
-        const prompt = `You are answering questions about a small hardware store POS system.
-
-Current time: ${new Date().toISOString()}
-Store: ${snapshot.settings.storeName}
-Currency: ${snapshot.settings.currency}
-
-PRE-COMPUTED SUMMARY (authoritative — use these numbers directly, do NOT recompute):
-${JSON.stringify(snapshot.summary)}
-
-CATEGORIES IN USE:
-${snapshot.categories.join(', ') || '(none)'}
-
-TOP 10 CUSTOMERS BY LIFETIME SPEND:
-${JSON.stringify(snapshot.topCustomers)}
-
-10 MOST RECENT ORDERS:
-${JSON.stringify(snapshot.recentOrders)}
-
-PRODUCT CATALOG (first 30 products):
-${JSON.stringify(snapshot.catalog)}
-
-8 MOST RECENT ACTIVITY LOG ENTRIES:
-${JSON.stringify(snapshot.recentAudit)}
-
-Previous conversation (oldest → newest):
-${historyBlock}
-
-User's new question: ${trimmed}
-
-Instructions:
-- For revenue, sales, or order count questions about today / this month / this year / all time, USE the PRE-COMPUTED SUMMARY numbers. Do NOT sum the recentOrders list — it is a small slice.
-- For "top customers" questions, use the TOP 10 CUSTOMERS list.
-- For "what happened today" or "what did staff do", use the ACTIVITY LOG entries.
-- For "what do I sell" or category questions, use CATEGORIES IN USE.
-- For product questions (price, stock, brand), use the PRODUCT CATALOG.
-- If the question is a follow-up ("and last week?", "what about Tuesday?", "why?", "show me more"), resolve it using the Previous conversation before answering.
-- Answer in 1-2 sentences, plain English, no markdown.
-- Use ONLY the data above. Do NOT invent numbers.
-- If the data is insufficient, say: "I don't have enough data to answer that."
-- Include actual amounts (in PHP) when relevant.
-
-Return ONLY valid JSON (no markdown):
-{ "answer": "<your answer>" }`;
-
-        const { parsed } = await callProxy(prompt, 'query');
-        return parsed && parsed.answer
-            ? parsed
-            : { answer: 'AI returned an unexpected response.' };
+        try {
+            const json = await postJson(CHAT_URL, payload);
+            return {
+                answer: json.response || 'AI returned an unexpected response.',
+                intent: json.intent,
+                source: json.source,
+                data: json.data || {}
+            };
+        } catch (err) {
+            return {
+                answer: err.message || 'AI request failed.',
+                intent: 'unknown',
+                source: 'client_error',
+                data: {}
+            };
+        }
     }
 
-    // =================================================================
-    // PUBLIC API
-    // =================================================================
+    // ------------------------------------------------------------
+    // Public API
+    // ------------------------------------------------------------
     window.POS_AI = {
         forecastSales,
         restockPriority,
         askQuestion,
         clearCache,
-        _callProxy: callProxy
+        _getAuthToken: getAuthToken
     };
 })();
