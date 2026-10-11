@@ -1813,6 +1813,69 @@ function escapeAiText(value) {
     }[c]));
 }
 
+/* ============================================================
+   AI MESSAGE FORMATTING
+   - Colours money values green
+   - Colours stock status keywords
+   - Turns product names into clickable buttons
+   Safe: escapes HTML first, then wraps in placeholders so the
+   patterns can't conflict with each other.
+   ============================================================ */
+function formatAiMessage(rawText, meta) {
+    let safe = escapeAiText(rawText || '');
+    const placeholders = [];
+
+    const stash = (html) => {
+        const token = `\u0001${placeholders.length}\u0002`;
+        placeholders.push(html);
+        return token;
+    };
+
+    // ---- 1. Product names → clickable buttons ----
+    const products = (window.getInventorySnapshot?.() || [])
+        .map(p => String(p.name || '').trim())
+        .filter(Boolean);
+    // Longest first so "Fire Extinguisher" wins over "Fire"
+    products.sort((a, b) => b.length - a.length);
+
+    for (const name of products) {
+        const escName = escapeAiText(name);
+        const escPattern = escName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const rx = new RegExp(
+            `(^|[^A-Za-z0-9])(${escPattern})(?=[^A-Za-z0-9]|$)`,
+            'g'
+        );
+        safe = safe.replace(rx, (full, prefix, hit) => {
+            const button = `<button type="button" class="ai-product-link" data-product-name="${escapeAiText(name)}">${hit}</button>`;
+            return prefix + stash(button);
+        });
+    }
+
+    // ---- 2. Money values → green ----
+    // Matches "PHP 1,234.56", "PHP1,234", "₱1,234.56"
+    safe = safe.replace(
+        /(PHP\s?[\d,]+(?:\.\d{1,2})?|₱\s?[\d,]+(?:\.\d{1,2})?)/g,
+        m => stash(`<span class="ai-money">${m}</span>`)
+    );
+
+    // ---- 3. Stock status keywords ----
+    safe = safe.replace(
+        /\b(low on stock|low stock|out of stock|critical|unavailable)\b/gi,
+        m => {
+            const danger = /out of stock|critical|unavailable/i.test(m);
+            const cls = danger ? 'ai-status-danger' : 'ai-status-warn';
+            return stash(`<span class="${cls}">${m}</span>`);
+        }
+    );
+
+    // ---- Restore placeholders in order ----
+    placeholders.forEach((html, i) => {
+        safe = safe.split(`\u0001${i}\u0002`).join(html);
+    });
+
+    return safe;
+}
+
 function renderAiThread() {
     const threadEl = document.getElementById('aiThread');
     if (!threadEl) return;
@@ -1827,8 +1890,19 @@ function renderAiThread() {
             </div>`);
     } else {
         history.forEach(msg => {
-            const cls = msg.role === 'user' ? 'user' : 'ai';
-            html.push(`<div class="ai-bubble ${cls}">${escapeAiText(msg.text)}</div>`);
+            const isUser = msg.role === 'user';
+            const cls = isUser ? 'user' : 'ai';
+
+            if (isUser) {
+                // User messages stay plain text — never re-formatted.
+                html.push(`<div class="ai-bubble ${cls}">${escapeAiText(msg.text)}</div>`);
+            } else {
+                const body = formatAiMessage(msg.text, msg);
+                const meta = msg.source
+                    ? `<div class="ai-bubble-meta">via ${escapeAiText(msg.source)}</div>`
+                    : '';
+                html.push(`<div class="ai-bubble ${cls}">${body}${meta}</div>`);
+            }
         });
     }
 
@@ -1836,12 +1910,22 @@ function renderAiThread() {
     threadEl.scrollTop = threadEl.scrollHeight;
 }
 
-function appendAiBubble(role, text, extraClass = '') {
+function appendAiBubble(role, text, extraClass = '', meta = null) {
     const threadEl = document.getElementById('aiThread');
     if (!threadEl) return;
     const div = document.createElement('div');
     div.className = `ai-bubble ${role}${extraClass ? ' ' + extraClass : ''}`;
-    div.innerHTML = escapeAiText(text);
+
+    if (role === 'user') {
+        div.innerHTML = escapeAiText(text);
+    } else {
+        const body = formatAiMessage(text, meta);
+        const metaLine = meta?.source
+            ? `<div class="ai-bubble-meta">via ${escapeAiText(meta.source)}</div>`
+            : '';
+        div.innerHTML = body + metaLine;
+    }
+
     threadEl.appendChild(div);
     threadEl.scrollTop = threadEl.scrollHeight;
     return div;
@@ -1898,6 +1982,26 @@ function setupAiFeatures() {
     // ---- Restore thread from localStorage ----
     renderAiThread();
 
+        // ---- Product link clicks → jump to inventory with the name pre-filled ----
+    document.getElementById('aiThread')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ai-product-link');
+        if (!btn) return;
+        const name = btn.dataset.productName;
+        if (!name) return;
+
+        // Close the AI panel so the user sees the inventory page
+        closeAiPanel();
+
+        // Navigate + pre-fill the search after the page renders
+        window.navigateToPage?.('inventory');
+        setTimeout(() => {
+            const search = document.getElementById('inventorySearch');
+            if (search) {
+                search.value = name;
+                search.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }, 200);
+    });
     // ---- Form submission ----
     const form = document.getElementById('aiPanelForm');
     const input = document.getElementById('aiPanelInput');
@@ -1957,14 +2061,22 @@ function setupAiFeatures() {
         loadingEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Thinking…';
 
         try {
-            const { answer } = await window.POS_AI.askQuestion(question, priorHistory);
+            const result = await window.POS_AI.askQuestion(question, priorHistory);
+            const answer = result.answer || 'AI returned an empty response.';
             loadingEl.remove();
-            appendAiBubble('ai', answer || 'AI returned an empty response.');
+            appendAiBubble('ai', answer, '', result);
 
-            // Persist to storage
+            // Persist to storage — include intent + source so the
+            // meta line survives a page reload.
             const history = loadAiThread();
             history.push({ role: 'user', text: question, ts: Date.now() });
-            history.push({ role: 'ai', text: answer || '', ts: Date.now() });
+            history.push({
+                role: 'ai',
+                text: answer,
+                ts: Date.now(),
+                intent: result.intent,
+                source: result.source
+            });
             saveAiThread(history);
         } catch (err) {
             loadingEl.remove();

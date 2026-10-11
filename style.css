@@ -10015,3 +10015,118 @@ html:not([data-theme="light"]) .product-image-choose:hover {
         height: 90px;
     }
 }
+
+/* ============================================
+   AI CHAT — RICH MESSAGE FORMATTING
+   ============================================ */
+
+/* Money values: PHP 1,234.56 / ₱1,234.56 */
+.ai-bubble .ai-money {
+    color: #22c55e;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 0 3px;
+    border-radius: 4px;
+    background: rgba(34, 197, 94, 0.1);
+}
+
+/* Status: "low stock" / "low on stock" */
+.ai-bubble .ai-status-warn {
+    color: #fb923c;
+    font-weight: 600;
+}
+
+/* Status: "out of stock" / "critical" / "unavailable" */
+.ai-bubble .ai-status-danger {
+    color: #f87171;
+    font-weight: 600;
+}
+
+/* Clickable product name pill */
+.ai-bubble .ai-product-link {
+    display: inline;
+    padding: 1px 7px;
+    margin: 0 2px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(250, 204, 21, 0.15);
+    color: #FACC15;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    line-height: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(250, 204, 21, 0.5);
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+    white-space: nowrap;
+}
+
+.ai-bubble .ai-product-link:hover {
+    background: rgba(250, 204, 21, 0.28);
+    color: #FDE047;
+}
+
+.ai-bubble .ai-product-link:active {
+    transform: scale(0.97);
+}
+
+.ai-bubble .ai-product-link:focus-visible {
+    outline: 2px solid rgba(250, 204, 21, 0.7);
+    outline-offset: 2px;
+}
+
+/* Small "via gemini" / "via python_forecast" line */
+.ai-bubble-meta {
+    margin-top: 6px;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    opacity: 0.55;
+    color: #8a8275;
+}
+
+/* Never format the user's own messages */
+.ai-bubble.user .ai-money,
+.ai-bubble.user .ai-product-link,
+.ai-bubble.user .ai-status-warn,
+.ai-bubble.user .ai-status-danger {
+    background: none;
+    color: inherit;
+    font-weight: inherit;
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+    cursor: inherit;
+}
+
+/* ---------- Light mode ---------- */
+[data-theme="light"] .ai-bubble .ai-money {
+    color: #15803d;
+    background: rgba(34, 197, 94, 0.14);
+}
+
+[data-theme="light"] .ai-bubble .ai-status-warn {
+    color: #9a3412;
+}
+
+[data-theme="light"] .ai-bubble .ai-status-danger {
+    color: #b91c1c;
+}
+
+[data-theme="light"] .ai-bubble .ai-product-link {
+    background: rgba(224, 163, 0, 0.15);
+    color: #8a5a00;
+    text-decoration-color: rgba(138, 90, 0, 0.45);
+}
+
+[data-theme="light"] .ai-bubble .ai-product-link:hover {
+    background: rgba(224, 163, 0, 0.25);
+    color: #6b4500;
+}
+
+[data-theme="light"] .ai-bubble-meta {
+    color: #78716c;
+}
