@@ -258,6 +258,54 @@ async function addCategoryPrompt() {
         lastUpdated: product.lastUpdated || product.updated_at || product.created_at || ''
     };
 }
+/* ============================================================
+   AUTO SKU + NAME DEDUPLICATION
+   ============================================================ */
+
+// Pattern for auto-generated SKUs: PRD-001, PRD-002, ...
+const AUTO_SKU_PATTERN = /^PRD-(\d+)$/;
+
+/**
+ * Generate the next auto-increment SKU based on existing products.
+ * Scans every SKU for the pattern PRD-### and returns PRD-(max+1).
+ * Falls back to PRD-001 if none exist.
+ */
+function generateNextSku() {
+    let max = 0;
+    for (const p of inventoryState.products) {
+        const m = AUTO_SKU_PATTERN.exec(String(p.sku || '').trim());
+        if (m) {
+            const n = parseInt(m[1], 10);
+            if (Number.isFinite(n) && n > max) max = n;
+        }
+    }
+    return `PRD-${String(max + 1).padStart(3, '0')}`;
+}
+
+/**
+ * Find an existing product whose name matches (case-insensitive, trimmed).
+ * Returns the product object, or null.
+ */
+function findProductByName(name) {
+    const needle = String(name || '').trim().toLowerCase();
+    if (!needle) return null;
+    return inventoryState.products.find(p =>
+        String(p.name || '').trim().toLowerCase() === needle
+    ) || null;
+}
+
+/**
+ * True when the product uses variant/size/brand stock tracking.
+ * Merging is unsafe for these because quantity alone doesn't describe
+ * where the added stock should go.
+ */
+function usesVariantStock(product) {
+    return Boolean(
+        (product.variants && Object.keys(product.variants).length) ||
+        (product.sizeStocks && Object.keys(product.sizeStocks).length) ||
+        (product.brandStocks && Object.keys(product.brandStocks).length)
+    );
+}
 
 function specIconClass(spec) {
     const s = String(spec || '').trim().toLowerCase();
@@ -495,6 +543,12 @@ updateSizePreview();
             }
         } else {
     title.textContent = 'Add Product';
+
+    // Auto-fill the SKU with the next PRD-### in sequence.
+    // Users can still overwrite it with a custom code.
+    const skuInput = document.getElementById('productSKU');
+    if (skuInput) skuInput.value = generateNextSku();
+
     const trackSizeStock = document.getElementById('trackSizeStock');
     if (trackSizeStock) trackSizeStock.checked = true;
     const specRadio = document.querySelector('input[name="sizeMode"][value="spec"]');
@@ -657,8 +711,99 @@ modal.classList.add('active');
             if (existingProduct?.variants) productData.variants = null;
         }
 
-        const skuExists = inventoryState.products.some(p => p.sku === productData.sku && p.id !== inventoryState.editingProductId);
-        if (skuExists) { showToast('Product code already exists', 'error'); return; }
+        // ---------- NAME-BASED DEDUPLICATION ----------
+        // Only applies when creating a NEW product. If the name already
+        // exists, offer to merge the quantity into the existing product
+        // instead of creating a second card with the same name.
+        if (!inventoryState.editingProductId) {
+            const existingByName = findProductByName(productData.name);
+
+            if (existingByName) {
+                if (usesVariantStock(existingByName)) {
+                    showToast(
+                        `"${existingByName.name}" already exists and uses size/brand stock. ` +
+                        `Edit that product directly to adjust its stock.`,
+                        'error'
+                    );
+                    return;
+                }
+
+                const existingQty = Number(existingByName.quantity) || 0;
+                const addQty = Number(productData.quantity) || 0;
+                const mergedQty = existingQty + addQty;
+
+                const confirmed = window.confirm(
+                    `A product named "${existingByName.name}" already exists.\n\n` +
+                    `Current stock: ${existingQty}\n` +
+                    `You are adding: ${addQty}\n` +
+                    `New total will be: ${mergedQty}\n\n` +
+                    `Click OK to ADD this stock to the existing product and ` +
+                    `update its price/details.\n` +
+                    `Click Cancel to go back and edit the existing product instead.`
+                );
+                if (!confirmed) return;
+
+                // Merge: keep the original id + sku; update everything else.
+                const mergedPayload = {
+                    ...productData,
+                    sku: existingByName.sku,   // preserve original code
+                    quantity: mergedQty
+                };
+                mergedPayload.min_stock = productData.minStock;
+                delete mergedPayload.minStock;
+
+                const mergeResult = await supabaseApi.updateInventoryProduct(
+                    existingByName.id, mergedPayload
+                );
+                if (mergeResult.error) {
+                    showToast(mergeResult.error.message, 'error');
+                    return;
+                }
+
+                const idx = inventoryState.products.findIndex(p => p.id === existingByName.id);
+                if (idx !== -1) {
+                    inventoryState.products[idx] = mapProduct({
+                        ...inventoryState.products[idx],
+                        ...productData,
+                        sku: existingByName.sku,
+                        quantity: mergedQty,
+                        id: existingByName.id
+                    });
+                }
+
+                window.POS_APP_LOG?.('update', 'inventory',
+                    `Stock added to existing product "${existingByName.name}" (+${addQty})`,
+                    'info');
+                showToast(`Added ${addQty} to existing "${existingByName.name}" (stock now ${mergedQty})`, 'success');
+
+                matrixDraft = {};
+                productImageDraft = null;
+                updateInventoryStats();
+                filterProducts();
+                closeProductModal();
+                window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+                return;
+            }
+        }
+
+        // ---------- SKU uniqueness (existing behaviour) ----------
+        // For new products, if the auto-generated SKU somehow collides
+        // (e.g. two users adding at the same time), bump to the next one.
+        if (productData.sku) {
+            const skuExists = inventoryState.products.some(
+                p => p.sku === productData.sku && p.id !== inventoryState.editingProductId
+            );
+            if (skuExists) {
+                if (!inventoryState.editingProductId) {
+                    productData.sku = generateNextSku();
+                } else {
+                    showToast('Product code already exists', 'error');
+                    return;
+                }
+            }
+        } else if (!inventoryState.editingProductId) {
+            productData.sku = generateNextSku();
+        }
 
         const payload = { ...productData, min_stock: productData.minStock };
         delete payload.minStock;
