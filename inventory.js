@@ -861,7 +861,64 @@ modal.classList.add('active');
         window.POS_APP_LOG?.('export', 'inventory', 'Inventory CSV exported', 'info');
         showToast('Inventory exported successfully', 'success');
     }
+/* ============================================================
+   SPEC AUTO-DETECTION
+   Reads the Specification/Variants input and returns a
+   semantic category so the label reads naturally.
+   Weight → "Weight", Length → "Size", etc.
+   ============================================================ */
+function detectSpecCategory(raw) {
+    const s = String(raw || '').toLowerCase().trim();
+    if (!s) return null;
 
+    // Weight: kg, g, mg, lb, oz, ton
+    if (/\b\d+(\.\d+)?\s*(kgs?|g|mgs?|lbs?|oz|tons?|tonnes?)\b/.test(s)) {
+        return { key: 'weight', label: 'Weight', plural: 'Weights', example: '1 kg, 2 kg, 5 kg', stockLabel: 'Stock by weight' };
+    }
+
+    // Volume: L, ml, gal, liter, fl oz
+    if (/\b\d+(\.\d+)?\s*(l|ml|liters?|litres?|gals?|gallons?|fl\s*oz)\b/.test(s)) {
+        return { key: 'volume', label: 'Volume', plural: 'Volumes', example: '250 ml, 500 ml, 1 L', stockLabel: 'Stock by volume' };
+    }
+
+    // Electrical: V, A, W, AWG, volt, amp, watt
+    if (/\b\d+(\.\d+)?\s*(v|volts?|a|amps?|amperes?|w|watts?|awg|kva|hp)\b/.test(s)) {
+        return { key: 'rating', label: 'Rating', plural: 'Ratings', example: '10 A, 20 A, 30 A', stockLabel: 'Stock by rating' };
+    }
+
+    // Length/dimension: mm, cm, m, in, ft, yd, meters
+    if (/\b\d+(\.\d+)?\s*(mm|cms?|m|in|inch(es)?|ft|foot|feet|yd|yards?|meters?|metres?)\b/.test(s)) {
+        return { key: 'size', label: 'Size', plural: 'Sizes', example: '2 in, 4 in, 6 in', stockLabel: 'Stock by size' };
+    }
+
+    // Dimension × dimension (e.g. "2x4", "10 x 20")
+    if (/\d+\s*[x×]\s*\d+/.test(s)) {
+        return { key: 'dimension', label: 'Dimension', plural: 'Dimensions', example: '2x4, 4x8', stockLabel: 'Stock by dimension' };
+    }
+
+    // Count: pcs, sets, packs, units, pairs, boxes, bags, rolls
+    if (/\b\d+(\.\d+)?\s*(pcs?|pieces?|sets?|packs?|units?|pairs?|boxes?|bags?|rolls?)\b/.test(s)) {
+        return { key: 'count', label: 'Pack Size', plural: 'Pack Sizes', example: '10 pcs, 50 pcs, 100 pcs', stockLabel: 'Stock by pack size' };
+    }
+
+    // Color names
+    if (/\b(red|blue|green|yellow|black|white|gray|grey|brown|orange|pink|purple|silver|gold|beige|maroon|navy|teal|cyan|magenta|violet|indigo)\b/.test(s)) {
+        return { key: 'color', label: 'Color', plural: 'Colors', example: 'Red, Blue, Green', stockLabel: 'Stock by color' };
+    }
+
+    // Apparel/numeric sizing: S, M, L, XL, 3XL, 8, 10, 12
+    if (/^\s*(xxs|xs|s|m|l|xl|xxl|xxxl|[2-9]xl|\d{1,2})(\s*,\s*(xxs|xs|s|m|l|xl|xxl|xxxl|[2-9]xl|\d{1,2}))+\s*$/.test(s)) {
+        return { key: 'size', label: 'Size', plural: 'Sizes', example: 'S, M, L, XL', stockLabel: 'Stock by size' };
+    }
+
+    // Fallback — anything with commas is a generic variant list
+    if (/^[^,]+(\s*,\s*[^,]+)+$/.test(s)) {
+        return { key: 'variant', label: 'Variant', plural: 'Variants', example: '', stockLabel: 'Stock by variant' };
+    }
+
+    // Single-word spec we don't recognize
+    return { key: 'spec', label: 'Specification', plural: 'Specs', example: '', stockLabel: 'Stock' };
+}
 function updateSizePreview() {
     const previewEl = document.getElementById('sizePreview');
     const inputEl = document.getElementById('productSize');
@@ -870,19 +927,32 @@ function updateSizePreview() {
 
     if (!previewEl || !inputEl || !labelEl) return;
 
+    const raw = inputEl.value.trim();
+    const detected = detectSpecCategory(raw);
+
+    // ---- Single spec mode ----
     if (mode === 'spec') {
-        labelEl.textContent = 'Specification (optional)';
-        inputEl.placeholder = 'e.g., 2 in, 40 kg, 20 A, or leave blank';
+        const labelText = detected ? detected.label : 'Specification';
+        labelEl.textContent = `${labelText} (optional)`;
+
+        // Show a category-appropriate example in the placeholder
+        inputEl.placeholder = detected && detected.example
+            ? `e.g., ${detected.example}, or leave blank`
+            : 'e.g., 2 in, 40 kg, 20 A, or leave blank';
+
         previewEl.style.display = 'none';
         previewEl.innerHTML = '';
         renderVariantStockControls();
         return;
     }
 
-    labelEl.textContent = 'Variants (separated by comma)';
-    inputEl.placeholder = 'e.g., S, M, L, XL';
+    // ---- Variants mode ----
+    const pluralLabel = detected ? detected.plural : 'Variants';
+    labelEl.textContent = `${pluralLabel} (separated by comma)`;
+    inputEl.placeholder = detected && detected.example
+        ? `e.g., ${detected.example}`
+        : 'e.g., S, M, L, XL';
 
-    const raw = inputEl.value.trim();
     const parts = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
 
     if (parts.length === 0) {
@@ -892,10 +962,13 @@ function updateSizePreview() {
         return;
     }
 
+    // Show the detected label above the chips for extra clarity
+    const previewHeading = detected ? `${detected.plural}:` : 'Preview:';
     previewEl.style.display = 'flex';
     previewEl.innerHTML =
-        '<span class="size-preview-label">Preview:</span> ' +
+        `<span class="size-preview-label">${escapeHtml(previewHeading)}</span> ` +
         parts.map(p => `<span class="size-chip">${escapeHtml(p)}</span>`).join('');
+
     renderVariantStockControls();
 }
 function updateBrandPreview() {
@@ -1160,9 +1233,13 @@ function renderVariantStockControls() {
     const sharedQuantityInput = document.getElementById('productQuantity');
     if (!group || !inputContainer || !sharedQuantityGroup || !trackSizeStock || !sharedQuantityInput) return;
 
-    const enabled = mode === 'variants' && trackSizeStock.checked;
-    group.style.display = mode === 'variants' ? '' : 'none';
-    sharedQuantityGroup.style.display = enabled ? 'none' : '';
+    // Make the section heading match whatever the user typed
+    const groupLabel = group.querySelector('label');
+    if (groupLabel) {
+        const raw = document.getElementById('productSize')?.value || '';
+        const detected = detectSpecCategory(raw);
+        groupLabel.textContent = detected ? detected.stockLabel : 'Stock by size';
+    }
     sharedQuantityInput.required = !enabled;
 
     const currentValues = {};
