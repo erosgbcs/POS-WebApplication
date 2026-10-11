@@ -8055,17 +8055,53 @@ html:not([data-theme="light"]) .ai-restock-action {
     gap: 8px;
     padding: 10px 12px;
     overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
     border-top: 1px solid rgba(250, 204, 21, 0.08);
     background: rgba(20, 18, 16, 0.35);
-    scrollbar-width: none;
-    -ms-overflow-style: none;
     flex-shrink: 0;
+
+    /* Thin visible scrollbar — signals to the user that the strip scrolls */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(250, 204, 21, 0.35) transparent;
+
+    /* Right-edge fade so cut-off chips hint at more content */
+    mask-image: linear-gradient(
+        to right,
+        #000 0,
+        #000 calc(100% - 24px),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to right,
+        #000 0,
+        #000 calc(100% - 24px),
+        transparent 100%
+    );
 }
 
-.ai-quick-prompts::-webkit-scrollbar { display: none; }
+.ai-quick-prompts::-webkit-scrollbar {
+    height: 4px;
+}
+
+.ai-quick-prompts::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-quick-prompts::-webkit-scrollbar-thumb {
+    background: rgba(250, 204, 21, 0.35);
+    border-radius: 999px;
+}
+
+.ai-quick-prompts::-webkit-scrollbar-thumb:hover {
+    background: rgba(250, 204, 21, 0.6);
+}
 
 .ai-chip {
     flex-shrink: 0;
+    scroll-snap-align: start;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -8109,6 +8145,15 @@ html:not([data-theme="light"]) .ai-restock-action {
 [data-theme="light"] .ai-quick-prompts {
     background: #f5efe0;
     border-top-color: rgba(120, 95, 55, 0.2);
+    scrollbar-color: rgba(180, 165, 130, 0.5) transparent;
+}
+
+[data-theme="light"] .ai-quick-prompts::-webkit-scrollbar-thumb {
+    background: rgba(180, 165, 130, 0.5);
+}
+
+[data-theme="light"] .ai-quick-prompts::-webkit-scrollbar-thumb:hover {
+    background: rgba(180, 165, 130, 0.75);
 }
 
 [data-theme="light"] .ai-chip {
