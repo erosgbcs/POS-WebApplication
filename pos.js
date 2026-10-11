@@ -699,6 +699,10 @@ for (const [cartKey, qty] of Object.entries(cart)) {
             </button>
         </div>
         <strong style="min-width: 80px; text-align: right;">${formatCurrency(price * qty)}</strong>
+        <button class="cart-item-remove" data-cart-key="${cartKey}" type="button"
+                title="Remove item" aria-label="Remove ${escapeHtml(displayName)} from cart">
+            <i class="fas fa-trash"></i>
+        </button>
     `;
     cartItems.appendChild(itemDiv);
 }
@@ -763,6 +767,18 @@ function getProductPriceByName(name, cartKey = '') {
     if (cached && cached.price != null) return Number(cached.price) || 0;
     const card = productGrid?.querySelector(`.product-card[data-name="${CSS.escape(name)}"]`);
     return card ? parseFloat(card.dataset.price) : 0;
+}
+
+function removeFromCart(cartKey) {
+    if (!cart[cartKey]) return;
+    const { name, size, brand } = parseCartKey(cartKey);
+    delete cart[cartKey];
+    delete cartPrices[cartKey];
+    updateCartDisplay();
+    const bits = [name];
+    if (size) bits.push(`(${size})`);
+    if (brand) bits.push(`· ${brand}`);
+    showToast(`Removed ${bits.join(' ')} from cart`, 'success');
 }
 
     // --- Event delegation for product cards (click to add) ---
@@ -886,8 +902,15 @@ window.reloadPosCatalog = () => {
 
 // --- Cart item quantity buttons + qty input (event delegation) ---
 if (cartItems) {
-    // +/− button clicks
+    // +/− button clicks and per-line remove
     cartItems.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.cart-item-remove');
+        if (removeBtn) {
+            const key = removeBtn.dataset.cartKey;
+            if (key) removeFromCart(key);
+            return;
+        }
+
         const btn = e.target.closest('.qty-btn');
         if (!btn) return;
         const cartKey = btn.dataset.cartKey;
