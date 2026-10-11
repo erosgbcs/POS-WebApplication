@@ -157,7 +157,21 @@ def process_request(body: dict, authorization: str) -> dict:
     # Build a compact, question-specific data snapshot so the AI
     # reasons on real numbers instead of guessing.
     context = build_ai_context(message)
+
+    # Include recent turns so follow-ups ("and last week?", "why?")
+    # resolve against the running conversation. Hard-cap so the
+    # prompt stays small even if the client sends a long thread.
+    recent_history = history[-4:] if history else []
+    history_block = ""
+    if recent_history:
+        lines = []
+        for turn in recent_history:
+            who = "User" if turn.get("role") == "user" else "Assistant"
+            lines.append(f"{who}: {turn.get('text', '')}")
+        history_block = "RECENT_CONVERSATION:\n" + "\n".join(lines) + "\n\n"
+
     augmented_prompt = (
+        f"{history_block}"
         f"STORE_DATA:\n{json.dumps(context, indent=2)}\n\n"
         f"User question: {message}"
     )

@@ -51,8 +51,8 @@ class GeminiProvider:
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"parts": [{"text": user_message}]}],
             "generationConfig": {
-                "temperature": 0.35,
-                "maxOutputTokens": 1024,
+                "temperature": 0.4,
+                "maxOutputTokens": 512,
             },
         }
         try:
@@ -109,8 +109,8 @@ class GroqProvider:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            "temperature": 0.35,
-            "max_tokens": 1024,
+            "temperature": 0.4,
+            "max_tokens": 512,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",

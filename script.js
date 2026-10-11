@@ -1892,7 +1892,22 @@ function escapeAiText(value) {
    patterns can't conflict with each other.
    ============================================================ */
 function formatAiMessage(rawText, meta) {
-    let safe = escapeAiText(rawText || '');
+    let cleaned = String(rawText || '').trim();
+
+    // Strip common AI filler openings that add no information.
+    cleaned = cleaned
+        .replace(/^(Based on (the )?(STORE_DATA|data|numbers|figures)[,:\s]*)/i, '')
+        .replace(/^(According to (the )?(STORE_DATA|data|numbers|figures)[,:\s]*)/i, '')
+        .replace(/^(Great question[!.,]?\s*)/i, '')
+        .replace(/^(Sure[!,.]?\s*)/i, '')
+        .replace(/^(Of course[!,.]?\s*)/i, '')
+        .replace(/^(Certainly[!,.]?\s*)/i, '')
+        .trim();
+
+    // Capitalize first character after stripping.
+    if (cleaned) cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+
+    let safe = escapeAiText(cleaned);
     const placeholders = [];
 
     const stash = (html) => {
