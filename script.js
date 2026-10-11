@@ -814,9 +814,9 @@ function renderSalesByCategoryChart() {
     if (ovCategoryChartInstance) ovCategoryChartInstance.destroy();
 
     const isLight = document.documentElement.dataset.theme === 'light';
-    const legendColor = isLight ? '#334155' : '#cbd5e1';
+    const legendColor      = isLight ? '#3d3831' : '#d6cfc0';
     const centerTitleColor = isLight ? '#100e0a' : '#fef9e7';
-    const centerSubColor   = isLight ? '#756c5e' : '#8a8275';
+    const centerSubColor   = isLight ? '#756c5e' : '#b8ad9c';
 
     // Custom plugin — writes "42%\nPaint" inside the donut hole.
     const categoryCenterText = {
@@ -895,7 +895,8 @@ function renderSalesByCategoryChart() {
                                     strokeStyle: ds.backgroundColor[i],
                                     lineWidth: 0,
                                     hidden: false,
-                                    index: i
+                                    index: i,
+                                    fontColor: legendColor
                                 };
                             });
                         }
