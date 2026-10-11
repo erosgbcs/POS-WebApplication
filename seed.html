@@ -335,6 +335,33 @@
     <input type="text" id="nukeConfirm" class="confirm-input" placeholder="Type DELETE ALL to enable nuclear delete">
     <button id="nukeBtn" class="danger" disabled>Nuclear Delete — All Collections</button>
 
+    <h2>Seed Orders &amp; Customers <span class="count-badge" id="ordersCount">— orders in cloud</span></h2>
+    <p>Generates realistic order history that references your seeded inventory. <strong>Run the inventory seed first.</strong> Orders are weighted toward peak hours (9am–6pm) and reference actual product IDs and variant prices. Customers are named Filipino buyers with matching phone numbers. Does NOT create Firebase Auth users.</p>
+
+    <div class="preview-panel" id="ordersPreview">
+        <div class="row"><span>Analyzing…</span><span></span></div>
+    </div>
+
+    <label class="seed-option">
+        <input type="checkbox" id="ordersGcashToggle" checked>
+        <span>Include GCash payments (≈30% of orders)</span>
+    </label>
+
+    <label class="seed-option">
+        <input type="checkbox" id="ordersAuditToggle" checked>
+        <span>Write matching entries to the Activity Log</span>
+    </label>
+
+    <button id="seedOrders7dBtn" class="warning" disabled>
+        Seed Orders — Last 7 Days
+    </button>
+    <button id="seedOrders30dBtn" class="warning" disabled>
+        Seed Orders — Last 30 Days
+    </button>
+    <button id="clearOrdersBtn" class="neutral" disabled>
+        Clear Orders, Customers &amp; Audit Only
+    </button>
+
     <h2>Navigation</h2>
     <button id="backBtn" class="neutral">Back to App</button>
 
@@ -941,6 +968,326 @@
             await refreshInventoryCount();
         })();
 
+        // ============================================================
+        // ORDER + CUSTOMER SEEDING
+        // ============================================================
+        const FIRST_NAMES_M = [
+            'Juan', 'Jose', 'Pedro', 'Carlos', 'Miguel', 'Antonio', 'Ricardo',
+            'Gabriel', 'Francisco', 'Manuel', 'Ramon', 'Arturo', 'Eduardo',
+            'Rogelio', 'Nestor', 'Benigno', 'Danilo', 'Ernesto', 'Felix',
+            'Gregorio', 'Hector', 'Ignacio', 'Joaquin', 'Leonardo', 'Marcelo'
+        ];
+        const FIRST_NAMES_F = [
+            'Maria', 'Ana', 'Rosa', 'Luz', 'Carmen', 'Elena', 'Sofia',
+            'Isabel', 'Teresa', 'Angeles', 'Cristina', 'Mila', 'Lorna',
+            'Marilou', 'Gloria', 'Corazon', 'Dolores', 'Esperanza',
+            'Felisa', 'Gertrudes', 'Imelda', 'Josefa', 'Lourdes',
+            'Milagros', 'Nieves', 'Purificacion'
+        ];
+        const LAST_NAMES = [
+            'Dela Cruz', 'Santos', 'Reyes', 'Ramos', 'Bautista', 'Garcia',
+            'Mendoza', 'Aquino', 'Torres', 'Villanueva', 'Castillo', 'Flores',
+            'Gonzales', 'Pascual', 'Rivera', 'Domingo', 'Salazar', 'Aguilar',
+            'Fernandez', 'Velasco', 'Rosales', 'Santiago', 'Mercado', 'Castro',
+            'Navarro', 'Perez'
+        ];
+
+        function pick(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function randomFullName() {
+            const first = Math.random() < 0.5 ? pick(FIRST_NAMES_M) : pick(FIRST_NAMES_F);
+            return `${first} ${pick(LAST_NAMES)}`;
+        }
+
+        function randomPhone() {
+            // 09XX XXX XXXX — 11 digits
+            const digits = '09' + String(Math.floor(100000000 + Math.random() * 900000000));
+            return digits.slice(0, 4) + ' ' + digits.slice(4, 7) + ' ' + digits.slice(7);
+        }
+
+        function randomGcashRef() {
+            // 13-digit numeric reference
+            let ref = '';
+            for (let i = 0; i < 13; i++) ref += Math.floor(Math.random() * 10);
+            return ref;
+        }
+
+        function customerIdFromName(name) {
+            return 'CUST-' + name.toUpperCase().replace(/\s+/g, '-');
+        }
+
+        function generateCustomerPool(size = 25) {
+            const seen = new Set();
+            const customers = [];
+            let guard = 0;
+            while (customers.length < size && guard < size * 20) {
+                guard++;
+                const name = randomFullName();
+                if (seen.has(name)) continue;
+                seen.add(name);
+                const emailSlug = name.toLowerCase().replace(/\s+/g, '.');
+                customers.push({
+                    id: customerIdFromName(name),
+                    name,
+                    email: `${emailSlug}@example.com`,
+                    phone: randomPhone(),
+                    orders: 0,
+                    totalSpent: 0,
+                    createdAt: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000).toISOString()
+                });
+            }
+            return customers;
+        }
+
+        async function readAllInventory() {
+            const fb = await getFb();
+            const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+            const snap = await getDocs(collection(fb.db, 'inventory'));
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+
+        // Pick a purchasable slice from a product — honors variants
+        // (size::brand matrices), legacy sizeStocks, and simple products.
+        function pickOrderItem(product) {
+            if (!product || !product.name) return null;
+
+            let size = '';
+            let brand = '';
+            let price = Number(product.price) || 0;
+
+            const variants = product.variants;
+            if (variants && typeof variants === 'object' && Object.keys(variants).length > 0) {
+                const keys = Object.keys(variants);
+                const key = pick(keys);
+                const parts = key.split('::');
+                size = parts[0] || '';
+                brand = parts[1] || '';
+                const v = variants[key];
+                if (v && v.price != null && Number.isFinite(Number(v.price))) {
+                    price = Number(v.price);
+                }
+            } else if (product.sizeStocks && typeof product.sizeStocks === 'object') {
+                const keys = Object.keys(product.sizeStocks);
+                if (keys.length > 0) size = pick(keys);
+            } else if (typeof product.size === 'string' && product.size.includes(',')) {
+                const sizes = product.size.split(',').map(s => s.trim()).filter(Boolean);
+                if (sizes.length > 0) size = pick(sizes);
+            }
+
+            const quantity = 1 + Math.floor(Math.random() * 4);
+            return {
+                name: product.name,
+                productId: product.id,
+                category: product.category || '',
+                size,
+                brand,
+                quantity,
+                price
+            };
+        }
+
+        function buildOrder(inventory, customers, orderDate, opts) {
+            const itemCount = 1 + Math.floor(Math.random() * 4); // 1–4 items
+            const items = [];
+            const seenNames = new Set();
+            let attempts = 0;
+
+            while (items.length < itemCount && attempts < 30) {
+                attempts++;
+                const product = pick(inventory);
+                if (!product || seenNames.has(product.name)) continue;
+                const item = pickOrderItem(product);
+                if (!item) continue;
+                seenNames.add(product.name);
+                items.push(item);
+            }
+
+            if (items.length === 0) return null;
+
+            const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+            const tax = subtotal * 0.08;
+            const total = subtotal + tax;
+
+            // 70% named customer, 30% walk-in
+            const useCustomer = Math.random() < 0.7;
+            const customer = useCustomer ? pick(customers) : null;
+
+            // 70% cash, 30% gcash (unless toggle is off)
+            const useGcash = opts.includeGcash && Math.random() < 0.3;
+            const paymentMethod = useGcash ? 'gcash' : 'cash';
+
+            // Receipt ID mirrors the app's format: REC-YYYYMMDD-HHMMSS-NNNN
+            const y = orderDate.getFullYear();
+            const mo = String(orderDate.getMonth() + 1).padStart(2, '0');
+            const d = String(orderDate.getDate()).padStart(2, '0');
+            const hh = String(orderDate.getHours()).padStart(2, '0');
+            const mm = String(orderDate.getMinutes()).padStart(2, '0');
+            const ss = String(orderDate.getSeconds()).padStart(2, '0');
+            const rnd = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+            const id = `REC-${y}${mo}${d}-${hh}${mm}${ss}-${rnd}`;
+
+            return {
+                id,
+                createdAt: orderDate.toISOString(),
+                customerName: customer ? customer.name : '',
+                customerPhone: customer ? customer.phone : '',
+                items,
+                subtotal: +subtotal.toFixed(2),
+                tax: +tax.toFixed(2),
+                total: +total.toFixed(2),
+                paymentMethod,
+                status: 'Completed',
+                ...(paymentMethod === 'gcash' ? { gcashReference: randomGcashRef() } : {}),
+                _customerId: customer ? customer.id : null
+            };
+        }
+
+        // Distribute order times across N days, weighted toward business hours.
+        function generateOrderTimes(daysBack, ordersPerDay) {
+            const times = [];
+            const now = new Date();
+            for (let dayOffset = 0; dayOffset < daysBack; dayOffset++) {
+                // Slight ramp: fewer orders on older days for a "growth" trend
+                const rampFactor = 0.6 + (0.4 * (daysBack - dayOffset) / daysBack);
+                const dayCount = Math.max(2, Math.round(ordersPerDay * rampFactor * (0.7 + Math.random() * 0.6)));
+
+                for (let i = 0; i < dayCount; i++) {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - dayOffset);
+                    // Peak hours 9am–6pm; 15% chance of early/late edge
+                    const earlyEdge = Math.random() < 0.15;
+                    let hour;
+                    if (earlyEdge) hour = 7 + Math.floor(Math.random() * 2);  // 7–8am
+                    else if (Math.random() < 0.15) hour = 18 + Math.floor(Math.random() * 3); // 6–8pm
+                    else hour = 9 + Math.floor(Math.random() * 9); // 9am–5:59pm
+                    d.setHours(hour);
+                    d.setMinutes(Math.floor(Math.random() * 60));
+                    d.setSeconds(Math.floor(Math.random() * 60));
+                    // Don't generate future-dated orders within today
+                    if (d.getTime() > now.getTime()) d.setTime(now.getTime() - Math.floor(Math.random() * 3600000));
+                    times.push(d);
+                }
+            }
+            return times;
+        }
+
+        async function writeOrdersAndCustomers({ orders, customers, writeAudit }) {
+            const fb = await getFb();
+            const {
+                collection, doc, writeBatch, setDoc, serverTimestamp
+            } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+
+            // ---- 1. Orders ----
+            let batch = writeBatch(fb.db);
+            let ops = 0;
+            let written = 0;
+            const customerAgg = new Map();
+
+            for (const order of orders) {
+                const { _customerId, ...clean } = order;
+                const ref = doc(collection(fb.db, 'orders'));
+                batch.set(ref, { ...clean, syncedAt: serverTimestamp() });
+                ops++;
+                written++;
+
+                if (_customerId) {
+                    const cur = customerAgg.get(_customerId) || { orders: 0, spent: 0 };
+                    cur.orders += 1;
+                    cur.spent += Number(order.total) || 0;
+                    customerAgg.set(_customerId, cur);
+                }
+
+                if (ops === 400) {
+                    await batch.commit();
+                    batch = writeBatch(fb.db);
+                    ops = 0;
+                    log('  committed ' + written + ' orders…', 'info');
+                }
+            }
+            if (ops > 0) await batch.commit();
+            log('Wrote ' + written + ' orders.', 'ok');
+
+            // ---- 2. Customers ----
+            batch = writeBatch(fb.db);
+            ops = 0;
+            for (const cust of customers) {
+                const agg = customerAgg.get(cust.id) || { orders: 0, spent: 0 };
+                const payload = {
+                    ...cust,
+                    orders: agg.orders,
+                    totalSpent: +agg.spent.toFixed(2),
+                    syncedAt: serverTimestamp()
+                };
+                batch.set(doc(fb.db, 'customers', cust.id), payload);
+                ops++;
+                if (ops === 400) {
+                    await batch.commit();
+                    batch = writeBatch(fb.db);
+                    ops = 0;
+                }
+            }
+            if (ops > 0) await batch.commit();
+            log('Wrote ' + customers.length + ' customers.', 'ok');
+
+            // ---- 3. Audit log entries (one per order) ----
+            if (writeAudit) {
+                batch = writeBatch(fb.db);
+                ops = 0;
+                let auditCount = 0;
+                for (const order of orders) {
+                    const ref = doc(collection(fb.db, 'audit_logs'));
+                    const payLabel = order.paymentMethod === 'gcash'
+                        ? `GCash (Ref ${order.gcashReference})`
+                        : 'Cash';
+                    const itemCount = (order.items || []).length;
+                    const desc = `Sale ${order.id} · ₱${(order.total || 0).toFixed(2)} · ${payLabel} · ${itemCount} item${itemCount === 1 ? '' : 's'}`;
+                    batch.set(ref, {
+                        timestamp: order.createdAt,
+                        user: 'System (seed)',
+                        action: 'transaction',
+                        module: 'pos',
+                        description: desc,
+                        ip: 'Client',
+                        severity: 'info',
+                        txn: {
+                            id: order.id,
+                            items: itemCount,
+                            total: order.total,
+                            payment: order.paymentMethod,
+                            customer: order.customerName || ''
+                        },
+                        syncedAt: serverTimestamp()
+                    });
+                    ops++;
+                    auditCount++;
+                    if (ops === 400) {
+                        await batch.commit();
+                        batch = writeBatch(fb.db);
+                        ops = 0;
+                    }
+                }
+                if (ops > 0) await batch.commit();
+                log('Wrote ' + auditCount + ' audit-log entries.', 'ok');
+            }
+        }
+
+        function refreshOrdersPreview() {
+            const previewEl = document.getElementById('ordersPreview');
+            if (!previewEl) return;
+            const gcashOn = document.getElementById('ordersGcashToggle')?.checked ?? true;
+            const auditOn = document.getElementById('ordersAuditToggle')?.checked ?? true;
+            previewEl.innerHTML = `
+                <div class="row"><span>Customers created</span><strong>~25 (Filipino names + phones)</strong></div>
+                <div class="row"><span>Orders — 7 days</span><strong>~65–85 orders</strong></div>
+                <div class="row"><span>Orders — 30 days</span><strong>~250–320 orders</strong></div>
+                <div class="row"><span>Payment mix</span><strong>${gcashOn ? '70% cash · 30% GCash' : 'Cash only'}</strong></div>
+                <div class="row"><span>Activity Log entries</span><strong>${auditOn ? '1 per order' : 'off'}</strong></div>
+                <div class="row"><span>Firebase Auth users</span><strong>not touched</strong></div>
+            `;
+        }
+
         // ---- Wipe inventory only ----
         wipeInvBtn.onclick = async () => {
             if (wipeConfirm.value.trim() !== 'DELETE') return;
@@ -1134,6 +1481,154 @@
                 seedBtn.disabled = false;
             }
         };
+
+        // ============================================================
+        // SEED ORDERS HANDLERS
+        // ============================================================
+        const seedOrders7dBtn = document.getElementById('seedOrders7dBtn');
+        const seedOrders30dBtn = document.getElementById('seedOrders30dBtn');
+        const clearOrdersBtn = document.getElementById('clearOrdersBtn');
+        const ordersCountBadge = document.getElementById('ordersCount');
+        const ordersGcashToggle = document.getElementById('ordersGcashToggle');
+        const ordersAuditToggle = document.getElementById('ordersAuditToggle');
+
+        ordersGcashToggle?.addEventListener('change', refreshOrdersPreview);
+        ordersAuditToggle?.addEventListener('change', refreshOrdersPreview);
+        refreshOrdersPreview();
+
+        async function refreshOrdersCount() {
+            if (!ordersCountBadge) return;
+            ordersCountBadge.textContent = '… orders in cloud';
+            const n = await countCollection('orders');
+            ordersCountBadge.textContent = n === null ? '— orders in cloud' : `${n} orders in cloud`;
+        }
+
+        async function runSeedOrders(daysBack, btn) {
+            if (btn) {
+                btn.disabled = true;
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.innerHTML = 'Seeding…';
+            }
+
+            try {
+                log('=== SEED ORDERS (' + daysBack + ' days) ===', 'warn');
+
+                // 1. Read inventory — needed for real product IDs and prices
+                log('Reading inventory…', 'info');
+                const inventory = await readAllInventory();
+                if (!inventory.length) {
+                    log('No inventory found. Run the inventory seed first.', 'err');
+                    return;
+                }
+                log('  ' + inventory.length + ' products available.', 'ok');
+
+                // 2. Build customer pool
+                log('Generating customer pool…', 'info');
+                const customers = generateCustomerPool(25);
+                log('  ' + customers.length + ' customers queued.', 'ok');
+
+                // 3. Generate order timestamps (weighted by hour, ramped by recency)
+                const basePerDay = 10;
+                const times = generateOrderTimes(daysBack, basePerDay);
+                log('  ' + times.length + ' order slots distributed across ' + daysBack + ' days.', 'ok');
+
+                // 4. Build orders
+                const includeGcash = ordersGcashToggle?.checked ?? true;
+                const writeAudit = ordersAuditToggle?.checked ?? true;
+
+                log('Building orders…', 'info');
+                const orders = [];
+                for (const t of times) {
+                    const o = buildOrder(inventory, customers, t, { includeGcash });
+                    if (o) orders.push(o);
+                }
+                log('  ' + orders.length + ' orders prepared.', 'ok');
+
+                // 5. Write to Firestore
+                log('Writing to Firestore…', 'info');
+                await writeOrdersAndCustomers({ orders, customers, writeAudit });
+
+                // 6. Update local caches so the app sees it immediately
+                try {
+                    const localOrders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+                    const merged = [...orders.map(({ _customerId, ...o }) => o), ...localOrders]
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                        .slice(0, 500);
+                    localStorage.setItem('pos_orders', JSON.stringify(merged));
+
+                    const localCustomers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
+                    const byId = new Map(localCustomers.map(c => [String(c.id), c]));
+                    for (const c of customers) {
+                        const agg = orders.filter(o => o.customerName === c.name);
+                        byId.set(String(c.id), {
+                            ...c,
+                            orders: agg.length,
+                            totalSpent: +agg.reduce((s, o) => s + o.total, 0).toFixed(2)
+                        });
+                    }
+                    localStorage.setItem('pos_customers', JSON.stringify([...byId.values()]));
+                    log('Local caches updated.', 'ok');
+                } catch (e) {
+                    log('Could not update local cache (non-fatal): ' + e.message, 'warn');
+                }
+
+                log('=== DONE ===', 'ok');
+                log('Open the app and reload to see orders and customers.', 'info');
+                await refreshOrdersCount();
+                await refreshInventoryCount();
+            } catch (e) {
+                log('Error: ' + e.message, 'err');
+                console.error(e);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+                }
+            }
+        }
+
+        seedOrders7dBtn.onclick = () => runSeedOrders(7, seedOrders7dBtn);
+        seedOrders30dBtn.onclick = () => runSeedOrders(30, seedOrders30dBtn);
+
+        clearOrdersBtn.onclick = async () => {
+            if (!confirm('Delete ALL orders, customers, and audit logs?\n\nInventory and settings are untouched.')) return;
+            clearOrdersBtn.disabled = true;
+            log('=== CLEARING ORDERS / CUSTOMERS / AUDIT ===', 'warn');
+            try {
+                for (const name of ['orders', 'customers', 'audit_logs']) {
+                    log('  wiping ' + name + '…', 'info');
+                    const n = await wipeCollection(name);
+                    log('  ' + name + ': ' + n + ' documents deleted.', 'ok');
+                }
+                try {
+                    localStorage.removeItem('pos_orders');
+                    localStorage.removeItem('pos_customers');
+                    localStorage.removeItem('pos_audit_logs');
+                    log('Local caches cleared.', 'ok');
+                } catch (e) {}
+                await refreshOrdersCount();
+            } catch (e) {
+                log('Error: ' + e.message, 'err');
+                console.error(e);
+            } finally {
+                clearOrdersBtn.disabled = false;
+            }
+        };
+
+        // Extend the Firebase bootstrap to also enable the order buttons
+        // and load the current orders count.
+        (async function extendBootForOrders() {
+            // Wait for the same bootstrap conditions as the seed button
+            for (let i = 0; i < 60; i++) {
+                if (!seedBtn.disabled) break;
+                await new Promise(r => setTimeout(r, 250));
+            }
+            if (seedBtn.disabled) return; // still not ready
+            seedOrders7dBtn.disabled = false;
+            seedOrders30dBtn.disabled = false;
+            clearOrdersBtn.disabled = false;
+            await refreshOrdersCount();
+        })();
     </script>
 </body>
 </html>
