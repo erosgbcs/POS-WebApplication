@@ -474,3 +474,80 @@ canvas {
         display: none;
     }
 }
+
+/* ============================================================
+   THEME REVEAL — MOBILE PERFORMANCE GUARD
+   During the reveal, the browser is compositing two full-page
+   snapshots plus every backdrop-filter and blur on the page.
+   Strip those out for the duration of the animation; they come
+   back the moment it finishes.
+   ============================================================ */
+
+/* While a View Transition is running, the html element gets a
+   transient attribute we can key off. We can't observe the API
+   directly from CSS, so we tag it from JS right before calling
+   startViewTransition() and remove it on transition.finished. */
+html.theme-revealing .card,
+html.theme-revealing .stat-card,
+html.theme-revealing .kpi-card,
+html.theme-revealing .recent-activity,
+html.theme-revealing .product-catalog,
+html.theme-revealing .cart-section,
+html.theme-revealing .orders-table-container,
+html.theme-revealing .customers-table-container,
+html.theme-revealing .audit-table-container,
+html.theme-revealing .settings-section,
+html.theme-revealing .report-card,
+html.theme-revealing .sidebar,
+html.theme-revealing .dashboard-nav,
+html.theme-revealing .notifications-panel,
+html.theme-revealing .dropdown-menu,
+html.theme-revealing .modal-card,
+html.theme-revealing .modal-content,
+html.theme-revealing .toast,
+html.theme-revealing .ai-panel,
+html.theme-revealing .main-container,
+html.theme-revealing .left-panel,
+html.theme-revealing .product-card,
+html.theme-revealing .cart-item,
+html.theme-revealing .payment-method,
+html.theme-revealing .bg-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Neutralize the ambient glows — their 120px blur is the single
+   most expensive thing on the page. The reveal still reads well
+   because the background color itself changes. */
+html.theme-revealing .bg-glow,
+html.theme-revealing .bg-glow-1,
+html.theme-revealing .bg-glow-2 {
+    filter: none !important;
+    opacity: 0.12 !important;
+    transition: none !important;
+}
+
+/* Kill any incidental CSS transitions during the reveal — nothing
+   should compete with the clip-path animation for the compositor. */
+html.theme-revealing *,
+html.theme-revealing *::before,
+html.theme-revealing *::after {
+    transition-property: none !important;
+}
+
+/* Mobile: shorten the reveal. 550ms is a desktop luxury; phones
+   feel a 340ms sweep as more responsive and it halves the total
+   GPU work. */
+@media (max-width: 768px) {
+    ::view-transition-new(root) {
+        animation-duration: 340ms;
+        animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+}
+
+/* Chart canvases during the reveal: hide entirely instead of
+   trying to composite them. The theme swap re-renders them
+   immediately after. */
+html.theme-revealing canvas {
+    visibility: hidden;
+}

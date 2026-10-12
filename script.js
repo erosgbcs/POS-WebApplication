@@ -1082,20 +1082,35 @@ renderCustomers(customerSearch?.value || '');
         root.style.setProperty('--reveal-y', `${cy}px`);
         root.style.setProperty('--reveal-r', `${radius}px`);
 
+        // Mobile performance: strip every backdrop-filter, ambient
+        // glow, and CSS transition for the duration of the reveal.
+        // The browser is compositing two full-page snapshots plus a
+        // clip-path; anything extra pushes mid-range Android GPUs
+        // below 60fps. They all come back on transition.finished.
+        root.classList.add('theme-revealing');
+
         const transition = document.startViewTransition(async () => {
             persistAndApply();
-            // Give Chart.js two animation frames to flush its canvas
-            // repaints, otherwise the "new" snapshot may catch a
-            // blank canvas on products where destroy+recreate runs.
-            await new Promise(resolve =>
-                requestAnimationFrame(() => requestAnimationFrame(resolve))
-            );
+            // Give Chart.js a moment to flush its canvas repaints.
+            // The bar is set by how long the slowest device takes.
+            // Desktop: two rAFs is fine. Mobile: a single frame + a
+            // short timeout is faster and the canvases are hidden
+            // anyway (see html.theme-revealing canvas { visibility }).
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            } else {
+                await new Promise(resolve =>
+                    requestAnimationFrame(() => requestAnimationFrame(resolve))
+                );
+            }
         });
 
         transition.finished.finally(() => {
             root.style.removeProperty('--reveal-x');
             root.style.removeProperty('--reveal-y');
             root.style.removeProperty('--reveal-r');
+            root.classList.remove('theme-revealing');
         });
     }
 
