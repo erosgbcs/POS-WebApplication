@@ -20,3 +20,307 @@
 @utility animate-fade-in {
     animation: fade-in 0.35s ease-out both;
 }
+/* ============================================================
+   SMOOTH INTERACTIONS — applied to existing classes
+   All transitions below only touch GPU-composited properties
+   (transform / opacity) or cheap properties (color / bg /
+   border / box-shadow). No layout-triggering transitions.
+   ============================================================ */
+
+/* ---------- Buttons ---------- */
+.submit-btn,
+.secondary-btn,
+.link-btn,
+.checkout-btn,
+.clear-btn,
+.btn-icon,
+.qty-btn,
+.report-generate-btn,
+.report-pdf-btn,
+.ov-action-btn,
+.ai-refresh-btn,
+.notifications-view-all,
+.modal-close,
+.modal-close-btn {
+    transition:
+        transform 140ms cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.submit-btn:not(:disabled):hover,
+.secondary-btn:not(:disabled):hover,
+.checkout-btn:not(:disabled):hover,
+.report-generate-btn:not(:disabled):hover,
+.report-pdf-btn:not(:disabled):hover,
+.ov-action-btn:not(:disabled):hover {
+    transform: translateY(-1px);
+}
+
+.submit-btn:not(:disabled):active,
+.secondary-btn:not(:disabled):active,
+.checkout-btn:not(:disabled):active,
+.btn-icon:not(:disabled):active,
+.qty-btn:not(:disabled):active,
+.report-generate-btn:not(:disabled):active,
+.report-pdf-btn:not(:disabled):active,
+.ov-action-btn:not(:disabled):active {
+    transform: scale(0.97);
+    transition-duration: 90ms;
+}
+
+/* ---------- Cards & tiles ---------- */
+.stat-card,
+.kpi-card,
+.product-card,
+.report-card,
+.activity-item,
+.notification-item,
+.ov-attention,
+.recent-activity,
+.inventory-table tbody tr,
+.customers-table-container tbody tr {
+    transition:
+        transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.product-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-card.kpi-clickable:hover,
+.notification-item:hover,
+.activity-item[style*="cursor: pointer"]:hover {
+    transform: translateY(-1px);
+}
+
+/* ---------- Nav / sidebar ---------- */
+.sidebar-link,
+.nav-icon,
+.user-btn,
+.theme-toggle,
+.ov-tab,
+.ai-chip,
+.dropdown-item,
+.ai-panel-icon-btn,
+.ai-panel-send {
+    transition:
+        background-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        transform 140ms cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-toggle:hover,
+.nav-icon:hover,
+.ai-panel-icon-btn:hover {
+    transform: scale(1.08);
+}
+
+.theme-toggle:active,
+.nav-icon:active,
+.ai-panel-icon-btn:active {
+    transform: scale(0.94);
+    transition-duration: 80ms;
+}
+
+.ov-tab,
+.ai-chip {
+    transition:
+        background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-chip:not(:disabled):hover {
+    transform: translateY(-1px);
+}
+
+.ai-chip:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+/* ---------- Inputs ---------- */
+.input-wrapper input,
+.input-wrapper select,
+input.settings-input,
+.settings-input,
+textarea,
+select.filter-select,
+.filter-select,
+.option-values-input,
+.option-name-select,
+.quantity-input,
+.cart-item-qty-input {
+    transition:
+        border-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-wrapper input:focus,
+.input-wrapper select:focus,
+.settings-input:focus,
+textarea:focus,
+.filter-select:focus {
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+}
+
+/* ---------- Badges & chips ---------- */
+.stock-badge,
+.size-chip,
+.audit-badge,
+.ai-pill,
+.notifications-count,
+.badge,
+.order-items-badge,
+.ai-restock-slice {
+    transition:
+        background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+        transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- Toasts ---------- */
+.toast {
+    transition:
+        opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slide-up 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- AI panel & FAB ---------- */
+.ai-fab {
+    transition:
+        transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-fab:hover {
+    transform: scale(1.08);
+    box-shadow: 0 12px 30px rgba(22, 163, 74, 0.35);
+}
+
+.ai-fab:active {
+    transform: scale(0.94);
+    transition-duration: 100ms;
+}
+
+.ai-panel {
+    transition:
+        transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-bubble {
+    transition:
+        opacity 240ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-bubble.user,
+.ai-bubble.ai {
+    animation: slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- Modals ---------- */
+.modal,
+.modal-overlay {
+    transition:
+        opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
+        visibility 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal.active,
+.modal.show,
+.modal-overlay.show {
+    animation: fade-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.modal.active .modal-content,
+.modal.show .modal-content,
+.modal-overlay.show .modal-card,
+.modal-overlay.show .modal-content {
+    animation: scale-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- Notifications panel ---------- */
+.notifications-panel {
+    transition:
+        opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
+        transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+        visibility 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notifications-panel.show {
+    animation: slide-down 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- Dropdown menus ---------- */
+.dropdown-menu,
+.notifications-panel {
+    transform-origin: top right;
+}
+
+/* ---------- Page switching ---------- */
+.page-content.active {
+    animation: fade-in 0.24s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ---------- Loading spinners ---------- */
+.loading-spinner i,
+.btn-loader i,
+.fa-spin {
+    animation: spin-slow 0.9s linear infinite;
+}
+
+/* ---------- Cart items ---------- */
+.cart-item {
+    transition:
+        background-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+        transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------- POS product options selector ---------- */
+.pos-option-selector {
+    animation: slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- Offline banner ---------- */
+.offline-banner {
+    transition:
+        opacity 240ms cubic-bezier(0.4, 0, 0.2, 1),
+        transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- Attention strip ---------- */
+.ov-attention {
+    animation: slide-down 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- Reduce motion override ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .submit-btn:hover,
+    .secondary-btn:hover,
+    .checkout-btn:hover,
+    .product-card:hover,
+    .stat-card:hover,
+    .ai-fab:hover,
+    .theme-toggle:hover,
+    .nav-icon:hover,
+    .ai-panel-icon-btn:hover,
+    .ai-chip:hover {
+        transform: none !important;
+    }
+}

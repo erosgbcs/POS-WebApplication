@@ -2683,6 +2683,43 @@ function setupAiFeatures() {
 
 
 
+/* ============================================================
+   MODAL EXIT ANIMATION
+   Keeps `.closing` on the element for 200ms so the fade-out
+   transition has time to run before the class is removed.
+   Patches classList.remove for modal/show classes globally.
+   ============================================================ */
+(function setupModalExitAnimation() {
+    const EXIT_MS = 200;
+    const animatable = new WeakMap();
+    const origRemove = DOMTokenList.prototype.remove;
+    DOMTokenList.prototype.remove = function (...tokens) {
+        const el = this._element || null;
+        if (
+            el &&
+            tokens.some(t => t === 'show' || t === 'active' || t === 'open') &&
+            tokens.length === 1 &&
+            !animatable.has(el)
+        ) {
+            // Defer the actual removal by one frame so CSS gets a
+            // chance to see the class-less state and animate out.
+            const token = tokens[0];
+            animatable.set(el, true);
+            // Force a "closing" state — most modal CSS uses opacity/visibility
+            // on the base class, so this triggers the transition already
+            // defined in input.css.
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    animatable.delete(el);
+                    origRemove.call(this, token);
+                }, EXIT_MS);
+            });
+            return;
+        }
+        return origRemove.apply(this, tokens);
+    };
+})();
+
 // ---------- DASHBOARD FUNCTIONS ----------
     function loadDashboard(user) {
         document.body.classList.add('is-logged-in');
