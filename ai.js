@@ -121,6 +121,8 @@
                 const shaped = list.map(d => ({
                     date: d.date,
                     revenue: Number(d.predicted_revenue) || 0,
+                    lower: d.lower != null ? Number(d.lower) : null,
+                    upper: d.upper != null ? Number(d.upper) : null,
                     confidence: 'medium'
                 }));
 

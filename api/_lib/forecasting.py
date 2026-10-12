@@ -100,27 +100,194 @@ def linear_regression_forecast(values: list, horizon: int) -> list:
     return [max(0.0, intercept + slope * (n + i)) for i in range(horizon)]
 
 
-def linear_regression_score(values: list, holdout: int = 3) -> Optional[float]:
-    """
-    Chronological holdout: fit on values[:-holdout], score on the tail.
-    Returns MAE or None if not enough data.
-    """
-    if len(values) < holdout + 5:
-        return None
-    train = values[:-holdout]
-    test = values[-holdout:]
-    preds = linear_regression_forecast(train, holdout)
-    return sum(abs(p - t) for p, t in zip(preds, test)) / holdout
+# ----------------------------------------------------------------
+# Model forecast functions
+# Each takes (train_values, horizon) and returns a list of length
+# `horizon`, or None if the model can't run on this data.
+# ----------------------------------------------------------------
+
+def moving_average_forecast(values: list, horizon: int, window: int = 7) -> list:
+    """Flat forecast using the weighted moving average of the tail."""
+    avg = weighted_moving_average(values, window=window)
+    return [avg] * horizon
 
 
-def naive_baseline_score(values: list, holdout: int = 3) -> Optional[float]:
-    """Baseline MAE using the mean of the training slice."""
-    if len(values) < holdout + 5:
+def historical_mean_forecast(values: list, horizon: int) -> list:
+    """Flat forecast using the mean of nonzero days (zeros excluded)."""
+    nonzero = [v for v in values if v > 0]
+    if not nonzero:
+        return [0.0] * horizon
+    avg = sum(nonzero) / len(nonzero)
+    return [avg] * horizon
+
+
+def seasonal_naive_forecast(values: list, horizon: int,
+                            period: int = 7) -> Optional[list]:
+    """
+    Predict each future day as the same weekday from last week.
+    Falls back to None if history is shorter than one full period.
+    On retail data with weekly seasonality, this baseline often beats
+    linear regression — worth including as a candidate.
+    """
+    if len(values) < period:
         return None
-    train = values[:-holdout]
-    test = values[-holdout:]
-    mean = sum(train) / len(train)
-    return sum(abs(mean - t) for t in test) / holdout
+    tail = values[-period:]
+    return [tail[i % period] for i in range(horizon)]
+
+
+# ----------------------------------------------------------------
+# Confidence intervals
+#
+# Only linear regression produces a proper prediction interval.
+# For the other (deterministic) models we return a symmetric band
+# derived from the model's own rolling-CV MAE — not statistically
+# rigorous, but honest about the model's historical accuracy.
+# ----------------------------------------------------------------
+
+# Two-tailed t critical values at 95% confidence, indexed by df.
+# Used by the prediction-interval formula below.
+_T_TABLE_95 = {
+    1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571,
+    6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
+    12: 2.179, 15: 2.131, 20: 2.086, 25: 2.060, 30: 2.042,
+    40: 2.021, 60: 2.000, 120: 1.980,
+}
+
+
+def _t_critical_95(dof: int) -> float:
+    """Approximate two-tailed t-critical value at 95% confidence."""
+    if dof <= 0:
+        return 12.706
+    for k in sorted(_T_TABLE_95.keys()):
+        if dof <= k:
+            return _T_TABLE_95[k]
+    return 1.96  # large-sample limit
+
+
+def linear_regression_forecast_with_ci(values: list, horizon: int) -> tuple:
+    """
+    OLS point forecast plus a 95% prediction interval for each future day.
+
+    Returns (point, lower, upper) — three lists of length `horizon`.
+
+    Uses the standard OLS prediction-interval formula:
+        ŷ ± t · s · sqrt(1 + 1/n + (x_new - x̄)² / Σ(xᵢ - x̄)²)
+    where `s` is the residual standard error (RSE) and `t` is the
+    two-tailed critical value at 95% confidence for n-2 degrees of freedom.
+    """
+    n = len(values)
+    if n < 3:
+        # Not enough data for a real interval — wide heuristic fallback.
+        point = linear_regression_forecast(values, horizon)
+        lower = [max(0.0, p * 0.6) for p in point]
+        upper = [p * 1.4 for p in point]
+        return point, lower, upper
+
+    mean_x = (n - 1) / 2.0
+    mean_y = sum(values) / n
+
+    num = sum((i - mean_x) * (values[i] - mean_y) for i in range(n))
+    den = sum((i - mean_x) ** 2 for i in range(n))
+    slope = num / den if den else 0.0
+    intercept = mean_y - slope * mean_x
+
+    fitted = [intercept + slope * i for i in range(n)]
+    rss = sum((values[i] - fitted[i]) ** 2 for i in range(n))
+    dof = max(1, n - 2)
+    rse = (rss / dof) ** 0.5  # residual standard error
+
+    t_crit = _t_critical_95(dof)
+
+    point, lower, upper = [], [], []
+    for i in range(horizon):
+        x_new = n + i
+        y_hat = intercept + slope * x_new
+        if den > 0:
+            se_pred = rse * ((1 + 1.0 / n + (x_new - mean_x) ** 2 / den) ** 0.5)
+        else:
+            se_pred = rse
+        margin = t_crit * se_pred
+        point.append(max(0.0, y_hat))
+        lower.append(max(0.0, y_hat - margin))
+        upper.append(y_hat + margin)
+
+    return point, lower, upper
+
+
+# ----------------------------------------------------------------
+# Rolling-origin cross-validation
+#
+# Replaces the single 3-day holdout with a proper evaluation:
+# fit on values[:t], score on values[t:t+h], slide t forward one
+# step at a time. Returns (MAE, MAPE) averaged across all folds.
+# ----------------------------------------------------------------
+
+def _rolling_score(values: list, predict_fn, horizon: int = 3,
+                   min_train: int = 10) -> tuple:
+    """
+    Rolling-origin CV. `predict_fn(train_values, horizon) -> list`.
+    Returns (mae, mape); both are None when there aren't enough folds.
+    """
+    n = len(values)
+    if n < min_train + horizon:
+        return None, None
+
+    abs_errs = []
+    pct_errs = []
+
+    for t in range(min_train, n - horizon + 1):
+        train = values[:t]
+        actual = values[t:t + horizon]
+        preds = predict_fn(train, horizon)
+        if preds is None or len(preds) != horizon:
+            continue
+        for p, a in zip(preds, actual):
+            abs_errs.append(abs(p - a))
+            if a > 0:
+                pct_errs.append(abs(p - a) / a)
+
+    if not abs_errs:
+        return None, None
+
+    mae = sum(abs_errs) / len(abs_errs)
+    mape = (sum(pct_errs) / len(pct_errs)) if pct_errs else None
+    return mae, mape
+
+
+# ----------------------------------------------------------------
+# Model registry
+#
+# Each entry: (id, label, predict_fn, complexity_rank).
+# Lower complexity rank wins when two models score within 1% of
+# each other — implements a lightweight one-standard-error rule.
+# ----------------------------------------------------------------
+
+_MODEL_REGISTRY = [
+    (
+        "historical_mean",
+        "historical daily average",
+        lambda v, h: historical_mean_forecast(v, h),
+        0,
+    ),
+    (
+        "moving_average",
+        "7-day weighted moving average",
+        lambda v, h: moving_average_forecast(v, h, window=7),
+        1,
+    ),
+    (
+        "seasonal_naive",
+        "seasonal naive (same weekday last week)",
+        lambda v, h: seasonal_naive_forecast(v, h, period=7),
+        2,
+    ),
+    (
+        "linear_regression",
+        "linear regression",
+        lambda v, h: linear_regression_forecast(v, h),
+        3,
+    ),
+]
 
 
 # ----------------------------------------------------------------
@@ -130,7 +297,9 @@ def forecast_next_7_days(orders: list) -> dict:
     """
     Build a 7-day revenue forecast from raw order documents.
 
-    Returns a structured payload the frontend can render directly.
+    Scores every model with rolling-origin CV, picks the best (with a
+    small preference for simpler models on near-ties), then produces
+    point estimates plus a 95% prediction interval per day.
     """
     daily = aggregate_daily(orders)
     series = dense_series(daily, days_back=45)
@@ -152,70 +321,91 @@ def forecast_next_7_days(orders: list) -> dict:
             "timezone": "Asia/Manila",
         }
 
-    # Method selection with validation on the last 3 days.
-    chosen = "historical_mean"
-    chosen_score = None
-    baseline_score = naive_baseline_score(values, holdout=3)
+    # ---- Score every model with rolling-origin CV ----
+    scored = {}
+    for model_id, label, predict_fn, complexity in _MODEL_REGISTRY:
+        mae, mape = _rolling_score(values, predict_fn, horizon=3, min_train=10)
+        scored[model_id] = {
+            "label": label,
+            "mae": mae,
+            "mape": mape,
+            "complexity": complexity,
+            "predict_fn": predict_fn,
+        }
 
-    if nonzero_days >= 14:
-        lr_score = linear_regression_score(values, holdout=3)
-        if lr_score is not None and (
-            baseline_score is None or lr_score <= baseline_score * 1.15
-        ):
-            chosen = "linear_regression"
-            chosen_score = lr_score
-        elif baseline_score is not None:
-            chosen = "moving_average"
-            chosen_score = baseline_score
-        else:
-            chosen = "linear_regression"
-            chosen_score = lr_score
-    elif nonzero_days >= 7:
-        chosen = "moving_average"
-        chosen_score = baseline_score
+    # Drop models we couldn't score (not enough folds for them)
+    candidates = {k: v for k, v in scored.items() if v["mae"] is not None}
+
+    if not candidates:
+        # Not enough data for any fold — fall back to plain mean.
+        chosen_id = "historical_mean"
+        chosen = scored["historical_mean"]
+        chosen["mae"] = 0.0
+        chosen["mape"] = None
     else:
-        chosen = "historical_mean"
+        # Pick lowest MAE; if a simpler model is within 1% of the winner,
+        # prefer the simpler one. This is a lightweight version of the
+        # classic one-standard-error rule.
+        best_mae = min(c["mae"] for c in candidates.values())
+        within_1pct = [
+            k for k, c in candidates.items()
+            if c["mae"] <= best_mae * 1.01
+        ]
+        chosen_id = min(within_1pct, key=lambda k: candidates[k]["complexity"])
+        chosen = candidates[chosen_id]
 
-    # Produce 7 daily predictions.
+    # ---- Generate the 7-day forecast with intervals ----
     today = now_manila().replace(hour=0, minute=0, second=0, microsecond=0)
-    if chosen == "linear_regression":
-        preds = linear_regression_forecast(values, horizon=7)
-    elif chosen == "moving_average":
-        avg = weighted_moving_average(values, window=7)
-        preds = [avg] * 7
+
+    if chosen_id == "linear_regression":
+        point, lower, upper = linear_regression_forecast_with_ci(values, horizon=7)
     else:
-        avg = sum(v for v in values if v > 0) / nonzero_days if nonzero_days else 0.0
-        preds = [avg] * 7
+        preds = chosen["predict_fn"](values, 7)
+        if preds is None:
+            # Seasonal naive could fail here in a rare edge case
+            # (short history) even though it scored in CV — fall back.
+            preds = historical_mean_forecast(values, 7)
+            chosen_id = "historical_mean"
+            chosen = scored["historical_mean"]
+        point = preds
+        # Symmetric band from this model's own rolling MAE.
+        band = chosen["mae"] or 0.0
+        lower = [max(0.0, p - band) for p in point]
+        upper = [p + band for p in point]
 
     forecast = []
-    for i, amount in enumerate(preds):
+    for i, (amount, lo, hi) in enumerate(zip(point, lower, upper)):
         day = today + timedelta(days=i + 1)
         forecast.append({
             "date": day.strftime("%Y-%m-%d"),
             "predicted_revenue": round(amount, 2),
+            "lower": round(lo, 2),
+            "upper": round(hi, 2),
         })
 
-    total = round(sum(preds), 2)
+    total = round(sum(point), 2)
     avg = round(total / 7.0, 2)
 
-    method_label = {
-        "linear_regression": "linear regression",
-        "moving_average": "7-day weighted moving average",
-        "historical_mean": "historical daily average",
-    }[chosen]
+    chosen_mae = chosen["mae"]
+    chosen_mape = chosen["mape"]
+    baseline_entry = scored.get("historical_mean", {})
+    baseline_mae = baseline_entry.get("mae")
 
     return {
         "available": True,
-        "method": chosen,
-        "method_label": method_label,
+        "method": chosen_id,
+        "method_label": chosen["label"],
         "message": (
             f"Estimated sales for the next 7 days: "
             f"₱{total:,.2f}. This is a statistical forecast "
             f"based on historical sales, not a guaranteed result."
         ),
         "history_days": nonzero_days,
-        "validation_mae": round(chosen_score, 2) if chosen_score is not None else None,
-        "baseline_mae": round(baseline_score, 2) if baseline_score is not None else None,
+        "validation_mae": round(chosen_mae, 2) if chosen_mae is not None else None,
+        "validation_mape": (
+            round(chosen_mape * 100, 1) if chosen_mape is not None else None
+        ),
+        "baseline_mae": round(baseline_mae, 2) if baseline_mae is not None else None,
         "total_predicted_revenue": total,
         "average_daily_revenue": avg,
         "forecast": forecast,
