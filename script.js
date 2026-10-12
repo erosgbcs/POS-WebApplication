@@ -2184,12 +2184,14 @@ function _destroyAiForecastChart() {
 }
 
 /* Soft glow behind the final (endpoint) dot — draws the eye to
-   "where we're heading," which is the whole point of a forecast. */
-function _aiForecastGlowPlugin(accentRgb) {
+   "where we're heading," which is the whole point of a forecast.
+   `datasetIndex` targets the point-estimate dataset, which may not
+   be index 0 when the confidence band is drawn. */
+function _aiForecastGlowPlugin(accentRgb, datasetIndex = 0) {
     return {
         id: 'aiForecastGlow',
         afterDatasetsDraw(chart) {
-            const meta = chart.getDatasetMeta(0);
+            const meta = chart.getDatasetMeta(datasetIndex);
             if (!meta?.data?.length) return;
             const last = meta.data[meta.data.length - 1];
             if (!last) return;
@@ -2234,7 +2236,16 @@ function _renderAiForecastChart(canvas, payload) {
     _destroyAiForecastChart();
     if (!canvas || typeof Chart === 'undefined') return;
 
-    const { dates, revenues } = payload;
+    const { dates, revenues, lowers = null, uppers = null } = payload;
+
+    // Band is only drawn when both bound arrays are present and aligned.
+    const hasBand =
+        Array.isArray(lowers) && Array.isArray(uppers) &&
+        lowers.length === revenues.length &&
+        uppers.length === revenues.length &&
+        lowers.every(v => Number.isFinite(v)) &&
+        uppers.every(v => Number.isFinite(v));
+
     const isLight = document.documentElement.dataset.theme === 'light';
 
     const accent      = isLight ? '#E0A300' : '#FACC15';
@@ -2245,7 +2256,10 @@ function _renderAiForecastChart(canvas, payload) {
     const tooltipText = isLight ? '#100e0a' : '#fef9e7';
     const tooltipSub  = isLight ? '#756c5e' : '#d6cfc0';
 
-    const maxVal = Math.max(...revenues, 1);
+    // Y-axis must cover the upper band, not just the point line,
+    // otherwise the band's top edge gets clipped.
+    const maxVal = Math.max(...revenues, ...(hasBand ? uppers : []), 1);
+
     const pointRadius = revenues.map((_, i) => i === revenues.length - 1 ? 8 : 4.5);
     const pointHover  = revenues.map((_, i) => i === revenues.length - 1 ? 11 : 7);
 
@@ -2254,36 +2268,75 @@ function _renderAiForecastChart(canvas, payload) {
         String(d.getDate())
     ]);
 
+    const datasets = [];
+
+    // --- Confidence band (drawn first, sits behind the line) ---
+    // Chart.js semantics: `fill: '-1'` fills from the current dataset
+    // down to the previous one. So we push lower, then upper, and the
+    // upper's fill creates the band.
+    if (hasBand) {
+        datasets.push({
+            label: '_bandLower',
+            data: lowers,
+            borderColor: 'transparent',
+            borderWidth: 0,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            pointHitRadius: 0,
+            tension: 0.35,
+            fill: false
+        });
+        datasets.push({
+            label: '_bandUpper',
+            data: uppers,
+            borderColor: 'transparent',
+            borderWidth: 0,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            pointHitRadius: 0,
+            tension: 0.35,
+            fill: '-1',
+            backgroundColor: `rgba(${accentRgb}, 0.14)`
+        });
+    }
+
+    // --- Point-estimate line (drawn last, sits on top of the band) ---
+    datasets.push({
+        label: 'forecast',
+        data: revenues,
+        borderColor: accent,
+        borderWidth: 2.5,
+        tension: 0.35,
+        // When the band is visible, the band already fills the area.
+        // When it's not, fall back to the original gradient fill.
+        fill: hasBand ? false : true,
+        backgroundColor: hasBand ? 'transparent' : (ctx) => {
+            const { chart } = ctx;
+            const { ctx: c, chartArea } = chart;
+            if (!chartArea) return 'transparent';
+            const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            g.addColorStop(0,   `rgba(${accentRgb}, 0.32)`);
+            g.addColorStop(0.6, `rgba(${accentRgb}, 0.10)`);
+            g.addColorStop(1,   `rgba(${accentRgb}, 0)`);
+            return g;
+        },
+        pointRadius,
+        pointHoverRadius: pointHover,
+        pointBackgroundColor: accent,
+        pointBorderColor: pointBorder,
+        pointBorderWidth: 2,
+        pointHitRadius: 18
+    });
+
+    // The point dataset is always last in the array. Pass its index
+    // to the glow plugin so the halo lands on the correct dot.
+    const pointDatasetIndex = datasets.length - 1;
+
     aiForecastChartInstance = new Chart(canvas, {
         type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                data: revenues,
-                borderColor: accent,
-                borderWidth: 2.5,
-                tension: 0.35,
-                fill: true,
-                backgroundColor: (ctx) => {
-                    const { chart } = ctx;
-                    const { ctx: c, chartArea } = chart;
-                    if (!chartArea) return 'transparent';
-                    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                    g.addColorStop(0,   `rgba(${accentRgb}, 0.32)`);
-                    g.addColorStop(0.6, `rgba(${accentRgb}, 0.10)`);
-                    g.addColorStop(1,   `rgba(${accentRgb}, 0)`);
-                    return g;
-                },
-                pointRadius,
-                pointHoverRadius: pointHover,
-                pointBackgroundColor: accent,
-                pointBorderColor: pointBorder,
-                pointBorderWidth: 2,
-                pointHitRadius: 18
-            }]
-        },
+        data: { labels, datasets },
         plugins: [
-            _aiForecastGlowPlugin(accentRgb),
+            _aiForecastGlowPlugin(accentRgb, pointDatasetIndex),
             _aiForecastBaselinePlugin(accentRgb)
         ],
         options: {
@@ -2305,6 +2358,9 @@ function _renderAiForecastChart(canvas, payload) {
                     displayColors: false,
                     titleFont: { size: 11, weight: '600' },
                     bodyFont:  { size: 14, weight: '700' },
+                    // Band datasets have no visible values — filter them
+                    // out so the tooltip shows only the point estimate.
+                    filter: item => item.datasetIndex === pointDatasetIndex,
                     callbacks: {
                         title: items => {
                             const d = dates[items[0].dataIndex];
@@ -2312,7 +2368,14 @@ function _renderAiForecastChart(canvas, payload) {
                                 weekday: 'long', month: 'short', day: 'numeric'
                             });
                         },
-                        label: ctx => '₱' + Math.round(Number(ctx.parsed.y) || 0).toLocaleString('en-PH')
+                        label: ctx => {
+                            const point = '₱' + Math.round(Number(ctx.parsed.y) || 0).toLocaleString('en-PH');
+                            if (!hasBand) return point;
+                            const i = ctx.dataIndex;
+                            const lo = '₱' + Math.round(lowers[i]).toLocaleString('en-PH');
+                            const hi = '₱' + Math.round(uppers[i]).toLocaleString('en-PH');
+                            return [point, `Range: ${lo} – ${hi}`];
+                        }
                     }
                 }
             },
@@ -2462,9 +2525,15 @@ function renderAiForecast(container, subtitleEl, data) {
     if (!isFlat) {
         const canvas = container.querySelector('#aiForecastChart');
         if (canvas) {
+            // Only draw the band when every day carries both bounds.
+            // Older cached responses (pre-backend-upgrade) lack these
+            // fields — the chart falls back to a line-only render.
+            const hasBand = list.every(d => d.lower != null && d.upper != null);
             _renderAiForecastChart(canvas, {
                 dates: list.map(d => new Date(String(d.date) + 'T00:00:00')),
-                revenues
+                revenues,
+                lowers: hasBand ? list.map(d => Number(d.lower) || 0) : null,
+                uppers: hasBand ? list.map(d => Number(d.upper) || 0) : null
             });
         }
     }
