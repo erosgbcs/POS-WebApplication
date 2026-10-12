@@ -1307,11 +1307,11 @@ function renderSalesByCategoryChart() {
     }
 
     const isLight = document.documentElement.dataset.theme === 'light';
-    const legendColor      = isLight ? '#3d3831' : '#d6cfc0';
-    const centerTitleColor = isLight ? '#100e0a' : '#fef9e7';
-    const centerSubColor   = isLight ? '#756c5e' : '#b8ad9c';
+    const legendColor = isLight ? '#3d3831' : '#d6cfc0';
 
     // Custom plugin — writes "42%\nPaint" inside the donut hole.
+    // Theme colors are read LIVE inside afterDraw so the text follows
+    // the active theme even if it changes after the chart was created.
     const categoryCenterText = {
         id: 'categoryCenterText',
         afterDraw(chart) {
@@ -1326,6 +1326,12 @@ function renderSalesByCategoryChart() {
 
             const topLabel = chart.data.labels[topIdx] || '';
             const topPct = ((maxVal / totalLocal) * 100).toFixed(0);
+
+            // Re-read theme at draw time — survives live theme toggles
+            // and initial-boot races where data-theme hadn't been set yet.
+            const light = document.documentElement.dataset.theme === 'light';
+            const centerTitleColor = light ? '#100e0a' : '#fef9e7';
+            const centerSubColor   = light ? '#756c5e' : '#b8ad9c';
 
             const { ctx, chartArea } = chart;
             if (!chartArea) return;

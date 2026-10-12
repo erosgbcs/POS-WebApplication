@@ -10956,3 +10956,82 @@ html:not([data-theme="light"]) .payment-method i {
         max-width: 100%;
     }
 }
+
+/* ============================================
+   CART ITEM — warm brand surface
+   Replaces the cool-slate grey with a tinted
+   surface that matches the amber theme.
+   ============================================ */
+.cart-item {
+    background: rgba(250, 204, 21, 0.05);
+    border: 1px solid rgba(250, 204, 21, 0.10);
+    border-bottom: 1px solid rgba(250, 204, 21, 0.10);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.cart-item:hover {
+    background: rgba(250, 204, 21, 0.08);
+    border-color: rgba(250, 204, 21, 0.18);
+}
+
+/* qty buttons — soften against the new surface */
+.cart-item .qty-btn {
+    background: rgba(250, 204, 21, 0.08);
+    border-color: rgba(250, 204, 21, 0.18);
+    color: var(--text-primary, #fef9e7);
+}
+
+.cart-item .qty-btn:hover {
+    background: #FACC15;
+    border-color: #FACC15;
+    color: #141210;
+}
+
+/* qty input — match the surface */
+.cart-item .cart-item-qty-input {
+    background: rgba(250, 204, 21, 0.06);
+    border-color: rgba(250, 204, 21, 0.15);
+    color: var(--text-primary, #fef9e7);
+}
+
+.cart-item .cart-item-qty-input:focus {
+    background: rgba(250, 204, 21, 0.10);
+    border-color: #FACC15;
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.18);
+}
+
+/* ---------- Light mode ---------- */
+[data-theme="light"] .cart-item {
+    background: #faf6ea;
+    border: 1px solid rgba(120, 95, 55, 0.14);
+    border-bottom: 1px solid rgba(120, 95, 55, 0.14);
+}
+
+[data-theme="light"] .cart-item:hover {
+    background: #f5efe0;
+    border-color: rgba(120, 95, 55, 0.24);
+}
+
+[data-theme="light"] .cart-item .qty-btn {
+    background: rgba(224, 163, 0, 0.08);
+    border-color: rgba(224, 163, 0, 0.22);
+    color: #3d3831;
+}
+
+[data-theme="light"] .cart-item .qty-btn:hover {
+    background: #E0A300;
+    border-color: #E0A300;
+    color: #100e0a;
+}
+
+[data-theme="light"] .cart-item .cart-item-qty-input {
+    background: #ffffff;
+    border-color: rgba(120, 95, 55, 0.22);
+    color: #100e0a;
+}
+
+[data-theme="light"] .cart-item .cart-item-qty-input:focus {
+    background: #ffffff;
+    border-color: #E0A300;
+    box-shadow: 0 0 0 2px rgba(224, 163, 0, 0.18);
+}
