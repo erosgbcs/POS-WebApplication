@@ -11035,3 +11035,657 @@ html:not([data-theme="light"]) .payment-method i {
     border-color: #E0A300;
     box-shadow: 0 0 0 2px rgba(224, 163, 0, 0.18);
 }
+
+/* ============================================================
+   MOBILE RESPONSIVENESS — FINAL POLISH
+   Addresses iOS zoom-on-focus, tap targets, safe-area
+   notches, FAB overlap, chart heights, filter rows, and
+   horizontal overflow. Appended last to win cascade order.
+   ============================================================ */
+
+/* ---------- 1. GLOBAL HARDENING ---------- */
+
+/* Prevent horizontal overflow from any oversized child */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+/* iOS Safari auto-zooms the viewport when a form input with
+   font-size < 16px receives focus. Force 16px on all inputs
+   below the desktop breakpoint — the visual style is preserved
+   because the parent layout scales the effective size down. */
+@media (max-width: 768px) {
+    input,
+    select,
+    textarea,
+    .input-wrapper input,
+    .input-wrapper select,
+    .form-group input,
+    .form-group select,
+    .form-group textarea,
+    .settings-input,
+    .filter-select,
+    .quantity-input,
+    .cart-item-qty-input,
+    .option-values-input,
+    .option-name-select,
+    .nav-search input,
+    .search-products input,
+    .pos-search input,
+    .confirm-input,
+    #gcashReference {
+        font-size: 16px !important;
+    }
+}
+
+/* Tap targets — enforce a 44px minimum for all interactive
+   buttons on mobile. This is the iOS HIG + Material recommendation. */
+@media (max-width: 768px) {
+    .btn-icon,
+    .modal-close-btn,
+    .modal-close,
+    .nav-icon,
+    .qty-btn,
+    .page-btn,
+    .ov-tab,
+    .ai-chip,
+    .theme-toggle,
+    .dashboard-nav .mobile-toggle,
+    .ai-panel-icon-btn,
+    .notifications-view-all {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .btn-icon,
+    .qty-btn,
+    .modal-close-btn,
+    .modal-close {
+        display: inline-grid;
+        place-items: center;
+    }
+}
+
+/* ---------- 2. SAFE AREA INSETS (iPhone notch / home bar) ---------- */
+
+@supports (padding: env(safe-area-inset-top)) {
+    @media (max-width: 768px) {
+        .dashboard-nav {
+            padding-top: max(12px, env(safe-area-inset-top));
+            padding-left: max(16px, env(safe-area-inset-left));
+            padding-right: max(16px, env(safe-area-inset-right));
+        }
+
+        .dashboard-content {
+            padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .toast-container {
+            right: max(12px, env(safe-area-inset-right));
+            bottom: max(12px, env(safe-area-inset-bottom));
+        }
+
+        .ai-fab {
+            right: max(16px, env(safe-area-inset-right));
+            bottom: max(16px, env(safe-area-inset-bottom));
+        }
+
+        .ai-panel {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    }
+}
+
+/* ---------- 3. FAB + TOAST OVERLAP PREVENTION ---------- */
+
+/* The AI FAB sits at bottom-right, and toasts used to slide in
+   at the same corner — they overlapped on narrow phones.
+   Shift toasts up and to the left of the FAB on mobile. */
+@media (max-width: 640px) {
+    .toast-container {
+        right: 12px;
+        bottom: 76px;                 /* clears the 52px FAB + gap */
+        max-width: calc(100vw - 24px);
+    }
+
+    .toast {
+        max-width: calc(100vw - 24px);
+        font-size: 0.8rem;
+    }
+
+    .toast.cart-toast {
+        max-width: 220px;
+    }
+}
+
+/* If the AI panel is open on mobile, hide the FAB entirely */
+@media (max-width: 640px) {
+    body.ai-panel-open .ai-fab {
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+/* ---------- 4. NOTIFICATIONS PANEL — FULL WIDTH ON MOBILE ---------- */
+
+@media (max-width: 520px) {
+    .notifications-panel {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        max-height: 70vh;
+        border-radius: 16px 16px 0 0;
+        padding-bottom: env(safe-area-inset-bottom);
+        animation: notificationsSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes notificationsSlideUp {
+        from { transform: translateY(100%); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    .notifications-panel-header {
+        padding: 16px 20px;
+    }
+
+    .notification-item {
+        padding: 14px 16px;
+        min-height: 60px;
+    }
+
+    .notifications-panel-footer {
+        padding: 8px;
+    }
+}
+
+/* ---------- 5. OVERVIEW CHARTS — PROPER HEIGHTS ON MOBILE ---------- */
+
+@media (max-width: 640px) {
+    .ov-chart-wrap {
+        height: 220px;
+    }
+
+    .ov-analytics-head {
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .ov-analytics-head-left h2 {
+        font-size: 16px;
+    }
+
+    .sales-summary {
+        font-size: 11.5px;
+        line-height: 1.4;
+    }
+
+    .ov-pane-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    /* KPI cards — 2-column with tighter padding */
+    .kpi-card {
+        padding: 14px 12px 14px 16px;
+    }
+
+    .kpi-card .stat-info h3 {
+        font-size: 20px;
+    }
+
+    .kpi-card .stat-info p {
+        font-size: 10px;
+        letter-spacing: 0.03em;
+    }
+
+    .kpi-card .stat-change {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+
+    .kpi-card .stat-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+}
+
+/* ---------- 6. AUDIT FILTER ROW — STACK ON MOBILE ---------- */
+
+@media (max-width: 768px) {
+    .audit-filters-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 14px;
+    }
+
+    .audit-filters-row .nav-search {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+    }
+
+    .audit-filters-row .filter-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .audit-filters-row .inventory-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .audit-filters-row .inventory-actions .secondary-btn {
+        padding: 10px 8px;
+        font-size: 11.5px;
+        justify-content: center;
+    }
+
+    /* Audit stat cards — 2 columns */
+    #page-audit .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    #page-audit .stat-card {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    #page-audit .stat-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    #page-audit .stat-info h3 {
+        font-size: 18px;
+    }
+
+    #page-audit .stat-info p {
+        font-size: 10.5px;
+    }
+}
+
+/* ---------- 7. POS CART — TIGHTEN ON MOBILE ---------- */
+
+@media (max-width: 640px) {
+    .cart-section {
+        padding: 14px;
+    }
+
+    .cart-items {
+        padding: 8px;
+    }
+
+    .cart-item {
+        padding: 10px;
+        gap: 8px;
+    }
+
+    .cart-item-name {
+        font-size: 13px;
+    }
+
+    .cart-item-qty {
+        font-size: 11px;
+    }
+
+    .cart-item-actions {
+        gap: 4px;
+    }
+
+    .cart-item .qty-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .cart-item-qty-input {
+        width: 48px;
+        padding: 6px 4px;
+        text-align: center;
+    }
+
+    .cart-item > strong {
+        min-width: 68px !important;
+        font-size: 13px;
+    }
+
+    .cart-item-remove {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+
+    .checkout-btn,
+    .clear-btn {
+        padding: 12px;
+        font-size: 14px;
+    }
+}
+
+/* ---------- 8. AI PANEL — FULL-SCREEN MOBILE ---------- */
+
+@media (max-width: 640px) {
+    .ai-panel {
+        width: 100vw;
+        border-left: none;
+    }
+
+    .ai-panel-header {
+        padding: 14px 16px;
+        min-height: 52px;
+    }
+
+    .ai-thread {
+        padding: 14px;
+        font-size: 13px;
+    }
+
+    .ai-bubble {
+        max-width: 92%;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .ai-panel-input {
+        padding: 10px;
+        gap: 6px;
+    }
+
+    .ai-panel-input input {
+        padding: 12px 14px;
+    }
+
+    .ai-panel-input button {
+        width: 46px;
+        height: 46px;
+    }
+
+    .ai-quick-prompts {
+        padding: 10px 12px;
+    }
+
+    .ai-chip {
+        padding: 8px 14px;
+        font-size: 12px;
+    }
+}
+
+/* ---------- 9. MODALS — FULL-WIDTH SHEETS ON SMALL PHONES ---------- */
+
+@media (max-width: 640px) {
+    /* Backdrop stays dim, modal rises from bottom */
+    .modal {
+        padding: 0;
+        align-items: flex-end;
+    }
+
+    .modal-content {
+        width: 100vw;
+        max-width: 100vw;
+        margin: 0;
+        border-radius: 20px 20px 0 0;
+        padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+        max-height: 92vh;
+        overflow-y: auto;
+        animation: modalSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes modalSheetUp {
+        from { transform: translateY(100%); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* Grabber indicator at the top of the sheet */
+    .modal-content::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        margin: -8px auto 12px;
+        border-radius: 2px;
+        background: rgba(148, 163, 184, 0.35);
+    }
+
+    .modal-header {
+        margin-bottom: 16px;
+    }
+
+    .modal-header h2 {
+        font-size: 18px;
+    }
+
+    .modal-close-btn {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* Payment + receipt modals — same treatment */
+@media (max-width: 640px) {
+    .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .modal-overlay.show .modal-card {
+        width: 100vw;
+        max-width: 100vw;
+        margin: 0;
+        border-radius: 20px 20px 0 0;
+        padding: 24px 20px calc(20px + env(safe-area-inset-bottom));
+        max-height: 92vh;
+        overflow-y: auto;
+    }
+}
+
+/* ---------- 10. TABLES — CONFIRM STACKED MODE ACROSS PAGES ---------- */
+
+@media (max-width: 768px) {
+    /* If any table container still shows a horizontal scroll on
+       mobile, force the stacked layout to kick in. */
+    #page-audit .inventory-table-container,
+    #page-orders .orders-table-container,
+    #page-customers .customers-table-container {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+    }
+
+    #page-audit .audit-owner-table,
+    #page-orders .inventory-table,
+    #page-customers .inventory-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #page-audit .audit-owner-table thead,
+    #page-orders .inventory-table thead,
+    #page-customers .inventory-table thead {
+        display: none;
+    }
+}
+
+/* ---------- 11. HEADER — MOBILE TIGHTEN ---------- */
+
+@media (max-width: 640px) {
+    .dashboard-nav {
+        padding: 10px 12px;
+        min-height: auto;
+        gap: 8px;
+    }
+
+    .nav-left {
+        gap: 8px;
+    }
+
+    .nav-logo img {
+        width: 32px;
+        height: 32px;
+    }
+
+    .nav-right {
+        gap: 6px;
+    }
+
+    .nav-icon {
+        padding: 8px;
+        font-size: 16px;
+    }
+
+    .user-btn {
+        padding: 4px 8px 4px 4px;
+    }
+
+    .user-btn img {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* ---------- 12. PAGE HEADER + ACTIONS ---------- */
+
+@media (max-width: 640px) {
+    .page-header {
+        margin-bottom: 16px;
+    }
+
+    .page-header h1 {
+        font-size: 20px;
+        line-height: 1.25;
+    }
+
+    .page-header p {
+        font-size: 12.5px;
+        margin-top: 3px;
+    }
+
+    .inventory-header h1 {
+        font-size: 20px;
+    }
+
+    .inventory-header p {
+        font-size: 12.5px;
+    }
+
+    /* Overview header actions — 2×2 grid on mobile */
+    .ov-header-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .ov-action-btn {
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 12.5px;
+    }
+}
+
+/* ---------- 13. SETTINGS + REPORTS ---------- */
+
+@media (max-width: 640px) {
+    .settings-container {
+        max-width: 100%;
+    }
+
+    .settings-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .settings-actions .secondary-btn,
+    .settings-actions .submit-btn {
+        width: 100%;
+        min-width: 0;
+        padding: 12px 16px;
+    }
+
+    .reports-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .report-card {
+        padding: 18px 16px;
+    }
+
+    .report-card i {
+        font-size: 26px;
+        margin-bottom: 10px;
+    }
+
+    .report-card h3 {
+        font-size: 16px;
+    }
+
+    .report-card p {
+        font-size: 12.5px;
+        margin-bottom: 14px;
+    }
+
+    .report-card-actions {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .report-card-actions .secondary-btn {
+        width: 100%;
+    }
+}
+
+/* ---------- 14. FORMS — STACK LABELS + INPUTS ---------- */
+
+@media (max-width: 640px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .form-grid .form-group:last-child {
+        grid-column: auto;
+    }
+
+    .meta-row {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+}
+
+/* ---------- 15. LANDSCAPE-PHONE SAFETY NET ---------- */
+
+@media (max-width: 900px) and (orientation: landscape) {
+    .modal-content,
+    .modal-overlay.show .modal-card {
+        max-height: 95vh;
+    }
+
+    .ai-panel {
+        width: min(420px, 100vw);
+    }
+}
+
+/* ---------- 16. REDUCED MOTION — RESPECT USER PREFERENCE ---------- */
+
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+    .modal-content,
+    .modal-overlay.show .modal-card,
+    .notifications-panel {
+        animation: none !important;
+    }
+}
