@@ -828,6 +828,12 @@ renderCustomers(customerSearch?.value || '');
     if (document.getElementById('ovHourlyHeatmap') && typeof renderHourlyHeatmap === 'function') {
         renderHourlyHeatmap();
     }
+    // AI Forecast — destroy + recreate so its amber flips with the theme.
+    // The chart re-renders on the next refreshAiCards() call, but if
+    // the user just toggled theme mid-view we nudge it immediately.
+    if (aiForecastChartInstance) {
+        _destroyAiForecastChart();
+    }
     }
 
             function initializeTheme() {
@@ -2160,7 +2166,184 @@ async function refreshAiCards() {
     }
 }
 
+/* ============================================================
+   AI FORECAST — Chart.js line chart with area fill.
+   Chart.js is already loaded for the overview charts; we reuse
+   it here. Instance is cached module-level and destroyed on
+   every render so theme switches and scenario changes rebuild
+   cleanly without leaking canvases.
+   ============================================================ */
+
+let aiForecastChartInstance = null;
+
+function _destroyAiForecastChart() {
+    if (aiForecastChartInstance) {
+        try { aiForecastChartInstance.destroy(); } catch (e) {}
+        aiForecastChartInstance = null;
+    }
+}
+
+/* Soft glow behind the final (endpoint) dot — draws the eye to
+   "where we're heading," which is the whole point of a forecast. */
+function _aiForecastGlowPlugin(accentRgb) {
+    return {
+        id: 'aiForecastGlow',
+        afterDatasetsDraw(chart) {
+            const meta = chart.getDatasetMeta(0);
+            if (!meta?.data?.length) return;
+            const last = meta.data[meta.data.length - 1];
+            if (!last) return;
+            const { ctx } = chart;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 18, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${accentRgb}, 0.08)`;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 11, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${accentRgb}, 0.18)`;
+            ctx.fill();
+            ctx.restore();
+        }
+    };
+}
+
+/* Faint dashed baseline at y=0 for visual anchoring. */
+function _aiForecastBaselinePlugin(accentRgb) {
+    return {
+        id: 'aiForecastBaseline',
+        beforeDatasetsDraw(chart) {
+            const { ctx, chartArea, scales } = chart;
+            if (!chartArea || !scales?.y) return;
+            const y = scales.y.getPixelForValue(0);
+            if (!Number.isFinite(y)) return;
+            ctx.save();
+            ctx.strokeStyle = `rgba(${accentRgb}, 0.18)`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(chartArea.left, y);
+            ctx.lineTo(chartArea.right, y);
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
+}
+
+function _renderAiForecastChart(canvas, payload) {
+    _destroyAiForecastChart();
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const { dates, revenues } = payload;
+    const isLight = document.documentElement.dataset.theme === 'light';
+
+    const accent      = isLight ? '#E0A300' : '#FACC15';
+    const accentRgb   = isLight ? '224, 163, 0' : '250, 204, 21';
+    const tickColor   = isLight ? '#756c5e' : '#8a8275';
+    const pointBorder = isLight ? '#ffffff' : '#141210';
+    const tooltipBg   = isLight ? 'rgba(255, 253, 247, 0.98)' : 'rgba(20, 18, 16, 0.96)';
+    const tooltipText = isLight ? '#100e0a' : '#fef9e7';
+    const tooltipSub  = isLight ? '#756c5e' : '#d6cfc0';
+
+    const maxVal = Math.max(...revenues, 1);
+    const pointRadius = revenues.map((_, i) => i === revenues.length - 1 ? 8 : 4.5);
+    const pointHover  = revenues.map((_, i) => i === revenues.length - 1 ? 11 : 7);
+
+    const labels = dates.map(d => [
+        ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()],
+        String(d.getDate())
+    ]);
+
+    aiForecastChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: revenues,
+                borderColor: accent,
+                borderWidth: 2.5,
+                tension: 0.35,
+                fill: true,
+                backgroundColor: (ctx) => {
+                    const { chart } = ctx;
+                    const { ctx: c, chartArea } = chart;
+                    if (!chartArea) return 'transparent';
+                    const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    g.addColorStop(0,   `rgba(${accentRgb}, 0.32)`);
+                    g.addColorStop(0.6, `rgba(${accentRgb}, 0.10)`);
+                    g.addColorStop(1,   `rgba(${accentRgb}, 0)`);
+                    return g;
+                },
+                pointRadius,
+                pointHoverRadius: pointHover,
+                pointBackgroundColor: accent,
+                pointBorderColor: pointBorder,
+                pointBorderWidth: 2,
+                pointHitRadius: 18
+            }]
+        },
+        plugins: [
+            _aiForecastGlowPlugin(accentRgb),
+            _aiForecastBaselinePlugin(accentRgb)
+        ],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 16, right: 14, left: 4, bottom: 0 } },
+            animation: { duration: 550, easing: 'easeOutCubic' },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: tooltipBg,
+                    titleColor: tooltipText,
+                    bodyColor: tooltipSub,
+                    borderColor: `rgba(${accentRgb}, 0.35)`,
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    titleFont: { size: 11, weight: '600' },
+                    bodyFont:  { size: 14, weight: '700' },
+                    callbacks: {
+                        title: items => {
+                            const d = dates[items[0].dataIndex];
+                            return d.toLocaleDateString('en-PH', {
+                                weekday: 'long', month: 'short', day: 'numeric'
+                            });
+                        },
+                        label: ctx => '₱' + Math.round(Number(ctx.parsed.y) || 0).toLocaleString('en-PH')
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: {
+                        color: tickColor,
+                        font: { size: 10, weight: '600' },
+                        padding: 8
+                    }
+                },
+                y: {
+                    display: false,
+                    beginAtZero: true,
+                    suggestedMax: maxVal * 1.20,
+                    grid: { color: 'transparent', drawTicks: false }
+                }
+            }
+        }
+    });
+}
+
 function renderAiForecast(container, subtitleEl, data) {
+    if (!container) return;
+
+    // Destroy the old instance BEFORE nuking the DOM, so it never
+    // points at a detached canvas.
+    _destroyAiForecastChart();
+
     const list = Array.isArray(data.forecast) ? data.forecast : [];
     const raw = data._raw || {};
 
@@ -2170,7 +2353,6 @@ function renderAiForecast(container, subtitleEl, data) {
         return;
     }
 
-    // Formatters — KPI values drop decimals, tooltips keep them.
     const fmt = v => '₱' + Math.round(Number(v) || 0).toLocaleString('en-PH');
 
     const revenues = list.map(d => Number(d.revenue) || 0);
@@ -2179,11 +2361,9 @@ function renderAiForecast(container, subtitleEl, data) {
     const max = Math.max(...revenues, 1);
     const min = Math.min(...revenues);
 
-    // Flat-forecast detection: all 7 values within 1% of each other.
     const spread = max - min;
     const isFlat = max > 0 && (spread / max) < 0.01;
 
-    // Trend direction — trust the backend's `trend`, fall back to slope.
     let trend = data.trend || 'stable';
     if (trend === 'stable' && !isFlat && revenues.length >= 2) {
         const first = revenues[0];
@@ -2193,7 +2373,6 @@ function renderAiForecast(container, subtitleEl, data) {
               : 'stable';
     }
 
-    // Week-over-week comparison from the raw daily_series if present.
     let vsLastPct = null;
     const series = raw.daily_series_last_7 || [];
     if (Array.isArray(series) && series.length === 7) {
@@ -2201,7 +2380,6 @@ function renderAiForecast(container, subtitleEl, data) {
         if (lastActual > 0) vsLastPct = ((total - lastActual) / lastActual) * 100;
     }
 
-    // Header subtitle
     if (subtitleEl) {
         const arrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
         let text = `${arrow} Expected: ${fmt(total)} over 7 days`;
@@ -2212,16 +2390,21 @@ function renderAiForecast(container, subtitleEl, data) {
         subtitleEl.textContent = text;
     }
 
-    // Pills -----------------------------------------------------------
     const modelLabel = raw.method_label
         || (raw.method === 'linear_regression' ? 'Linear regression'
+        : raw.method === 'seasonal_naive' ? 'Seasonal naive (same weekday last week)'
         : raw.method === 'moving_average' ? '7-day weighted moving average'
         : raw.method === 'historical_mean' ? 'Historical daily average'
         : 'Statistical forecast');
 
     const mae = raw.validation_mae;
+    const mape = raw.validation_mape;
     const errorPill = (mae != null && Number.isFinite(Number(mae)))
-        ? `<span class="ai-pill ai-pill-error">± ${fmt(mae)} error</span>`
+        ? `<span class="ai-pill ai-pill-error">± ${fmt(mae)} error${
+              mape != null && Number.isFinite(Number(mape))
+                  ? ` · ${Number(mape).toFixed(1)}% MAPE`
+                  : ''
+          }</span>`
         : '';
 
     const trendCls = trend === 'up' ? 'ai-pill-up'
@@ -2230,10 +2413,10 @@ function renderAiForecast(container, subtitleEl, data) {
     const trendIcon = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
     const trendText = trend === 'up' ? 'Upward' : trend === 'down' ? 'Downward' : 'Stable';
 
-    // Summary — swap any stray "PHP" prefix just in case.
     const summaryText = String(data.summary || '').replace(/\bPHP\s?/gi, '₱');
 
-    // Chart ----------------------------------------------------------
+    // Chart region. Flat forecasts keep the CSS fallback — a
+    // horizontal line chart for 7 identical values is noise.
     let chartHtml = '';
     if (isFlat) {
         chartHtml = `
@@ -2245,17 +2428,14 @@ function renderAiForecast(container, subtitleEl, data) {
             <div class="ai-forecast-flat-note">All ${list.length} days projected at the same value — no clear trend to show.</div>
         `;
     } else {
-        const bars = list.map(d => {
-            const v = Number(d.revenue) || 0;
-            const h = Math.max(6, (v / max) * 100);
-            return `<div class="ai-forecast-bar" style="height:${h}%">
-                <span class="ai-forecast-bar-val">${fmt(v)}</span>
-            </div>`;
-        }).join('');
-        chartHtml = `<div class="ai-forecast-chart">${bars}</div>`;
+        chartHtml = `
+            <div class="ai-forecast-canvas-wrap">
+                <canvas id="aiForecastChart" role="img"
+                        aria-label="7-day revenue forecast line chart"></canvas>
+            </div>
+        `;
     }
 
-    // X-axis — weekday + day number
     const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const labels = list.map(d => {
         const dt = new Date(String(d.date) + 'T00:00:00');
@@ -2271,12 +2451,23 @@ function renderAiForecast(container, subtitleEl, data) {
         </div>
         <div class="ai-forecast-summary">${escapeCustomerText(summaryText)}</div>
         ${chartHtml}
-        <div class="ai-forecast-xaxis">${labels}</div>
+        ${isFlat ? `<div class="ai-forecast-xaxis">${labels}</div>` : ''}
         <div class="ai-forecast-totals">
             <span>Avg/day: <strong>${fmt(avg)}</strong></span>
             <span>Total: <strong>${fmt(total)}</strong></span>
         </div>
     `;
+
+    // Create the Chart.js instance after the canvas is in the DOM.
+    if (!isFlat) {
+        const canvas = container.querySelector('#aiForecastChart');
+        if (canvas) {
+            _renderAiForecastChart(canvas, {
+                dates: list.map(d => new Date(String(d.date) + 'T00:00:00')),
+                revenues
+            });
+        }
+    }
 }
 
 function renderAiRestock(container, subtitleEl, data) {

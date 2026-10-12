@@ -10571,3 +10571,33 @@ html:not([data-theme="light"]) .payment-method i {
 [data-theme="light"] {
     --text-muted: #5f5648;
 }
+
+/* ============================================
+   AI FORECAST — Chart.js canvas wrapper
+   Replaces the old div-bar chart. Fixed height
+   so switching scenarios or themes never causes
+   the AI card to jump.
+   ============================================ */
+.ai-forecast-canvas-wrap {
+    position: relative;
+    height: 200px;
+    margin-bottom: 12px;
+}
+
+.ai-forecast-canvas-wrap canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Legacy bar-chart rules kept for safety — no longer matched,
+   but harmless if any HTML template still emits them. */
+.ai-forecast-chart,
+.ai-forecast-bar,
+.ai-forecast-bar-val {
+    display: none;
+}
+
+@media (max-width: 480px) {
+    .ai-forecast-canvas-wrap { height: 170px; }
+}
