@@ -10488,3 +10488,86 @@ html:not([data-theme="light"]) .payment-method i {
         transition: none !important;
     }
 }
+
+/* ============================================
+   LIGHT MODE — BUG FIXES
+   Fills gaps where dark-mode hardcoded colors
+   were never overridden. Appended last so it
+   wins cascade order on every rule below.
+   ============================================ */
+
+/* ---------- Bug 1: .modal-icon (payment + forgot-password) ---------- */
+[data-theme="light"] .modal-icon {
+    background: rgba(234, 179, 8, 0.14);
+    color: #A16207;
+}
+
+/* ---------- Bug 2: .modal-close (payment + receipt) ---------- */
+[data-theme="light"] .modal-close {
+    color: #756c5e;
+}
+
+[data-theme="light"] .modal-close:hover,
+[data-theme="light"] .modal-close:focus-visible {
+    background: rgba(120, 95, 55, 0.12);
+    color: #100e0a;
+}
+
+/* ---------- Bug 3: .ai-panel-title ---------- */
+[data-theme="light"] .ai-panel-title {
+    color: #8a5a00;
+}
+
+/* ---------- Bug 4: .ai-panel-icon-btn hover ---------- */
+[data-theme="light"] .ai-panel-icon-btn:hover {
+    background: rgba(224, 163, 0, 0.12);
+    color: #8a5a00;
+}
+
+/* ---------- Bug 5: .ai-refresh-btn hover ---------- */
+[data-theme="light"] .ai-refresh-btn:hover {
+    color: #15803d;
+    border-color: rgba(22, 163, 74, 0.5);
+}
+
+/* ---------- Bug 6: .nav-icon hover (warm tint) ---------- */
+[data-theme="light"] .nav-icon:hover {
+    background: rgba(120, 95, 55, 0.08);
+    color: #100e0a;
+}
+
+[data-theme="light"] .user-btn:hover {
+    background: rgba(120, 95, 55, 0.08);
+}
+
+/* ---------- Consistency: AI FAB + send button use amber in light mode ---------- */
+[data-theme="light"] .ai-fab {
+    background: #E0A300;
+    box-shadow: 0 10px 30px rgba(224, 163, 0, 0.35);
+}
+
+[data-theme="light"] .ai-fab:hover {
+    background: #B8860B;
+    box-shadow: 0 14px 40px rgba(224, 163, 0, 0.5);
+}
+
+[data-theme="light"] .ai-panel-input button {
+    background: #E0A300;
+    color: #100e0a;
+}
+
+[data-theme="light"] .ai-panel-input button:hover:not(:disabled) {
+    background: #B8860B;
+}
+
+/* Focus ring for the FAB should match the amber brand, not yellow */
+[data-theme="light"] .ai-fab:focus-visible {
+    outline-color: #E0A300;
+}
+
+/* ---------- Contrast bump: --text-muted passes AA on cream ---------- */
+/* Was #756c5e — 3.98:1 on #ebe2cd (fails AA for body text).
+   Bumping to #5f5648 gives 5.69:1. */
+[data-theme="light"] {
+    --text-muted: #5f5648;
+}

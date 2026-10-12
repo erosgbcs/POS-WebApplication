@@ -1341,8 +1341,8 @@ function renderTopProductsChart() {
     }
     
     const isLight = document.documentElement.dataset.theme === 'light';
-    const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
-    const tickColor = isLight ? '#475569' : '#94a3b8';
+    const gridColor = isLight ? 'rgba(120, 95, 55, 0.16)' : 'rgba(255, 255, 255, 0.08)';
+    const tickColor = isLight ? '#756c5e' : '#94a3b8';
     
     const datasets = [{
         label: getTopProductsPeriodLabel(period),
@@ -1675,8 +1675,8 @@ function renderSalesChart() {
     }
 
     const isLight = document.documentElement.dataset.theme === 'light';
-    const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
-    const tickColor = isLight ? '#475569' : '#94a3b8';
+    const gridColor = isLight ? 'rgba(120, 95, 55, 0.16)' : 'rgba(255, 255, 255, 0.08)';
+    const tickColor = isLight ? '#756c5e' : '#94a3b8';
 
     const datasets = [{
         label: getPeriodLabel(period),
@@ -2032,8 +2032,8 @@ function renderHourlyHeatmap() {
     }
     
     const isLight = document.documentElement.dataset.theme === 'light';
-    const hourLabelColor = isLight ? '#475569' : '#94a3b8';
-    const dayLabelColor = isLight ? '#334155' : '#cbd5e1';
+    const hourLabelColor = isLight ? '#756c5e' : '#94a3b8';
+    const dayLabelColor = isLight ? '#3d3831' : '#cbd5e1';
     
     function formatHour(h) {
         if (h === 0) return '12a';
