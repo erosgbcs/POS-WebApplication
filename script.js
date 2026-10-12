@@ -4130,7 +4130,10 @@ setupAiFeatures();
         }
 
         function render() {
-            const online = navigator.onLine;
+            // Use the effective-online flag (updated by the heartbeat
+            // below) instead of raw navigator.onLine, which lies on
+            // captive portals and when the API host is unreachable.
+            const online = navigator.onLine && __effectiveOnline;
             const pending = getPendingCount();
 
             // Nothing to show
@@ -4164,12 +4167,27 @@ setupAiFeatures();
             }
         }
 
+        // ---- Effective online tracking ----
+        // navigator.onLine is not reliable — it says "online" even when
+        // the wifi router has no internet (captive portal) or when the
+        // Vercel function is unreachable. Track a resolved state that
+        // combines the browser flag with a lightweight heartbeat.
+        let __effectiveOnline = navigator.onLine;
+
+        function setEffectiveOnline(state) {
+            if (__effectiveOnline === state) return;
+            __effectiveOnline = state;
+            render();
+        }
+
         // Browser online/offline events
         window.addEventListener('online', () => {
-            render();
+            setEffectiveOnline(true);
             window.dispatchEvent(new CustomEvent('pos-queue-flush-request'));
         });
-        window.addEventListener('offline', render);
+        window.addEventListener('offline', () => {
+            setEffectiveOnline(false);
+        });
 
         // Refresh when queue changes (fired by pos.js once outbox is added)
         window.addEventListener('pos-queue-changed', render);
@@ -4178,6 +4196,23 @@ setupAiFeatures();
         // Periodic safety net — every 15s, paused while hidden
         window.posSetInterval(render, 15000);
         window.addEventListener('pos-tab-visible', render);
+
+        // Heartbeat every 30s while online. A tiny same-origin HEAD
+        // request tells us whether we actually reach the server.
+        // Catches captive portals where navigator.onLine lies.
+        window.posSetInterval(async () => {
+            if (!navigator.onLine) return;
+            try {
+                await fetch('/manifest.json', {
+                    method: 'HEAD',
+                    cache: 'no-store',
+                    signal: AbortSignal.timeout(4000)
+                });
+                setEffectiveOnline(true);
+            } catch (e) {
+                setEffectiveOnline(false);
+            }
+        }, 30000);
 
         // Expose so pos.js can trigger an immediate re-render
         window.updateOfflineIndicator = render;
@@ -4401,6 +4436,40 @@ window.addEventListener('inventory-products-loaded', () => {
         refresh();
     })();
 
+
+    // ---------- SERVICE WORKER UPDATE NOTIFICATION ----------
+    // When a new SW version is installed, it posts SW_UPDATED. We
+    // surface that as a clickable toast so the user can reload into
+    // the new version at their convenience — no forced reloads.
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data?.type !== 'SW_UPDATED') return;
+            if (window.__posSwUpdateShown) return;
+            window.__posSwUpdateShown = true;
+
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = 'toast info';
+            toast.style.cursor = 'pointer';
+            toast.innerHTML = `
+                <i class="fas fa-cloud-arrow-down"></i>
+                <span>A new version is available. Tap to reload.</span>
+                <button class="toast-close" type="button" aria-label="Dismiss">&times;</button>
+            `;
+            container.appendChild(toast);
+
+            toast.addEventListener('click', (e) => {
+                if (e.target.closest('.toast-close')) {
+                    toast.remove();
+                    return;
+                }
+                navigator.serviceWorker.controller?.postMessage('SKIP_WAITING');
+                setTimeout(() => window.location.reload(), 100);
+            });
+        });
+    }
 
     // Expose a read-only settings accessor for pos.js and any other
     // module that needs live store config (tax, GCash, receipt).
