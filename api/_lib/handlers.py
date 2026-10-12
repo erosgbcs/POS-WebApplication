@@ -608,8 +608,18 @@ AI_SYSTEM_PROMPT = (
     "when answering. NEVER invent numbers, product names, or transactions "
     "that are not present in STORE_DATA.\n"
     "\n"
-    "If STORE_DATA does not contain the information needed to answer, "
+    "If STORE_DATA does not contain ANY of the numbers needed to answer, "
     "reply with exactly: \"I don't have enough data to answer that.\"\n"
+    "\n"
+    "If STORE_DATA contains PARTIAL information — e.g. the specific day "
+    "asked about is missing but neighboring days are present, or the "
+    "exact metric requested is absent but a closely related one exists — "
+    "answer with what you CAN determine, and state clearly which part is "
+    "uncertain. Prefer a partial answer over a refusal.\n"
+    "\n"
+    "For questions about a specific day of the week (e.g. \"last Tuesday\"), "
+    "look up that weekday in daily_series_last_14. Compare it to the same "
+    "weekday in the prior week if both are present.\n"
     "\n"
     "TONE\n"
     "- Direct and confident. Talk like a manager reviewing the numbers, "
@@ -749,13 +759,36 @@ def _build_sales_summary() -> dict:
     ]
 
     # Daily series (last 7)
+    # 14 days so the AI can compare "last Tuesday" to "the Tuesday before".
     daily_series = [
         {
             "date": (today - timedelta(days=i)).strftime("%Y-%m-%d"),
+            "weekday": (today - timedelta(days=i)).strftime("%A"),
             "revenue": round(daily.get((today - timedelta(days=i)).strftime("%Y-%m-%d"), 0.0), 2),
         }
-        for i in range(6, -1, -1)
+        for i in range(13, -1, -1)
     ]
+
+    # ---- Pre-compute notable days (>= 25% away from the 14-day average) ----
+    # Small models often skip the "scan for outliers" step when given raw
+    # numbers. Handing them a sorted list of what stands out makes the
+    # question "why did Tuesday drop?" answerable from context alone.
+    notable_days = []
+    nonzero_revs = [d["revenue"] for d in daily_series if d["revenue"] > 0]
+    if nonzero_revs:
+        avg_14 = sum(nonzero_revs) / len(nonzero_revs)
+        if avg_14 > 0:
+            for d in daily_series:
+                if d["revenue"] == 0:
+                    continue
+                delta = (d["revenue"] - avg_14) / avg_14
+                if abs(delta) >= 0.25:
+                    notable_days.append({
+                        "date": d["date"],
+                        "weekday": d["weekday"],
+                        "revenue": d["revenue"],
+                        "vs_avg_14d_pct": round(delta * 100, 1),
+                    })
 
     delta_pct = None
     if rev_prev_7 > 0:
@@ -768,7 +801,8 @@ def _build_sales_summary() -> dict:
         "week_over_week_change_pct": delta_pct,
         "last_30_days_revenue_php": rev_30,
         "order_count_30d": len(orders_30d),
-        "daily_series_last_7": daily_series,
+        "daily_series_last_14": daily_series,
+        "notable_days_last_14": notable_days,
         "top_products_last_30d": top_products,
         "metric": "gross_revenue_php",
         "timezone": "Asia/Manila",
