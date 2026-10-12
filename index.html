@@ -812,6 +812,37 @@
                         <h1>Reports</h1>
                         <p>View analytics and generate reports</p>
                     </div>
+
+                    <!-- Report period selector -->
+                    <div class="report-period-bar">
+                        <div class="report-period-group">
+                            <label for="reportPeriod">Report period</label>
+                            <select class="filter-select" id="reportPeriod">
+                                <option value="all">All time</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="7d" selected>Last 7 days</option>
+                                <option value="30d">Last 30 days</option>
+                                <option value="this-month">This month</option>
+                                <option value="last-month">Last month</option>
+                                <option value="this-year">This year</option>
+                                <option value="last-year">Last year</option>
+                                <option value="custom">Custom range…</option>
+                            </select>
+                        </div>
+
+                        <div class="report-period-group" id="reportCustomRange" hidden>
+                            <label for="reportCustomStart">From</label>
+                            <input type="date" class="filter-select" id="reportCustomStart">
+                            <label for="reportCustomEnd">To</label>
+                            <input type="date" class="filter-select" id="reportCustomEnd">
+                        </div>
+
+                        <div class="report-period-summary" id="reportPeriodSummary">
+                            <!-- filled by script.js -->
+                        </div>
+                    </div>
+
                     <div class="reports-grid">
                         <div class="report-card">
                             <i class="fas fa-chart-line"></i>

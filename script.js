@@ -465,6 +465,129 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
         URL.revokeObjectURL(link.href);
     }
 
+    // ----------------------------------------------------------------
+    // REPORTS — period resolution
+    //
+    // Returns { start: Date, end: Date, label: string, key: string } for
+    // the currently-selected report period. The `key` is a URL-safe
+    // slug suitable for filenames.
+    //
+    // Returns null if the user has selected "custom" but the range is
+    // incomplete or invalid — callers must fall back to unfiltered data.
+    // ----------------------------------------------------------------
+    function getReportPeriodRange(period) {
+        const now = new Date();
+        const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+        const endOfDay   = d => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+
+        let start, end, label;
+
+        switch (period) {
+            case 'today':
+                start = startOfDay(now); end = endOfDay(now); label = 'Today';
+                break;
+
+            case 'yesterday': {
+                const y = new Date(now); y.setDate(y.getDate() - 1);
+                start = startOfDay(y); end = endOfDay(y); label = 'Yesterday';
+                break;
+            }
+
+            case '7d': {
+                const s = new Date(now); s.setDate(s.getDate() - 6);
+                start = startOfDay(s); end = endOfDay(now); label = 'Last 7 days';
+                break;
+            }
+
+            case '30d': {
+                const s = new Date(now); s.setDate(s.getDate() - 29);
+                start = startOfDay(s); end = endOfDay(now); label = 'Last 30 days';
+                break;
+            }
+
+            case 'this-month':
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                end = endOfDay(now);
+                label = 'This month';
+                break;
+
+            case 'last-month': {
+                const firstThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const lastMonthEnd = new Date(firstThisMonth.getTime() - 1);
+                start = new Date(lastMonthEnd.getFullYear(), lastMonthEnd.getMonth(), 1);
+                end = lastMonthEnd;
+                label = 'Last month';
+                break;
+            }
+
+            case 'this-year':
+                start = new Date(now.getFullYear(), 0, 1);
+                end = endOfDay(now);
+                label = 'This year';
+                break;
+
+            case 'last-year':
+                start = new Date(now.getFullYear() - 1, 0, 1);
+                end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+                label = 'Last year';
+                break;
+
+            case 'all':
+            default:
+                start = new Date(0);
+                end = endOfDay(now);
+                label = 'All time';
+                break;
+        }
+
+        return { start, end, label, key: period };
+    }
+
+    function getActiveReportRange() {
+        const periodEl = document.getElementById('reportPeriod');
+        const period = periodEl?.value || 'all';
+
+        if (period === 'custom') {
+            const startEl = document.getElementById('reportCustomStart');
+            const endEl = document.getElementById('reportCustomEnd');
+            if (!startEl?.value || !endEl?.value) return null;
+
+            const start = new Date(startEl.value + 'T00:00:00');
+            const end = new Date(endEl.value + 'T23:59:59.999');
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+            if (start > end) return null;
+
+            const fmt = d => d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+            return {
+                start, end,
+                label: `${fmt(start)} – ${fmt(end)}`,
+                key: `${startEl.value}_to_${endEl.value}`
+            };
+        }
+
+        return getReportPeriodRange(period);
+    }
+
+    function refreshReportPeriodSummary() {
+        const el = document.getElementById('reportPeriodSummary');
+        if (!el) return;
+
+        const range = getActiveReportRange();
+        if (!range) {
+            el.innerHTML = '';
+            return;
+        }
+
+        const allOrders = readStoredRecords(ORDERS_KEY);
+        const orders = filterOrdersInRange(allOrders, range.start, range.end);
+        const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+
+        el.innerHTML =
+            `<strong>${range.label}</strong> · ` +
+            `${orders.length} order${orders.length === 1 ? '' : 's'} · ` +
+            `${formatAppCurrency(revenue)}`;
+    }
+
     // Shared builder — returns { title, headers, rows, totals } for both
     // CSV and PDF exporters so the two never drift apart.
     function buildReportData(type) {
@@ -502,11 +625,21 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
             };
         }
 
-        // Default: sales / financial → order listing
-        const orders = readStoredRecords(ORDERS_KEY);
+        // Default: sales / financial → order listing, filtered by the
+        // currently-selected report period.
+        const range = getActiveReportRange();
+        const allOrders = readStoredRecords(ORDERS_KEY);
+        const orders = range
+            ? filterOrdersInRange(allOrders, range.start, range.end)
+            : allOrders;
+
         const totalRevenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+        const totalTax = orders.reduce((s, o) => s + (Number(o.tax) || 0), 0);
+
         return {
             title: type === 'financial' ? 'Financial Report' : 'Sales Report',
+            period: range ? range.label : 'All time',
+            periodKey: range ? range.key : 'all',
             headers: ['Order ID', 'Customer', 'Subtotal', 'Tax', 'Total', 'Payment', 'Date'],
             rows: orders.map(o => [
                 o.id, o.customerName || 'Walk-in',
@@ -516,15 +649,30 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
                 o.paymentMethod || 'cash',
                 o.createdAt ? new Date(o.createdAt).toLocaleString() : ''
             ]),
-            totals: { 'Total orders': orders.length, 'Total revenue': `₱${totalRevenue.toFixed(2)}` }
+            totals: {
+                'Total orders': orders.length,
+                'Total revenue': `₱${totalRevenue.toFixed(2)}`,
+                'Total tax': `₱${totalTax.toFixed(2)}`,
+                'Period': range ? range.label : 'All time'
+            }
         };
     }
 
     function generateReport(type) {
         const data = buildReportData(type);
-        downloadCsv(`${type}_report_${new Date().toISOString().split('T')[0]}.csv`, data.headers, data.rows);
-        window.POS_APP_LOG?.('export', 'reports', `${type} report exported (CSV)`, 'info');
-        showToast(`${type[0].toUpperCase()}${type.slice(1)} report exported as CSV`, 'success');
+
+        // Filename includes the period key so two exports for different
+        // ranges don't overwrite each other on the user's disk.
+        const stamp = new Date().toISOString().split('T')[0];
+        const periodKey = data.periodKey || 'all';
+        const filename = `${type}_report_${periodKey}_${stamp}.csv`;
+
+        downloadCsv(filename, data.headers, data.rows);
+        window.POS_APP_LOG?.('export', 'reports', `${type} report exported (CSV) · ${data.period || 'All time'}`, 'info');
+        showToast(
+            `${type[0].toUpperCase()}${type.slice(1)} report exported${data.period ? ` (${data.period})` : ''}`,
+            'success'
+        );
     }
 
     // PDF export — builds a print-ready document in a new window and
@@ -666,6 +814,7 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
             <div class="report-title">${esc(data.title)}</div>
         </div>
         <div class="meta">
+            ${data.period ? `<div><strong>Period:</strong> ${esc(data.period)}</div>` : ''}
             <div><strong>Generated:</strong> ${esc(generatedAt)}</div>
             <div><strong>By:</strong> ${esc(cashierName)}</div>
             <div><strong>Rows:</strong> ${data.rows.length}</div>
@@ -711,6 +860,44 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
         document.querySelectorAll('.report-pdf-btn').forEach(button => {
             button.addEventListener('click', () => generateReportPdf(button.dataset.report));
         });
+
+        // ---- Period selector ----
+        const periodEl = document.getElementById('reportPeriod');
+        const customRangeEl = document.getElementById('reportCustomRange');
+        const startEl = document.getElementById('reportCustomStart');
+        const endEl = document.getElementById('reportCustomEnd');
+
+        function toggleCustomVisibility() {
+            if (!customRangeEl) return;
+            customRangeEl.hidden = periodEl?.value !== 'custom';
+        }
+
+        // Default the custom range inputs to the last 7 days when first revealed
+        function seedCustomRangeIfEmpty() {
+            if (startEl?.value && endEl?.value) return;
+            const now = new Date();
+            const s = new Date(now); s.setDate(s.getDate() - 6);
+            const iso = d => d.toISOString().split('T')[0];
+            if (startEl && !startEl.value) startEl.value = iso(s);
+            if (endEl && !endEl.value) endEl.value = iso(now);
+        }
+
+        periodEl?.addEventListener('change', () => {
+            if (periodEl.value === 'custom') seedCustomRangeIfEmpty();
+            toggleCustomVisibility();
+            refreshReportPeriodSummary();
+        });
+
+        startEl?.addEventListener('change', refreshReportPeriodSummary);
+        endEl?.addEventListener('change', refreshReportPeriodSummary);
+
+        // Initial state on load
+        toggleCustomVisibility();
+        refreshReportPeriodSummary();
+
+        // Keep the summary fresh when orders change (Firestore subscription
+        // fires on the Orders page, but a login-time snapshot also lands here)
+        window.addEventListener('pos-order-created', refreshReportPeriodSummary);
     }
 
     
