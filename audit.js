@@ -70,9 +70,19 @@
         return 'Local user';
     }
 
+    // Store timezone: Asia/Manila = UTC+8 (no DST).
+    const STORE_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+    function storeTodayKey() {
+        // Shift "now" by +8h then read the UTC date — gives the Manila
+        // calendar day regardless of the browser's local timezone.
+        const shifted = new Date(Date.now() + STORE_TZ_OFFSET_MS);
+        return shifted.toISOString().split('T')[0];
+    }
+
     function isToday(ts) {
         if (!ts) return false;
-        return String(ts).startsWith(new Date().toISOString().split('T')[0]);
+        return String(ts).startsWith(storeTodayKey());
     }
 
     // ===================== OWNER-FRIENDLY TRANSLATIONS =====================
@@ -180,8 +190,8 @@
         switch (range) {
             case 'today':     return isToday(log.timestamp);
             case 'yesterday': {
-                const y = new Date(); y.setDate(y.getDate() - 1);
-                return String(log.timestamp).startsWith(y.toISOString().split('T')[0]);
+                const shifted = new Date(Date.now() - day + STORE_TZ_OFFSET_MS);
+                return String(log.timestamp).startsWith(shifted.toISOString().split('T')[0]);
             }
             case 'week':  return (now - ts) < day * 7;
             case 'month': return (now - ts) < day * 31;

@@ -391,10 +391,19 @@ def forecast_next_7_days(orders: list) -> dict:
     baseline_entry = scored.get("historical_mean", {})
     baseline_mae = baseline_entry.get("mae")
 
+    # Last-14-day actuals, aligned with the key _build_sales_summary
+    # emits so the AI forecast panel can compute "vs last 7 days" on
+    # the client. Without this the "+X% vs last 7" chip never renders.
+    daily_series_last_14 = [
+        {"date": k, "revenue": round(v, 2)}
+        for k, v in series[-14:]
+    ]
+
     return {
         "available": True,
         "method": chosen_id,
         "method_label": chosen["label"],
+        "daily_series_last_14": daily_series_last_14,
         "message": (
             f"Estimated sales for the next 7 days: "
             f"₱{total:,.2f}. This is a statistical forecast "

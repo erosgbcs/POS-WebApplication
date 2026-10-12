@@ -622,7 +622,9 @@ async function getOrders() {
     
     try {
         const { collection, getDocs, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-        const q = query(collection(fb.db, 'orders'), limit(500));
+        // 2000 — a 30-orders/day shop needs ~66 days of history for
+        // "Last 30 days" charts to be complete. 500 truncated badly.
+        const q = query(collection(fb.db, 'orders'), limit(2000));
         const snap = await getDocs(q);
         const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         // Client-side sort
@@ -657,7 +659,7 @@ function subscribeOrders(callback) {
         if (!fb || canceled) return;
         const { collection, onSnapshot, limit, query } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
         if (canceled) return;
-        const q = query(collection(fb.db, 'orders'), limit(500));
+        const q = query(collection(fb.db, 'orders'), limit(2000));
         unsubscribe = onSnapshot(q, snap => {
             const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             orders.sort((a, b) => {

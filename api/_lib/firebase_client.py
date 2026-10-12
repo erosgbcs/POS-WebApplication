@@ -162,8 +162,11 @@ def get_orders_in_range(start: datetime, end: datetime) -> list:
         db = get_db()
         start_iso = start.astimezone(timezone.utc).isoformat()[:19]
         end_iso = end.astimezone(timezone.utc).isoformat()[:19]
+        # DESCENDING — with ASCENDING, a store with >4000 lifetime orders
+        # only ever fetches the oldest 4000 (all outside any recent window)
+        # and every period query silently returns [].
         query = (db.collection("orders")
-                   .order_by("createdAt")
+                   .order_by("createdAt", direction=firestore.Query.DESCENDING)
                    .limit(4000))
         out = []
         for d in query.stream():

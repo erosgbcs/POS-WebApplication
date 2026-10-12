@@ -269,20 +269,30 @@ const CUSTOMERS_KEY = 'pos_customers';
     if (!ordersTableBody) return;
     
     const orders = Array.isArray(snapshotOrders) ? snapshotOrders : readStoredRecords(ORDERS_KEY);
-    if (Array.isArray(snapshotOrders)) writeStoredRecords(ORDERS_KEY, orders.slice(0, 500));
+    if (Array.isArray(snapshotOrders)) writeStoredRecords(ORDERS_KEY, orders.slice(0, 2000));
     
     const status = orderStatusFilter?.value || '';
     const dateRange = orderDateFilter?.value || '';
-    const now = Date.now();
-    
+
+    // Manila calendar-day boundaries. "Today" means start-of-day in
+    // Asia/Manila, not a rolling 24h window — otherwise yesterday's
+    // afternoon sales bleed into today's list.
+    const STORE_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
+    const startTodayMs = (() => {
+        const shifted = new Date(Date.now() + STORE_TZ_OFFSET_MS);
+        shifted.setUTCHours(0, 0, 0, 0);
+        return shifted.getTime() - STORE_TZ_OFFSET_MS;
+    })();
+    const dayMs = 24 * 60 * 60 * 1000;
+
     const filtered = orders.filter(order => {
         if (status && order.status !== status) return false;
         if (!dateRange) return true;
-        const age = now - new Date(order.createdAt).getTime();
-        const day = 24 * 60 * 60 * 1000;
-        if (dateRange === 'Today') return age < day;
-        if (dateRange === 'This Week') return age < day * 7;
-        if (dateRange === 'This Month') return age < day * 31;
+        const ts = new Date(order.createdAt).getTime();
+        if (isNaN(ts)) return false;
+        if (dateRange === 'Today') return ts >= startTodayMs;
+        if (dateRange === 'This Week') return ts >= startTodayMs - 6 * dayMs;
+        if (dateRange === 'This Month') return ts >= startTodayMs - 30 * dayMs;
         return true;
     });
     
@@ -2780,8 +2790,18 @@ function renderAiForecast(container, subtitleEl, data) {
     }
 
     let vsLastPct = null;
-    const series = raw.daily_series_last_7 || [];
-    if (Array.isArray(series) && series.length === 7) {
+    // Backend renamed this key to `_14` when the series widened from
+    // 7 to 14 days. Keep the old key as a fallback so cached responses
+    // from before the upgrade still resolve.
+    const series = raw.daily_series_last_14 || raw.daily_series_last_7 || [];
+    if (Array.isArray(series) && series.length === 14) {
+        // Compare the 7-day forecast total to the last 7 days of
+        // actuals (the tail of the 14-day window).
+        const last7 = series.slice(-7);
+        const lastActual = last7.reduce((s, d) => s + (Number(d.revenue) || 0), 0);
+        if (lastActual > 0) vsLastPct = ((total - lastActual) / lastActual) * 100;
+    } else if (Array.isArray(series) && series.length === 7) {
+        // Legacy fallback for pre-upgrade cached responses.
         const lastActual = series.reduce((s, d) => s + (Number(d.revenue) || 0), 0);
         if (lastActual > 0) vsLastPct = ((total - lastActual) / lastActual) * 100;
     }

@@ -30,9 +30,10 @@ class NotFoundError(ChatError):
 class ProviderError(ChatError):
     """Error raised by an external AI provider."""
 
-    def __init__(self, message, retryable=False, status=502):
+    def __init__(self, message, retryable=False, was_timeout=False, status=502):
         super().__init__(message, status=status)
         self.retryable = retryable
+        self.was_timeout = was_timeout
 
 
 class ConfigError(ChatError):

@@ -23,8 +23,11 @@ DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 DEFAULT_GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
 # Provider budget — total must stay under the Vercel function timeout.
-GEMINI_TIMEOUT_S = float(os.environ.get("GEMINI_TIMEOUT_S", "6.0"))
-GROQ_TIMEOUT_S = float(os.environ.get("GROQ_TIMEOUT_S", "6.0"))
+# Worst case: 2×3s (Gemini) + 0.4s sleep + 2×3s (Groq) ≈ 12.4s.
+# Still over Hobby's 10s ceiling if both providers are slow, but no
+# longer blows the Pro 30s budget by a wide margin.
+GEMINI_TIMEOUT_S = float(os.environ.get("GEMINI_TIMEOUT_S", "3.0"))
+GROQ_TIMEOUT_S = float(os.environ.get("GROQ_TIMEOUT_S", "3.0"))
 
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
 

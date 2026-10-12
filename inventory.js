@@ -930,12 +930,11 @@
                 p => p.sku === sku && p.id !== inventoryState.editingProductId
             );
             if (conflict) {
-                if (!inventoryState.editingProductId) {
-                    productData.sku = generateNextSku();
-                } else {
-                    showToast('Product code already exists', 'error');
-                    return;
-                }
+                // Previously the "new product" path silently replaced the
+                // user's SKU with an auto-generated one. That's surprising
+                // and inconsistent with the edit path. Surface the error.
+                showToast(`Product code "${sku}" already exists. Use a different code.`, 'error');
+                return;
             }
         } else if (!inventoryState.editingProductId) {
             productData.sku = generateNextSku();

@@ -290,9 +290,15 @@ async function flushPendingSales() {
     if (!navigator.onLine || !window.POS_CURRENT_USER || pendingSalesFlushPromise || !window.POS_SUPABASE?.commitSale) return;
 
     pendingSalesFlushPromise = (async () => {
-        const pendingSales = getPendingSales();
-        while (pendingSales.length && navigator.onLine) {
-            const order = pendingSales[0];
+        // Re-read the queue from localStorage on every iteration.
+        // A cashier may create a new offline sale while commitSale()
+        // is in flight — a stale in-memory array would overwrite and
+        // lose it on the final savePendingSales() call.
+        while (navigator.onLine) {
+            const queue = getPendingSales();
+            if (queue.length === 0) break;
+
+            const order = queue[0];
             const result = await window.POS_SUPABASE.commitSale(order);
             if (result.error) {
                 console.warn('Pending sale sync failed:', result.error);
@@ -300,8 +306,10 @@ async function flushPendingSales() {
                 break;
             }
 
-            pendingSales.shift();
-            savePendingSales(pendingSales);
+            // Remove only THIS order (by id) from the freshest queue,
+            // so newly-appended orders survive the write-back.
+            const fresh = getPendingSales().filter(o => o.id !== order.id);
+            savePendingSales(fresh);
             setPendingSalesError(null);
             await syncSaleCustomer(order);
         }
@@ -1532,7 +1540,10 @@ const phone = rawPhone.replace(/\D/g, '');
         try {
             const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
             orders.unshift(order);
-            localStorage.setItem('pos_orders', JSON.stringify(orders.slice(0, 500)));
+            // Keep the local cache in sync with the Firestore read cap
+            // (2000) so reloading from cache doesn't throw away history
+            // that the live subscription has already delivered.
+            localStorage.setItem('pos_orders', JSON.stringify(orders.slice(0, 2000)));
         } catch (e) {
             console.warn('Local order cache failed:', e);
         }

@@ -282,7 +282,11 @@ class NLPEngine:
         for intent, cfg in self.INTENTS.items():
             score = 0
             for kw, weight in cfg.get("keywords", {}).items():
-                if kw in tokens or kw in normalized:
+                # Word-boundary match — "hi" must not match "this",
+                # "out" must not match "about". Safe here because
+                # normalize() strips punctuation, leaving only word
+                # characters and apostrophes.
+                if re.search(rf"\b{re.escape(kw)}\b", normalized):
                     score += weight
             for phrase in cfg.get("phrases", []):
                 if phrase in normalized:
