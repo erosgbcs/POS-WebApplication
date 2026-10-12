@@ -1207,9 +1207,12 @@ renderCustomers(customerSearch?.value || '');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+        const safeMsg = String(message ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
         toast.innerHTML = `
             <i class="fas ${icon}"></i>
-            <span>${message}</span>
+            <span>${safeMsg}</span>
             <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
         `;
         container.appendChild(toast);
@@ -1232,10 +1235,13 @@ renderCustomers(customerSearch?.value || '');
     }
 
 // ---------- OVERVIEW: STATS + CHART ----------
+// Store timezone: Asia/Manila = UTC+8 (no DST). Returns the
+// calendar-day key in Manila so "today" on the KPI cards matches
+// the orders table and the audit log.
+const OVERVIEW_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
 function getOverviewDayKey(offsetDays = 0) {
-    const d = new Date();
-    d.setDate(d.getDate() - offsetDays);
-    return d.toISOString().split('T')[0];
+    const shifted = new Date(Date.now() + OVERVIEW_TZ_OFFSET_MS - offsetDays * 86400000);
+    return shifted.toISOString().split('T')[0];
 }
 
 function readOrdersFromStorage() {
@@ -2780,8 +2786,16 @@ function renderAiForecast(container, subtitleEl, data) {
     const spread = max - min;
     const isFlat = max > 0 && (spread / max) < 0.01;
 
-    let trend = data.trend || 'stable';
-    if (trend === 'stable' && !isFlat && revenues.length >= 2) {
+    // Trend describes what the STORE is doing, not what the forecast
+    // shape looks like. A flat forecast produced by historical_mean
+    // means the data was too noisy to model — that is not "stable".
+    const mapeNum = Number(raw.validation_mape);
+    const lowConfidence = Number.isFinite(mapeNum) && mapeNum > 30;
+
+    let trend = 'stable';
+    if (lowConfidence) {
+        trend = 'uncertain';
+    } else if (revenues.length >= 2 && !isFlat) {
         const first = revenues[0];
         const last = revenues[revenues.length - 1];
         trend = last > first * 1.02 ? 'up'
@@ -2825,19 +2839,35 @@ function renderAiForecast(container, subtitleEl, data) {
 
     const mae = raw.validation_mae;
     const mape = raw.validation_mape;
-    const errorPill = (mae != null && Number.isFinite(Number(mae)))
-        ? `<span class="ai-pill ai-pill-error">± ${fmt(mae)} error${
-              mape != null && Number.isFinite(Number(mape))
-                  ? ` · ${Number(mape).toFixed(1)}% MAPE`
-                  : ''
-          }</span>`
-        : '';
+    // Lead with MAPE when it's high — the peso error understates
+    // uncertainty on bimodal sales data where ₱840 can be 1800% of
+    // a slow day's revenue.
+    // `mapeNum` and `lowConfidence` are already declared above —
+    // do NOT redeclare them here.
+    const hasMape = mape != null && Number.isFinite(mapeNum);
+    const hasMae  = mae  != null && Number.isFinite(Number(mae));
+
+    let errorPill = '';
+    if (hasMape && mapeNum > 30) {
+        errorPill = `<span class="ai-pill ai-pill-error ai-pill-error-high">± ${mapeNum.toFixed(1)}% typical error</span>`;
+    } else if (hasMape && hasMae) {
+        errorPill = `<span class="ai-pill ai-pill-error">± ${fmt(mae)} error · ${mapeNum.toFixed(1)}% MAPE</span>`;
+    } else if (hasMae) {
+        errorPill = `<span class="ai-pill ai-pill-error">± ${fmt(mae)} error</span>`;
+    }
 
     const trendCls = trend === 'up' ? 'ai-pill-up'
                     : trend === 'down' ? 'ai-pill-down'
+                    : trend === 'uncertain' ? 'ai-pill-uncertain'
                     : 'ai-pill-flat';
-    const trendIcon = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
-    const trendText = trend === 'up' ? 'Upward' : trend === 'down' ? 'Downward' : 'Stable';
+    const trendIcon = trend === 'up' ? '↗'
+                    : trend === 'down' ? '↘'
+                    : trend === 'uncertain' ? '⚠'
+                    : '→';
+    const trendText = trend === 'up' ? 'Upward'
+                    : trend === 'down' ? 'Downward'
+                    : trend === 'uncertain' ? 'Low confidence'
+                    : 'Stable';
 
     const summaryText = String(data.summary || '').replace(/\bPHP\s?/gi, '₱');
 
@@ -2875,7 +2905,7 @@ function renderAiForecast(container, subtitleEl, data) {
             ${errorPill}
             <span class="ai-pill ${trendCls}">${trendIcon} ${trendText}</span>
         </div>
-        <div class="ai-forecast-summary">${escapeCustomerText(summaryText)}</div>
+        <div class="ai-forecast-summary${lowConfidence ? ' ai-forecast-summary-warn' : ''}">${escapeCustomerText(summaryText)}</div>
         ${chartHtml}
         ${isFlat ? `<div class="ai-forecast-xaxis">${labels}</div>` : ''}
         <div class="ai-forecast-totals">
@@ -3318,8 +3348,20 @@ function setupAiFeatures() {
     const origRemove = DOMTokenList.prototype.remove;
     DOMTokenList.prototype.remove = function (...tokens) {
         const el = this._element || null;
+        // Scope the delay to modal-like containers ONLY. The previous
+        // version delayed every `.active` / `.show` / `.open` removal
+        // globally, which double-highlighted sidebar links and page
+        // tabs for 200ms on every click.
+        const isModalLike = el && (
+            el.classList.contains('modal') ||
+            el.classList.contains('modal-content') ||
+            el.classList.contains('modal-overlay') ||
+            el.classList.contains('modal-card') ||
+            el.classList.contains('notifications-panel') ||
+            el.classList.contains('ai-panel')
+        );
         if (
-            el &&
+            isModalLike &&
             tokens.some(t => t === 'show' || t === 'active' || t === 'open') &&
             tokens.length === 1 &&
             !animatable.has(el)

@@ -11876,3 +11876,32 @@ html, body {
         overflow-wrap: anywhere;
     }
 }
+
+/* Low-confidence forecast — amber accent instead of green */
+.ai-forecast-summary-warn {
+    border-left-color: #fb923c !important;
+    background: rgba(251, 146, 60, 0.08) !important;
+}
+
+html:not([data-theme="light"]) .ai-forecast-summary-warn {
+    border-left-color: #fb923c !important;
+    background: rgba(251, 146, 60, 0.08) !important;
+}
+
+[data-theme="light"] .ai-forecast-summary-warn {
+    border-left-color: #ea580c !important;
+    background: rgba(251, 146, 60, 0.12) !important;
+}
+
+/* Amber pill for "Low confidence" trend */
+.ai-pill-uncertain {
+    background: rgba(251, 146, 60, 0.15);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+[data-theme="light"] .ai-pill-uncertain {
+    background: rgba(251, 146, 60, 0.15);
+    color: #9a3412;
+    border-color: rgba(251, 146, 60, 0.4);
+}
