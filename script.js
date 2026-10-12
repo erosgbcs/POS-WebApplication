@@ -1365,14 +1365,20 @@ function renderSalesByCategoryChart() {
             responsive: true,
             maintainAspectRatio: false,
             cutout: '60%',
+            // Reserve a little room so the legend column doesn't sit
+            // flush against the canvas edge on narrow containers.
+            layout: {
+                padding: { top: 8, right: 8, bottom: 8, left: 8 }
+            },
             plugins: {
                 legend: {
                     position: 'right',
+                    align: 'center',
                     labels: {
                         color: legendColor,
                         boxWidth: 12,
                         boxHeight: 12,
-                        padding: 12,
+                        padding: 10,
                         font: { size: 12 },
                         generateLabels: (chart) => {
                             const ds = chart.data?.datasets?.[0];

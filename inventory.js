@@ -506,6 +506,23 @@
                 ? `<img class="inventory-thumb" src="${product.image}" alt="">`
                 : `<div class="inventory-thumb inventory-thumb-empty"><i class="fas fa-box"></i></div>`;
 
+            // Compact timestamp — "Oct 12, 9:48 PM" instead of the full ISO string.
+            const updatedRaw = product.lastUpdated;
+            let updatedDisplay = '—';
+            if (updatedRaw) {
+                const d = new Date(updatedRaw);
+                if (!isNaN(d.getTime())) {
+                    updatedDisplay = d.toLocaleString('en-PH', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                    });
+                } else {
+                    updatedDisplay = String(updatedRaw).slice(0, 16).replace('T', ' ');
+                }
+            }
+
             return `<tr>
                 <td>
                     <div class="product-info">
@@ -522,7 +539,7 @@
                 <td>${renderPriceCell(product)}</td>
                 <td>${renderQuantityCell(product)}</td>
                 <td>${getStockBadge(status)}</td>
-                <td>${escapeHtml(product.lastUpdated || '')}</td>
+                <td title="${escapeHtml(updatedRaw || '')}">${escapeHtml(updatedDisplay)}</td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon edit" type="button" onclick="editProduct('${product.id}')" title="Edit"><i class="fas fa-edit"></i></button>

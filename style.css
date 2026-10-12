@@ -3976,30 +3976,125 @@ body {
 }
 
 
-.size-stock-summary > div {
+/* ============================================
+   SIZE × BRAND STOCK — compact chip layout
+   Each variant is a small pill; pills wrap in a
+   flex row so tall products stay readable without
+   stretching the table row vertically.
+   ============================================ */
+.size-stock-summary {
     display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 160px;
+    max-width: 280px;
+    align-content: flex-start;
+}
+
+/* Each variant becomes a chip */
+.size-stock-summary > div {
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 5px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+/* Variant label (size · brand) */
+.size-stock-summary > div > span {
+    color: var(--text-secondary, #94a3b8);
+    font-size: 10.5px;
+    font-weight: 500;
+}
+
+/* Stock number */
+.size-stock-count {
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--text-primary, #f1f5f9);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Low stock chip — amber tint */
+.size-stock-summary > div:has(.size-stock-count.low-stock) {
+    background: rgba(251, 146, 60, 0.1);
+    border-color: rgba(251, 146, 60, 0.3);
 }
 
 .size-stock-count.low-stock {
     color: #fbbf24;
 }
 
+/* Out of stock chip — red tint */
+.size-stock-summary > div:has(.size-stock-count.out-of-stock) {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
 .size-stock-count.out-of-stock {
     color: #f87171;
 }
 
-.size-stock-summary {
-    display: grid;
-    min-width: 110px;
-    gap: 4px;
+/* Total row — full width, sits below the chips */
+.size-stock-total {
+    flex-basis: 100%;
+    margin-top: 4px;
+    padding-top: 5px;
+    border-top: 1px dashed rgba(148, 163, 184, 0.2);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted, #8a8275);
+    text-align: right;
 }
 
-.size-stock-total {
-    padding-top: 4px;
-    border-top: 1px solid rgba(148, 163, 184, 0.25);
+/* Light theme */
+[data-theme="light"] .size-stock-summary > div {
+    background: #f5efe0;
+    border-color: rgba(120, 95, 55, 0.18);
+}
+
+[data-theme="light"] .size-stock-summary > div > span {
+    color: #57534e;
+}
+
+[data-theme="light"] .size-stock-count {
+    color: #100e0a;
+}
+
+[data-theme="light"] .size-stock-summary > div:has(.size-stock-count.low-stock) {
+    background: rgba(251, 146, 60, 0.12);
+    border-color: rgba(251, 146, 60, 0.4);
+}
+
+[data-theme="light"] .size-stock-count.low-stock {
+    color: #9a3412;
+}
+
+[data-theme="light"] .size-stock-summary > div:has(.size-stock-count.out-of-stock) {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="light"] .size-stock-count.out-of-stock {
+    color: #b91c1c;
+}
+
+[data-theme="light"] .size-stock-total {
+    border-top-color: rgba(120, 95, 55, 0.22);
+    color: #756c5e;
+}
+
+/* Mobile — single column, wider chips */
+@media (max-width: 768px) {
+    .size-stock-summary {
+        max-width: 100%;
+    }
 }
 
 /* Spec icon sizing inside chips */
@@ -10705,5 +10800,159 @@ html:not([data-theme="light"]) .payment-method i {
     .report-period-summary {
         margin-left: 0;
         text-align: left;
+    }
+}
+
+/* ============================================
+   INVENTORY TABLE — WIDTH FIX
+   The chips introduced in the Stock cell need
+   horizontal room to wrap; give the table a
+   real minimum so no column gets crushed.
+   ============================================ */
+.inventory-table {
+    min-width: 1100px;   /* was 900 — chips need the extra space */
+}
+
+/* Give the Stock cell its own floor so chips pack horizontally
+   instead of stacking one-per-line. */
+.inventory-table td:nth-child(4),
+.inventory-table th:nth-child(4) {
+    min-width: 220px;
+}
+
+/* Let the chip container actually use that width. */
+.size-stock-summary {
+    min-width: 200px;
+    max-width: 340px;
+}
+
+/* Shorten "Last Updated" — the timestamp string is the widest
+   non-essential column. Clamp it to 2 lines and let it truncate. */
+.inventory-table td:nth-child(6) {
+    max-width: 140px;
+    font-size: 11.5px;
+    color: var(--text-muted, #8a8275);
+    white-space: normal;
+    word-break: break-all;
+    line-height: 1.3;
+}
+
+.inventory-table th:nth-child(6) {
+    max-width: 140px;
+}
+
+/* Actions column — pin to the right so it never hides. */
+.inventory-table td:last-child,
+.inventory-table th:last-child {
+    min-width: 90px;
+    text-align: right;
+    padding-right: 20px;
+}
+
+/* Container: always allow horizontal scroll on narrow viewports
+   so nothing is cut off — the user can pan to see the rest. */
+.inventory-table-container > div {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Slim scrollbar for the horizontal scroll area. */
+.inventory-table-container > div::-webkit-scrollbar {
+    height: 8px;
+}
+
+.inventory-table-container > div::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+}
+
+/* Tablet — allow the table to shrink a bit but keep Stock readable */
+@media (max-width: 1024px) {
+    .inventory-table {
+        min-width: 1000px;   /* was 800 */
+    }
+    .size-stock-summary {
+        min-width: 180px;
+        max-width: 280px;
+    }
+}
+
+/* ============================================
+   AUDIT — ACTIVITY LIST SPACING + BADGE FIX
+   Prevents items from stretching when few exist,
+   and gives the bare "Registered" badge a real
+   visual treatment instead of floating text.
+   ============================================ */
+
+/* Force list items to sit at their natural height — never stretch
+   to fill the container, even when the parent has extra space. */
+.activity-list {
+    align-content: flex-start;
+    justify-content: flex-start;
+}
+
+.activity-item {
+    align-self: stretch;
+    min-height: 56px;
+    max-height: 84px;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+/* Long names shouldn't push the badge off the row */
+.activity-item .activity-content {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.activity-item .activity-content p {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.activity-item .activity-time {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Base .stock-badge with no modifier class — this is what "Registered"
+   falls back to. Give it a real pill treatment so it reads as a badge. */
+.stock-badge:not(.in-stock):not(.low-stock):not(.out-of-stock):not(.over-stock) {
+    background: rgba(148, 163, 184, 0.14);
+    color: var(--text-secondary, #d6cfc0);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+[data-theme="light"] .stock-badge:not(.in-stock):not(.low-stock):not(.out-of-stock):not(.over-stock) {
+    background: rgba(120, 95, 55, 0.1);
+    color: #57534e;
+    border-color: rgba(120, 95, 55, 0.22);
+}
+
+/* ============================================
+   ANALYTICS — CATEGORY DOUGHNUT CONTAINER
+   The doughnut is height-constrained so it stays
+   small relative to a wide canvas, leaving the
+   legend stranded at the far right. Capping the
+   container width brings the two together.
+   ============================================ */
+.ov-pane[data-ov-pane="categories"] .ov-chart-wrap {
+    max-width: 620px;
+    margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+    .ov-pane[data-ov-pane="categories"] .ov-chart-wrap {
+        max-width: 520px;
+    }
+}
+
+@media (max-width: 640px) {
+    .ov-pane[data-ov-pane="categories"] .ov-chart-wrap {
+        max-width: 100%;
     }
 }
