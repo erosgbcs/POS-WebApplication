@@ -306,6 +306,135 @@
             button { padding: 13px 16px; font-size: 14px; }
             #log { font-size: 12px; padding: 14px; }
         }
+
+        /* ---------- Demo scenarios ---------- */
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        .scenario-card {
+            width: 100%;
+            text-align: left;
+            padding: 14px 16px;
+            margin: 0;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--surface-soft);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: transform 0.15s ease, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+            font: inherit;
+        }
+
+        .scenario-card:hover:not(:disabled) {
+            border-color: var(--border-strong);
+            background: rgba(250, 204, 21, 0.08);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+        }
+
+        .scenario-card:active:not(:disabled) { transform: translateY(0) scale(0.99); }
+
+        .scenario-card:disabled { opacity: 0.55; cursor: wait; }
+
+        .scenario-card strong {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .scenario-card span {
+            font-size: 11.5px;
+            color: var(--text-3);
+            line-height: 1.4;
+        }
+
+        .scenario-card em {
+            font-style: normal;
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-top: 4px;
+        }
+
+        .scenario-card[data-scenario="clear"] {
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+        .scenario-card[data-scenario="clear"]:hover {
+            border-color: rgba(239, 68, 68, 0.7);
+            background: rgba(239, 68, 68, 0.08);
+        }
+        .scenario-card[data-scenario="clear"] em { color: #f87171; }
+
+        /* ---------- AI intent cheat sheet ---------- */
+        .intent-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .intent-btn {
+            width: 100%;
+            text-align: left;
+            padding: 10px 12px;
+            margin: 0;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface-soft);
+            color: var(--text);
+            cursor: pointer;
+            font: inherit;
+            transition: transform 0.12s ease, border-color 0.15s, background 0.15s;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .intent-btn:hover {
+            border-color: var(--border-strong);
+            background: rgba(250, 204, 21, 0.06);
+            transform: translateY(-1px);
+        }
+
+        .intent-btn:active { transform: translateY(0) scale(0.98); }
+
+        .intent-btn .intent-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-3);
+        }
+
+        .intent-btn code {
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+            font-size: 11.5px;
+            color: var(--text);
+            background: none;
+            border: none;
+            padding: 0;
+            line-height: 1.4;
+        }
+
+        .intent-btn.copied {
+            border-color: var(--ok);
+            background: rgba(74, 222, 128, 0.10);
+        }
+        .intent-btn.copied .intent-label { color: var(--ok); }
+
+        @media (max-width: 480px) {
+            .scenario-grid,
+            .intent-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -361,6 +490,20 @@
     <button id="clearOrdersBtn" class="neutral" disabled>
         Clear Orders, Customers &amp; Audit Only
     </button>
+
+    <h2>Demo Scenarios <span class="count-badge">for defense</span></h2>
+    <p>One-click injectors that produce <strong>specific order-history patterns</strong> so you can demonstrate how the forecasting engine chooses its method. Each button wipes orders + customers + audit, then reseeds the pattern. After seeding, open <code>index.html</code> → <strong>AI Insights → Forecast</strong>.</p>
+
+    <div class="scenario-grid" id="scenarioGrid">
+        <!-- Populated by JS -->
+    </div>
+
+    <h2>AI Chat — Intent Reference</h2>
+    <p>Click any chip to <strong>copy the question to clipboard</strong>. Paste into the app's AI chat (sparkle icon, bottom-right of dashboard). Each one exercises a different NLP intent so you can show the classifier working end-to-end.</p>
+
+    <div class="intent-grid" id="intentGrid">
+        <!-- Populated by JS -->
+    </div>
 
     <h2>Navigation</h2>
     <button id="backBtn" class="neutral">Back to App</button>
@@ -1628,6 +1771,363 @@
             seedOrders30dBtn.disabled = false;
             clearOrdersBtn.disabled = false;
             await refreshOrdersCount();
+        })();
+
+        // ============================================================
+        // DEMO SCENARIOS — forecast pattern injection for defense
+        // ============================================================
+
+        const FORECAST_SCENARIOS = {
+            growth: {
+                label: 'Steady Growth',
+                desc: '30 days rising · Linear Regression',
+                badge: 'linear_regression',
+                days: 30,
+                ordersPerDay: 8,
+                dailyTotal: (dayIdx, total) => 800 + (dayIdx / (total - 1)) * 3200
+            },
+            decline: {
+                label: 'Steady Decline',
+                desc: '30 days falling · Linear Regression (neg. slope)',
+                badge: 'linear_regression',
+                days: 30,
+                ordersPerDay: 8,
+                dailyTotal: (dayIdx, total) => 4000 - (dayIdx / (total - 1)) * 3200
+            },
+            flat: {
+                label: 'Stable / Flat',
+                desc: '30 days constant · Moving Average',
+                badge: 'moving_average',
+                days: 30,
+                ordersPerDay: 8,
+                dailyTotal: () => 2400
+            },
+            weekend_peaks: {
+                label: 'Weekend Peaks',
+                desc: 'High Fri–Sun · LR vs MA comparison',
+                badge: 'linear_regression',
+                days: 30,
+                ordersPerDay: 6,
+                dailyTotal: (dayIdx, total, date) => {
+                    const dow = date.getDay();
+                    const isWeekend = dow === 0 || dow === 5 || dow === 6;
+                    return isWeekend ? 4200 : 1100;
+                }
+            },
+            volatile: {
+                label: 'Volatile / Spiky',
+                desc: 'Random swings · MA (LR rejected by validation)',
+                badge: 'moving_average',
+                days: 30,
+                ordersPerDay: 6,
+                dailyTotal: () => {
+                    const base = 2000;
+                    const swing = (Math.random() - 0.5) * 4000;
+                    return Math.max(400, base + swing);
+                }
+            },
+            historical_mean: {
+                label: 'Sparse — Historical Mean',
+                desc: '5 low-volume days · Historical Mean method',
+                badge: 'historical_mean',
+                days: 5,
+                ordersPerDay: 3,
+                dailyTotal: () => 1200
+            },
+            insufficient: {
+                label: 'Insufficient Data',
+                desc: 'Only 2 days · "Not enough data" message',
+                badge: 'unavailable',
+                days: 2,
+                ordersPerDay: 4,
+                dailyTotal: () => 1500
+            }
+        };
+
+        // Build a single order whose total lands close to `targetTotal`.
+        function buildOrderToHitTarget(inventory, customers, orderDate, targetTotal, opts) {
+            const targetSubtotal = targetTotal / 1.08; // tax = 8%
+            const items = [];
+            const usedNames = new Set();
+            let running = 0;
+            let attempts = 0;
+
+            while (running < targetSubtotal * 0.92 && items.length < 4 && attempts < 30) {
+                attempts++;
+                const product = pick(inventory);
+                if (!product || usedNames.has(product.name)) continue;
+                usedNames.add(product.name);
+                const item = pickOrderItem(product);
+                if (!item || !Number.isFinite(item.price) || item.price <= 0) continue;
+
+                const remaining = targetSubtotal - running;
+                const chunk = remaining * (0.4 + Math.random() * 0.4);
+                let qty = Math.max(1, Math.round(chunk / item.price));
+                qty = Math.min(qty, 12);
+
+                item.quantity = qty;
+                items.push(item);
+                running += item.price * qty;
+            }
+
+            // Top-up the last item if we're still short
+            if (running < targetSubtotal * 0.85 && items.length > 0) {
+                const last = items[items.length - 1];
+                const deficit = targetSubtotal - running;
+                const extra = Math.max(1, Math.round(deficit / last.price));
+                last.quantity += extra;
+            }
+
+            if (items.length === 0) return null;
+
+            const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+            const tax = subtotal * 0.08;
+            const total = subtotal + tax;
+
+            const useCustomer = Math.random() < 0.7;
+            const customer = useCustomer ? pick(customers) : null;
+            const useGcash = opts.includeGcash && Math.random() < 0.3;
+            const paymentMethod = useGcash ? 'gcash' : 'cash';
+
+            const y = orderDate.getFullYear();
+            const mo = String(orderDate.getMonth() + 1).padStart(2, '0');
+            const d = String(orderDate.getDate()).padStart(2, '0');
+            const hh = String(orderDate.getHours()).padStart(2, '0');
+            const mm = String(orderDate.getMinutes()).padStart(2, '0');
+            const ss = String(orderDate.getSeconds()).padStart(2, '0');
+            const rnd = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+
+            return {
+                id: `REC-${y}${mo}${d}-${hh}${mm}${ss}-${rnd}`,
+                createdAt: orderDate.toISOString(),
+                customerName: customer ? customer.name : '',
+                customerPhone: customer ? customer.phone : '',
+                items,
+                subtotal: +subtotal.toFixed(2),
+                tax: +tax.toFixed(2),
+                total: +total.toFixed(2),
+                paymentMethod,
+                status: 'Completed',
+                ...(paymentMethod === 'gcash' ? { gcashReference: randomGcashRef() } : {}),
+                _customerId: customer ? customer.id : null
+            };
+        }
+
+        async function clearAiCache() {
+            try {
+                localStorage.removeItem('pos_ai_cache_forecast_14d');
+                localStorage.removeItem('pos_ai_cache_restock_priority');
+            } catch (e) {}
+        }
+
+        async function runForecastScenario(key) {
+            const s = FORECAST_SCENARIOS[key];
+            if (!s) return;
+
+            const btn = document.querySelector(`.scenario-card[data-scenario="${key}"]`);
+            const origHtml = btn?.innerHTML;
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<strong>Seeding…</strong><span>Please wait</span>';
+            }
+
+            log(`=== SCENARIO: ${s.label} ===`, 'warn');
+
+            try {
+                // 1. Wipe orders + customers + audit
+                log('Clearing existing orders/customers/audit…', 'info');
+                for (const name of ['orders', 'customers', 'audit_logs']) {
+                    const n = await wipeCollection(name);
+                    log(`  ${name}: ${n} removed`, 'info');
+                }
+                try {
+                    localStorage.removeItem('pos_orders');
+                    localStorage.removeItem('pos_customers');
+                    localStorage.removeItem('pos_audit_logs');
+                } catch (e) {}
+                await clearAiCache();
+
+                // 2. Read inventory
+                log('Reading inventory…', 'info');
+                const inventory = await readAllInventory();
+                if (!inventory.length) {
+                    log('No inventory — run the inventory seed first.', 'err');
+                    return;
+                }
+                log(`  ${inventory.length} products available.`, 'ok');
+
+                // 3. Customer pool
+                const customerCount = Math.min(25, Math.max(6, s.days));
+                const customers = generateCustomerPool(customerCount);
+                log(`  ${customers.length} customers queued.`, 'ok');
+
+                // 4. Build orders
+                log('Building orders…', 'info');
+                const now = new Date();
+                const orders = [];
+                const dailyActuals = [];
+
+                for (let dayOffset = s.days - 1; dayOffset >= 0; dayOffset--) {
+                    const dayDate = new Date(now);
+                    dayDate.setDate(dayDate.getDate() - dayOffset);
+                    const dayIdx = s.days - 1 - dayOffset;
+                    const targetTotal = s.dailyTotal(dayIdx, s.days, dayDate);
+
+                    let daySum = 0;
+                    for (let o = 0; o < s.ordersPerDay; o++) {
+                        const orderDate = new Date(dayDate);
+                        const hour = 9 + Math.floor(Math.random() * 9);
+                        orderDate.setHours(hour, Math.floor(Math.random() * 60), Math.floor(Math.random() * 60), 0);
+                        if (orderDate > now) orderDate.setTime(now.getTime() - Math.floor(Math.random() * 3600000));
+
+                        const orderTarget = targetTotal / s.ordersPerDay;
+                        const order = buildOrderToHitTarget(inventory, customers, orderDate, orderTarget, { includeGcash: true });
+                        if (order) {
+                            orders.push(order);
+                            daySum += order.total;
+                        }
+                    }
+                    dailyActuals.push(daySum);
+                }
+
+                log(`  ${orders.length} orders prepared.`, 'ok');
+                const totalsLine = dailyActuals.map(v => '₱' + Math.round(v).toLocaleString()).join(' · ');
+                log(`  Daily totals: ${totalsLine}`, 'info');
+                log(`  Forecast will see ${dailyActuals.length} nonzero day${dailyActuals.length === 1 ? '' : 's'} — expect method: ${s.badge}.`, 'info');
+
+                // 5. Write
+                log('Writing to Firestore…', 'info');
+                await writeOrdersAndCustomers({ orders, customers, writeAudit: true });
+
+                // 6. Refresh local caches so the app shows data instantly
+                try {
+                    const merged = orders.map(({ _customerId, ...o }) => o)
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                        .slice(0, 500);
+                    localStorage.setItem('pos_orders', JSON.stringify(merged));
+
+                    const byId = new Map();
+                    for (const c of customers) {
+                        const agg = orders.filter(o => o._customerId === c.id);
+                        byId.set(String(c.id), {
+                            ...c,
+                            orders: agg.length,
+                            totalSpent: +agg.reduce((s, o) => s + o.total, 0).toFixed(2)
+                        });
+                    }
+                    localStorage.setItem('pos_customers', JSON.stringify([...byId.values()]));
+                    log('Local caches updated.', 'ok');
+                } catch (e) {
+                    log('Local cache update failed (non-fatal): ' + e.message, 'warn');
+                }
+
+                log(`=== ${s.label.toUpperCase()} READY ===`, 'ok');
+                log('Open index.html → AI Insights → Forecast to see the model.', 'info');
+                await refreshOrdersCount();
+                await refreshInventoryCount();
+            } catch (e) {
+                log('Error: ' + e.message, 'err');
+                console.error(e);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    if (origHtml) btn.innerHTML = origHtml;
+                }
+            }
+        }
+
+        async function clearDemoData() {
+            if (!confirm('Clear orders, customers, and audit logs?\n\nInventory and settings are untouched.')) return;
+            log('=== CLEAR FOR DEMO ===', 'warn');
+            for (const name of ['orders', 'customers', 'audit_logs']) {
+                const n = await wipeCollection(name);
+                log(`  ${name}: ${n} removed`, 'ok');
+            }
+            try {
+                localStorage.removeItem('pos_orders');
+                localStorage.removeItem('pos_customers');
+                localStorage.removeItem('pos_audit_logs');
+            } catch (e) {}
+            await clearAiCache();
+            log('AI cache cleared — next forecast re-runs on fresh data.', 'info');
+            await refreshOrdersCount();
+        }
+
+        // Render the scenario grid
+        (function renderScenarioGrid() {
+            const grid = document.getElementById('scenarioGrid');
+            if (!grid) return;
+            const entries = Object.entries(FORECAST_SCENARIOS);
+            grid.innerHTML = entries.map(([key, s]) => `
+                <button type="button" class="scenario-card" data-scenario="${key}">
+                    <strong>${s.label}</strong>
+                    <span>${s.desc}</span>
+                    <em>${s.badge}</em>
+                </button>
+            `).join('') + `
+                <button type="button" class="scenario-card" data-scenario="clear">
+                    <strong>Clear Data</strong>
+                    <span>Wipe orders + customers + audit</span>
+                    <em>reset</em>
+                </button>
+            `;
+
+            grid.querySelectorAll('.scenario-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const key = card.dataset.scenario;
+                    if (key === 'clear') clearDemoData();
+                    else runForecastScenario(key);
+                });
+            });
+        })();
+
+        // ============================================================
+        // AI INTENT CHEAT SHEET
+        // ============================================================
+
+        const AI_INTENT_QUERIES = [
+            { intent: 'daily_sales',            query: "What are today's sales?" },
+            { intent: 'sales_summary',          query: "How much did we earn this week?" },
+            { intent: 'sales_history',          query: "Show me the last 7 days of sales." },
+            { intent: 'best_seller',            query: "What are the best sellers this month?" },
+            { intent: 'low_stock',              query: "Which items are low on stock?" },
+            { intent: 'out_of_stock',           query: "Show me out of stock products." },
+            { intent: 'inventory_check',        query: "How many Claw Hammers are left?" },
+            { intent: 'product_search',         query: "What's the price of PVC Pipe?" },
+            { intent: 'transaction_history',    query: "Show me recent transactions." },
+            { intent: 'sales_forecast',         query: "Predict sales for next week." },
+            { intent: 'restock_recommendation', query: "What should I restock?" },
+            { intent: 'greeting',               query: "Hello!" },
+            { intent: 'help',                   query: "What can you do?" },
+            { intent: 'ai · open-ended',        query: "Are we trending up or down this month?" },
+            { intent: 'ai · open-ended',        query: "Who are my top customers?" },
+            { intent: 'ai · tagalog',           query: "Magkano benta ngayong linggo?" }
+        ];
+
+        (function renderIntentGrid() {
+            const grid = document.getElementById('intentGrid');
+            if (!grid) return;
+
+            grid.innerHTML = AI_INTENT_QUERIES.map(({ intent, query }) => `
+                <button type="button" class="intent-btn" data-query="${query.replace(/"/g, '&quot;')}">
+                    <span class="intent-label">${intent}</span>
+                    <code>${query}</code>
+                </button>
+            `).join('');
+
+            grid.querySelectorAll('.intent-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const query = btn.dataset.query;
+                    try {
+                        await navigator.clipboard.writeText(query);
+                        btn.classList.add('copied');
+                        setTimeout(() => btn.classList.remove('copied'), 1200);
+                        log(`Copied: "${query}"`, 'ok');
+                    } catch (e) {
+                        log('Copy failed — select and copy manually.', 'err');
+                    }
+                });
+            });
         })();
     </script>
 </body>
