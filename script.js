@@ -1046,6 +1046,51 @@ renderCustomers(customerSearch?.value || '');
         return { cx, cy, radius };
     }
 
+    /* ------------------------------------------------------------
+       Device-tier heuristic for the theme reveal.
+
+       The View Transitions clip-path composites two full-page
+       snapshots. On premium silicon that's free. On mid-range
+       Android GPUs (Helio G99, Snapdragon 6-series, Dimensity 700)
+       it stays above ~40fps only with all the optimizations from
+       the CSS patch. Below that tier the reveal drops frames hard
+       and the flash fallback is the better UX.
+
+       Chrome exposes navigator.deviceMemory in GB (rounded down
+       to the nearest power of 2). It's the best GPU-tier proxy
+       available without spinning up a benchmark.
+       ------------------------------------------------------------ */
+    function shouldUseViewTransitionReveal() {
+        // 1. API must exist.
+        if (typeof document.startViewTransition !== 'function') return false;
+
+        // 2. Respect the OS-level reduced-motion preference. Users
+        //    who ask for less motion almost always want this off.
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            return false;
+        }
+
+        // 3. Desktop / large screens: always use the reveal.
+        if (window.innerWidth >= 1024) return true;
+
+        // 4. Mobile tier gate. Chrome only exposes deviceMemory on
+        //    Android; iOS Safari leaves it undefined — iOS devices
+        //    are all Metal-backed and handle the reveal fine, so we
+        //    treat `undefined` as "capable".
+        //
+        //    Thresholds:
+        //      >= 8 GB  → flagship (S22+, iPhone 13+, Pixel 7+) — reveal
+        //      4 GB     → capable mid-tier (Helio G99, SD 685) — reveal
+        //      < 4 GB   → entry-level (Helio A22, 3 GB Androids) — flash
+        //
+        //    To force the flash on your Helio G99 specifically,
+        //    change this to `mem < 8`.
+        const mem = navigator.deviceMemory;
+        if (typeof mem === 'number' && mem < 4) return false;
+
+        return true;
+    }
+
     function performThemeReveal(sourceEl, nextTheme) {
         // Shared work — called either directly (fallback path) or
         // inside the View Transition callback.
@@ -1054,8 +1099,9 @@ renderCustomers(customerSearch?.value || '');
             try { localStorage.setItem(THEME_KEY, nextTheme); } catch (e) {}
         };
 
-        // ---- Fallback: no View Transitions (Firefox, older Safari) ----
-        if (typeof document.startViewTransition !== 'function') {
+        // ---- Fallback path: no View Transitions, low-tier device,
+        //      or user prefers reduced motion ----
+        if (!shouldUseViewTransitionReveal()) {
             const { cx, cy, radius } = computeThemeRevealGeometry(sourceEl);
 
             const flash = document.createElement('div');
