@@ -40,7 +40,7 @@ let db;
 try {
     db = initializeFirestore(app, {
         localCache: persistentLocalCache({
-            tabManager: persistentMultiTabManager()
+            tabManager: persistentMultipleTabManager()
         })
     });
     console.log('✅ Firestore initialized with offline persistence (multi-tab)');
