@@ -938,24 +938,21 @@ function refreshOverviewStats() {
     const animateNumber = (el, toValue, formatter) => {
         if (!el) return;
         const fromValue = Number(el.dataset.rawValue) || 0;
-        const duration = 500;
+        // Fast path — no visual change, skip the frame loop entirely.
+        if (fromValue === toValue) {
+            el.textContent = formatter(toValue);
+            return;
+        }
+        const duration = 400;
         const start = performance.now();
-        const step = (now) => {
+        el.dataset.rawValue = String(toValue);
+        function step(now) {
             const t = Math.min((now - start) / duration, 1);
             const eased = 1 - Math.pow(1 - t, 3);
-            const current = fromValue + (toValue - fromValue) * eased;
-            el.textContent = formatter(current);
-            if (t < 1) {
-                requestAnimationFrame(step);
-            } else {
-                el.dataset.rawValue = String(toValue);
-                el.textContent = formatter(toValue);
-            }
-        };
-        el.dataset.rawValue = String(toValue);
-        el.classList.remove('kpi-animate');
-        void el.offsetWidth;
-        el.classList.add('kpi-animate');
+            el.textContent = formatter(fromValue + (toValue - fromValue) * eased);
+            if (t < 1) requestAnimationFrame(step);
+            else el.textContent = formatter(toValue);
+        }
         requestAnimationFrame(step);
     };
     
@@ -1116,8 +1113,6 @@ function renderSalesByCategoryChart() {
         }
     }
 
-    if (ovCategoryChartInstance) ovCategoryChartInstance.destroy();
-
     const isLight = document.documentElement.dataset.theme === 'light';
     const legendColor      = isLight ? '#3d3831' : '#d6cfc0';
     const centerTitleColor = isLight ? '#100e0a' : '#fef9e7';
@@ -1160,7 +1155,7 @@ function renderSalesByCategoryChart() {
         }
     };
 
-    ovCategoryChartInstance = new Chart(canvas, {
+    ovCategoryChartInstance = upsertChart(ovCategoryChartInstance, canvas, {
         type: 'doughnut',
         data: {
             labels,
@@ -1345,8 +1340,6 @@ function renderTopProductsChart() {
         }
     }
     
-    if (ovTopProductsChartInstance) ovTopProductsChartInstance.destroy();
-    
     const isLight = document.documentElement.dataset.theme === 'light';
     const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
     const tickColor = isLight ? '#475569' : '#94a3b8';
@@ -1371,7 +1364,7 @@ function renderTopProductsChart() {
         });
     }
     
-    ovTopProductsChartInstance = new Chart(canvas, {
+    ovTopProductsChartInstance = upsertChart(ovTopProductsChartInstance, canvas, {
         type: 'bar',
         data: { labels, datasets },
         options: {
@@ -1446,6 +1439,28 @@ function setupTopProductsPeriodControls() {
 // ---------- OVERVIEW: CONFIGURABLE SALES CHART ----------
 let ovSalesChartInstance = null;
 const SALES_PERIOD_KEY = 'pos_sales_period';
+
+/* ============================================================
+   CHART REUSE HELPER
+   Instead of destroy()+new Chart() on every refresh — which
+   rebuilds the canvas, re-parses config, and replays the entry
+   animation — mutate the existing instance and update in place.
+   First paint still animates; refreshes are instant.
+   ============================================================ */
+function upsertChart(existing, canvas, config) {
+    if (!existing) return new Chart(canvas, config);
+
+    const savedAnim = existing.options?.animation;
+    if (existing.options) existing.options.animation = false;
+
+    existing.data.labels = config.data.labels;
+    existing.data.datasets = config.data.datasets;
+    if (config.options) existing.options = config.options;
+
+    if (existing.options) existing.options.animation = savedAnim;
+    existing.update('none');
+    return existing;
+}
 
 function getSalesPeriodRange(period) {
     const now = new Date();
@@ -1659,8 +1674,6 @@ function renderSalesChart() {
         summaryEl.innerHTML = formatSalesSummary(total, decorated, range.bucket, compareTotal, compareEnabled);
     }
 
-    if (ovSalesChartInstance) ovSalesChartInstance.destroy();
-
     const isLight = document.documentElement.dataset.theme === 'light';
     const gridColor = isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.08)';
     const tickColor = isLight ? '#475569' : '#94a3b8';
@@ -1696,7 +1709,7 @@ function renderSalesChart() {
         });
     }
 
-    ovSalesChartInstance = new Chart(canvas, {
+    ovSalesChartInstance = upsertChart(ovSalesChartInstance, canvas, {
         type: 'line',
         data: { labels, datasets },
         options: {
@@ -2342,6 +2355,29 @@ function escapeAiText(value) {
    Safe: escapes HTML first, then wraps in placeholders so the
    patterns can't conflict with each other.
    ============================================================ */
+let __aiProductRegexCache = null;
+function getProductRegexes() {
+    const products = (window.getInventorySnapshot?.() || [])
+        .map(p => String(p.name || '').trim())
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length); // longest first
+
+    const key = products.join('\x00');
+    if (__aiProductRegexCache?.key === key) return __aiProductRegexCache.list;
+
+    const list = products.map(name => {
+        const escName = escapeAiText(name);
+        const escPattern = escName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return {
+            name,
+            rx: new RegExp(`(^|[^A-Za-z0-9])(${escPattern})(?=[^A-Za-z0-9]|$)`, 'g')
+        };
+    });
+
+    __aiProductRegexCache = { key, list };
+    return list;
+}
+
 function formatAiMessage(rawText, meta) {
     let cleaned = String(rawText || '').trim();
 
@@ -2368,19 +2404,9 @@ function formatAiMessage(rawText, meta) {
     };
 
     // ---- 1. Product names → clickable buttons ----
-    const products = (window.getInventorySnapshot?.() || [])
-        .map(p => String(p.name || '').trim())
-        .filter(Boolean);
-    // Longest first so "Fire Extinguisher" wins over "Fire"
-    products.sort((a, b) => b.length - a.length);
-
-    for (const name of products) {
-        const escName = escapeAiText(name);
-        const escPattern = escName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const rx = new RegExp(
-            `(^|[^A-Za-z0-9])(${escPattern})(?=[^A-Za-z0-9]|$)`,
-            'g'
-        );
+    // Regexes are compiled once per product-list snapshot and cached,
+    // so repeated AI bubbles don't re-compile hundreds of patterns.
+    for (const { name, rx } of getProductRegexes()) {
         safe = safe.replace(rx, (full, prefix, hit) => {
             const button = `<button type="button" class="ai-product-link" data-product-name="${escapeAiText(name)}">${hit}</button>`;
             return prefix + stash(button);
@@ -3653,8 +3679,9 @@ setupAiFeatures();
         window.addEventListener('pos-queue-changed', render);
         window.addEventListener('pos-order-created', render);
 
-        // Periodic safety net — every 15s
-        setInterval(render, 15000);
+        // Periodic safety net — every 15s, paused while hidden
+        window.posSetInterval(render, 15000);
+        window.addEventListener('pos-tab-visible', render);
 
         // Expose so pos.js can trigger an immediate re-render
         window.updateOfflineIndicator = render;
@@ -3869,7 +3896,8 @@ window.addEventListener('inventory-products-loaded', () => {
         window.addEventListener('inventory-products-loaded', refresh);
         window.addEventListener('pos-order-created', refresh);
         window.addEventListener('pos-queue-changed', refresh);
-        setInterval(refresh, 30000);
+        window.posSetInterval(refresh, 30000);
+        window.addEventListener('pos-tab-visible', refresh);
 
                         // Expose for other modules
         window.updateNotificationsBadge = refresh;

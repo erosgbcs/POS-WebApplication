@@ -204,7 +204,8 @@
     window.addEventListener('pos-order-created',          refreshAttentionStrip);
     window.addEventListener('online',                     refreshAttentionStrip);
     window.addEventListener('offline',                    refreshAttentionStrip);
-    setInterval(refreshAttentionStrip, 20000);
+    window.posSetInterval(refreshAttentionStrip, 20000);
+    window.addEventListener('pos-tab-visible', refreshAttentionStrip);
 
     // First paint
     requestAnimationFrame(() => requestAnimationFrame(refreshAttentionStrip));

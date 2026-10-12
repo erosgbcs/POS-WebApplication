@@ -10459,3 +10459,32 @@ html:not([data-theme="light"]) .payment-method i {
 [data-theme="light"] .ai-forecast-bar-val {
     color: #8a5a00;
 }
+
+/* ============================================================
+   OFFSREEN PAGE SKIPPING
+   Tells the browser to skip layout, paint, and style for pages
+   that aren't in the active tab. Cuts CPU work dramatically on
+   the dashboard where 9 pages exist in the DOM at once.
+   ============================================================ */
+.page-content:not(.active) {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 800px;
+}
+
+/* Same treatment for inventory rows — a 100-row table no longer
+   forces layout for rows scrolled out of view. */
+.inventory-table tbody tr {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 60px;
+}
+
+/* Respect users who've asked the OS to reduce motion. */
+@media (prefers-reduced-motion: reduce) {
+    .bg-glow,
+    .geo-shape,
+    .bg-gradient,
+    .bg-overlay {
+        animation: none !important;
+        transition: none !important;
+    }
+}

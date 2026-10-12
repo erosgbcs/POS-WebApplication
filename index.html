@@ -1623,6 +1623,30 @@
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+/* ============================================================
+   SHARED UI HELPERS — loaded before every app script.
+   ============================================================ */
+
+/* Visibility-gated setInterval. Same API, but skips execution
+   while the tab is hidden. Prevents background churn that steals
+   frames when the user comes back to the app. */
+window.posSetInterval = function (fn, ms) {
+    return setInterval(() => {
+        if (document.hidden) return;
+        try { fn(); } catch (e) { console.warn('[posSetInterval]', e); }
+    }, ms);
+};
+
+/* When the tab becomes visible again, dispatch a single event
+   modules can listen for to refresh immediately instead of
+   waiting up to 60s for their next tick. */
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        window.dispatchEvent(new CustomEvent('pos-tab-visible'));
+    }
+});
+</script>
 <script src="firebase.js"></script>
 <script src="inventory.js"></script>
 <script src="audit.js"></script>

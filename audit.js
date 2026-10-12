@@ -626,10 +626,12 @@
         renderUserSummary();
 
         if (window._auditTick) clearInterval(window._auditTick);
-        window._auditTick = setInterval(() => {
+        const _auditTickFn = () => {
             renderActiveUsers();
             renderUserSummary();
-        }, 60000);
+        };
+        window._auditTick = window.posSetInterval(_auditTickFn, 60000);
+        window.addEventListener('pos-tab-visible', _auditTickFn);
     }
 
     // ===================== PUBLIC API =====================
