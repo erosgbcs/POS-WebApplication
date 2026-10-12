@@ -299,6 +299,56 @@
             border-color: var(--border-strong);
         }
 
+        /* ---------- Seed count configurator ---------- */
+        .seed-count-row {
+            justify-content: space-between;
+            gap: 14px;
+            cursor: default;
+        }
+
+        .seed-count-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        #seedCountInput {
+            width: 90px;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface-soft);
+            color: var(--text);
+            font: 600 14px 'Inter', sans-serif;
+            text-align: center;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            -moz-appearance: textfield;
+        }
+
+        #seedCountInput::-webkit-outer-spin-button,
+        #seedCountInput::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        #seedCountInput:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.14);
+        }
+
+        #seedCountInput:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .seed-count-total {
+            font-size: 12px;
+            color: var(--text-3);
+            white-space: nowrap;
+        }
+
         @media (max-width: 480px) {
             body { padding: 20px 14px 48px; }
             h1 { font-size: 19px; }
@@ -453,6 +503,17 @@
         <span>Include real product photos (from loremflickr.com, keyword-matched)</span>
     </label>
 
+    <div class="seed-option seed-count-row">
+        <span>How many items to insert <span style="color:var(--text-3);font-size:11.5px;">(picked in order: Tools → Hardware → Electrical → …)</span></span>
+        <span class="seed-count-controls">
+            <input type="number" id="seedCountInput"
+                   min="1" max="300" step="10" value="300"
+                   inputmode="numeric"
+                   aria-label="How many items to insert">
+            <span class="seed-count-total" id="seedCountTotal">of 300</span>
+        </span>
+    </div>
+
     <button id="seedBtn" disabled>Insert 300 Hardware Items</button>
 
     <h2>Danger Zone <span class="count-badge" id="invCount">— items in cloud</span></h2>
@@ -533,6 +594,8 @@
         const nukeConfirm = document.getElementById('nukeConfirm');
         const invCountBadge = document.getElementById('invCount');
         const seedPreviewEl = document.getElementById('seedPreview');
+        const seedCountInput = document.getElementById('seedCountInput');
+        const seedCountTotal = document.getElementById('seedCountTotal');
 
         const ALL_COLLECTIONS = ['inventory', 'orders', 'customers', 'audit_logs', 'config'];
 
@@ -1028,13 +1091,25 @@
         // ============================================================
         // Preview panel — computed once, displayed before the seed
         // ============================================================
-        function analyzeSeed() {
+        function getConfiguredSeedCount() {
+            const max = SEED_ITEMS.length;
+            if (!seedCountInput) return max;
+            const raw = parseInt(seedCountInput.value, 10);
+            if (!Number.isFinite(raw) || raw < 1) return max;
+            return Math.min(max, raw);
+        }
+
+        function analyzeSeed(limit) {
+            const max = SEED_ITEMS.length;
+            const count = Math.max(1, Math.min(max, Number.isFinite(limit) ? limit : max));
+            const items = SEED_ITEMS.slice(0, count);
+
             let withBrand = 0;
             let withSizeOnly = 0;
             let withNeither = 0;
             let totalVariants = 0;
 
-            for (const item of SEED_ITEMS) {
+            for (const item of items) {
                 const sizes = String(item.size || '').split(',').map(s => s.trim()).filter(Boolean);
                 const pool = CATEGORY_BRAND_POOLS[item.category] || '';
                 const brand = item.brand !== undefined ? item.brand : pool;
@@ -1055,18 +1130,41 @@
 
         function renderPreview() {
             if (!seedPreviewEl) return;
-            const s = analyzeSeed();
+            const configured = getConfiguredSeedCount();
+            const total = SEED_ITEMS.length;
+            const s = analyzeSeed(configured);
             const includeImages = document.getElementById('seedImagesToggle')?.checked ?? true;
+
             seedPreviewEl.innerHTML = `
                 <div class="row"><span>Items with <strong>size × brand matrix</strong></span><strong>${s.withBrand}</strong></div>
                 <div class="row"><span>Items with <strong>size stocks only</strong></span><strong>${s.withSizeOnly}</strong></div>
                 <div class="row"><span>Total matrix variants generated</span><strong>${s.totalVariants.toLocaleString()}</strong></div>
-                <div class="row"><span>Total items</span><strong>${SEED_ITEMS.length}</strong></div>
-                <div class="row"><span>Product images</span><strong>${includeImages ? SEED_ITEMS.length + ' (loremflickr.com — real photos)' : 'off'}</strong></div>
+                <div class="row"><span>Items to insert</span><strong>${configured} of ${total}</strong></div>
+                <div class="row"><span>Product images</span><strong>${includeImages ? configured + ' (loremflickr.com — real photos)' : 'off'}</strong></div>
             `;
+
+            if (seedCountTotal) seedCountTotal.textContent = `of ${total}`;
+            if (seedCountInput) seedCountInput.max = String(total);
+
+            // Live-update the primary button label
+            if (seedBtn) {
+                seedBtn.textContent = `Insert ${configured} Hardware Item${configured === 1 ? '' : 's'}`;
+            }
         }
 
         document.getElementById('seedImagesToggle')?.addEventListener('change', renderPreview);
+
+        if (seedCountInput) {
+            seedCountInput.addEventListener('input', renderPreview);
+            // Snap to a valid integer in [1, SEED_ITEMS.length] on change / blur
+            const snap = () => {
+                seedCountInput.value = String(getConfiguredSeedCount());
+                renderPreview();
+            };
+            seedCountInput.addEventListener('change', snap);
+            seedCountInput.addEventListener('blur', snap);
+        }
+
         renderPreview();
 
         // ---- Firebase + auth bootstrap ----
@@ -1497,17 +1595,21 @@
         // ============================================================
         seedBtn.onclick = async () => {
             seedBtn.disabled = true;
+            if (seedCountInput) seedCountInput.disabled = true;
 
             const includeImages = document.getElementById('seedImagesToggle')?.checked ?? true;
+            const configuredCount = getConfiguredSeedCount();
+            const itemsToSeed = SEED_ITEMS.slice(0, configuredCount);
 
             log('Starting insert...', 'warn');
+            log('Configured count: ' + configuredCount + ' of ' + SEED_ITEMS.length + ' available', 'info');
             log(includeImages ? 'Product images: ON (loremflickr.com — real photos)' : 'Product images: OFF', 'info');
 
             try {
                 const fb = await getFb();
                 const { collection, doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
 
-                log('Prepared ' + SEED_ITEMS.length + ' items.', 'warn');
+                log('Prepared ' + itemsToSeed.length + ' items.', 'warn');
                 log('Generating matrix variants and size stocks...', 'info');
 
                 let batch = writeBatch(fb.db);
@@ -1517,7 +1619,7 @@
                 let sizeOnlyCount = 0;
                 let totalVariants = 0;
 
-                for (const item of SEED_ITEMS) {
+                for (const item of itemsToSeed) {
                     const ref = doc(collection(fb.db, 'inventory'));
 
                     // Parse dimensions
@@ -1622,6 +1724,7 @@
                 console.error(e);
             } finally {
                 seedBtn.disabled = false;
+                if (seedCountInput) seedCountInput.disabled = false;
             }
         };
 
