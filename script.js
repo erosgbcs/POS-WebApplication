@@ -1023,26 +1023,109 @@ renderCustomers(customerSearch?.value || '');
     }
     }
 
-            function initializeTheme() {
+    /* ============================================================
+       THEME REVEAL
+       Computes the geometry needed to expand a circle from the
+       theme button's center all the way to the farthest viewport
+       corner, then drives a View-Transition-based reveal. Browsers
+       without View Transitions get a short radial flash fallback.
+       ============================================================ */
+
+    function computeThemeRevealGeometry(sourceEl) {
+        // Fall back to viewport center if we don't have a source element.
+        const rect = sourceEl?.getBoundingClientRect?.();
+        const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+        const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+
+        // Distance from the click point to the farthest corner is the
+        // radius we need so the reveal fully covers the viewport.
+        const dx = Math.max(cx, window.innerWidth - cx);
+        const dy = Math.max(cy, window.innerHeight - cy);
+        const radius = Math.hypot(dx, dy);
+
+        return { cx, cy, radius };
+    }
+
+    function performThemeReveal(sourceEl, nextTheme) {
+        // Shared work — called either directly (fallback path) or
+        // inside the View Transition callback.
+        const persistAndApply = () => {
+            applyTheme(nextTheme);
+            try { localStorage.setItem(THEME_KEY, nextTheme); } catch (e) {}
+        };
+
+        // ---- Fallback: no View Transitions (Firefox, older Safari) ----
+        if (typeof document.startViewTransition !== 'function') {
+            const { cx, cy, radius } = computeThemeRevealGeometry(sourceEl);
+
+            const flash = document.createElement('div');
+            flash.className = 'reveal-flash';
+            flash.style.left = `${cx}px`;
+            flash.style.top = `${cy}px`;
+            flash.style.width = `${radius * 2}px`;
+            flash.style.height = `${radius * 2}px`;
+            document.body.appendChild(flash);
+
+            // Swap the theme at the peak of the flash.
+            setTimeout(persistAndApply, 170);
+            setTimeout(() => flash.remove(), 700);
+            return;
+        }
+
+        // ---- Primary path: View Transitions ----
+        const { cx, cy, radius } = computeThemeRevealGeometry(sourceEl);
+
+        // The keyframes read these off <html>, so the pseudo-element
+        // knows where the circle should originate and how far to grow.
+        const root = document.documentElement;
+        root.style.setProperty('--reveal-x', `${cx}px`);
+        root.style.setProperty('--reveal-y', `${cy}px`);
+        root.style.setProperty('--reveal-r', `${radius}px`);
+
+        const transition = document.startViewTransition(async () => {
+            persistAndApply();
+            // Give Chart.js two animation frames to flush its canvas
+            // repaints, otherwise the "new" snapshot may catch a
+            // blank canvas on products where destroy+recreate runs.
+            await new Promise(resolve =>
+                requestAnimationFrame(() => requestAnimationFrame(resolve))
+            );
+        });
+
+        transition.finished.finally(() => {
+            root.style.removeProperty('--reveal-x');
+            root.style.removeProperty('--reveal-y');
+            root.style.removeProperty('--reveal-r');
+        });
+    }
+
+    function initializeTheme() {
         let savedTheme = 'light';
         try {
             savedTheme = localStorage.getItem(THEME_KEY) || 'light';
         } catch (e) {}
-        
+
+        // Initial apply — no reveal animation on first paint.
         applyTheme(savedTheme);
-        
+
         // Shared toggle handler — used by both the login-page toggle
         // and the dashboard-nav toggle so they stay in sync via localStorage.
-        const toggleTheme = () => {
+        const toggleTheme = (event) => {
             const nextTheme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-            applyTheme(nextTheme);
-            try {
-                localStorage.setItem(THEME_KEY, nextTheme);
-            } catch (e) {}
+
+            // Whichever button triggered this is the reveal origin.
+            const source = event?.currentTarget || themeToggle || themeToggleLogin;
+
+            // Small icon spin — runs alongside the reveal so even if
+            // View Transitions is disabled the toggle still feels alive.
+            source?.classList.add('spin');
+            setTimeout(() => source?.classList.remove('spin'), 600);
+
+            performThemeReveal(source, nextTheme);
         };
-        
+
         if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
-        
+
         const themeToggleLogin = document.getElementById('themeToggleLogin');
         if (themeToggleLogin) themeToggleLogin.addEventListener('click', toggleTheme);
     }

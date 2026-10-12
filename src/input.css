@@ -387,3 +387,90 @@ textarea:focus,
         transform: none !important;
     }
 }
+
+/* ============================================================
+   THEME REVEAL — circular clip-path expansion from the button
+   Uses the View Transitions API where supported. Falls back to
+   a brief radial flash on Firefox / older Safari. The CSS vars
+   (--reveal-x/y/r) are set by script.js right before the
+   transition starts.
+   ============================================================ */
+
+/* Disable the default crossfade so our clip-path drives everything */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+
+/* The reveal itself. Falls back to a centered circle if the
+   JS-set variables are somehow missing. */
+@keyframes circle-reveal {
+    from {
+        clip-path: circle(0% at var(--reveal-x, 50%) var(--reveal-y, 50%));
+    }
+    to {
+        clip-path: circle(var(--reveal-r, 150vmax) at var(--reveal-x, 50%) var(--reveal-y, 50%));
+    }
+}
+
+::view-transition-new(root) {
+    animation: circle-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Exclude canvases from the snapshot — Chart.js re-renders them
+   inside applyTheme(), and capturing a mid-render state would
+   flash a blank canvas during the reveal. */
+canvas {
+    view-transition-name: none;
+}
+
+/* The button's icon does a small spin while the reveal is running */
+.theme-toggle.spin .theme-icon,
+.theme-toggle-login.spin .theme-icon {
+    animation: theme-icon-spin 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes theme-icon-spin {
+    from { transform: rotate(0deg) scale(1); }
+    to   { transform: rotate(360deg) scale(1); }
+}
+
+/* Fallback flash for browsers without View Transitions */
+.reveal-flash {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    background: #FACC15;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
+    animation: reveal-flash-spread 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+[data-theme="light"] .reveal-flash {
+    background: #E0A300;
+}
+
+@keyframes reveal-flash-spread {
+    0%   { transform: translate(-50%, -50%) scale(0);    opacity: 0.42; }
+    75%  { transform: translate(-50%, -50%) scale(1);    opacity: 0.14; }
+    100% { transform: translate(-50%, -50%) scale(1);    opacity: 0; }
+}
+
+/* Respect the OS motion preference */
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-new(root) {
+        animation: none;
+    }
+    .theme-toggle.spin .theme-icon,
+    .theme-toggle-login.spin .theme-icon {
+        animation: none;
+    }
+    .reveal-flash {
+        display: none;
+    }
+}
