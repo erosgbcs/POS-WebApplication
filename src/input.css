@@ -1,21 +1,84 @@
 @import "tailwindcss" source(none);
 @source inline("animate-fade-in");
+@source inline("animate-{fade-in,fade-out,slide-up,slide-down,slide-left,slide-right,scale-in,pop-in,bounce-in,shake,spin-slow,shimmer,pulse-soft}");
 
 @theme {
     --color-*: initial;
+
+    /* Animation tokens — Tailwind v4 uses these to recognise
+       animation names in plain CSS. Without them, LightningCSS
+       can strip `animation: slide-up ...` from otherwise-valid
+       rules because it can't find a matching @keyframes. */
+    --animate-fade-in:    fade-in    0.35s ease-out both;
+    --animate-slide-up:   slide-up   0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-slide-down: slide-down 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-scale-in:   scale-in   0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-spin-slow:  spin-slow  0.9s  linear infinite;
 }
 
-@keyframes fade-in {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
+/* ============================================================
+   KEYFRAMES — every animation referenced in this file MUST
+   have a matching @keyframes rule below, or the animation
+   silently does nothing (and LightningCSS may strip it).
+   ============================================================ */
 
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+@keyframes fade-in    { from { opacity: 0 } to { opacity: 1 } }
+@keyframes fade-out   { from { opacity: 1 } to { opacity: 0 } }
+
+@keyframes slide-up   {
+    from { opacity: 0; transform: translate3d(0, 12px, 0) }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) }
 }
+@keyframes slide-down {
+    from { opacity: 0; transform: translate3d(0, -12px, 0) }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) }
+}
+@keyframes slide-left {
+    from { opacity: 0; transform: translate3d(12px, 0, 0) }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) }
+}
+@keyframes slide-right {
+    from { opacity: 0; transform: translate3d(-12px, 0, 0) }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) }
+}
+
+@keyframes scale-in {
+    from { opacity: 0; transform: scale3d(0.96, 0.96, 1) }
+    to   { opacity: 1; transform: scale3d(1, 1, 1) }
+}
+@keyframes pop-in {
+    from { opacity: 0; transform: scale3d(0.88, 0.88, 1) }
+    60%  { transform: scale3d(1.04, 1.04, 1) }
+    to   { opacity: 1; transform: scale3d(1, 1, 1) }
+}
+@keyframes bounce-in {
+    0%   { opacity: 0; transform: scale3d(0.7, 0.7, 1) }
+    55%  { opacity: 1; transform: scale3d(1.08, 1.08, 1) }
+    75%  { transform: scale3d(0.97, 0.97, 1) }
+    100% { transform: scale3d(1, 1, 1) }
+}
+
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0) }
+    20%, 80% { transform: translate3d(2px, 0, 0) }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0) }
+    40%, 60% { transform: translate3d(4px, 0, 0) }
+}
+
+/* The rotating spinner — used by every loading icon */
+@keyframes spin-slow { to { transform: rotate(360deg) } }
+
+/* Misc */
+@keyframes shimmer    { from { background-position: -200% 0 } to { background-position: 200% 0 } }
+@keyframes pulse-soft { 0%, 100% { opacity: 1 } 50% { opacity: 0.65 } }
+
+/* ============================================================
+   TAILWIND v4 ANIMATION TOKENS
+   Registering these in @theme makes the animation names
+   "known" to Tailwind's compiler, which prevents the minifier
+   from silently dropping them. It also auto-generates
+   `animate-slide-up`, `animate-spin-slow`, etc. utility classes.
+   ============================================================ */
 
 @utility animate-fade-in {
     animation: fade-in 0.35s ease-out both;
