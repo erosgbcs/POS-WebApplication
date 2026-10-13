@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 2 — System Analysis and Design</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --ink: #1a1a1a;
+            --ink-2: #2d2d2d;
+            --muted: #666;
+            --rule: #c9c9c9;
+            --accent: #b8860b;
+            --code-bg: #f4f4f4;
+            --table-head: #efefef;
+            --table-alt: #fafafa;
+        }
+
+        html { -webkit-text-size-adjust: 100%; }
+
+        body {
+            font-family: 'Times New Roman', Times, Georgia, serif;
+            font-size: 12pt;
+            line-height: 1.7;
+            color: var(--ink);
+            background: #e8e8e8;
+            padding: 40px 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .page {
+            max-width: 8.5in;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 1in 0.9in;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+            border-radius: 2px;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: var(--ink);
+            line-height: 1.3;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        h1 {
+            font-size: 20pt;
+            font-weight: 700;
+            margin: 0 0 24pt 0;
+            padding-bottom: 12pt;
+            border-bottom: 2px solid var(--accent);
+            letter-spacing: -0.01em;
+        }
+
+        h2 {
+            font-size: 14pt;
+            font-weight: 700;
+            margin: 28pt 0 12pt 0;
+            padding-bottom: 4pt;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        h3 {
+            font-size: 12.5pt;
+            font-weight: 700;
+            margin: 20pt 0 8pt 0;
+            color: var(--ink-2);
+        }
+
+        h4 {
+            font-size: 11.5pt;
+            font-weight: 700;
+            margin: 16pt 0 6pt 0;
+            color: var(--ink-2);
+        }
+
+        p {
+            margin: 0 0 10pt 0;
+            text-align: justify;
+            hyphens: auto;
+        }
+
+        strong { font-weight: 700; }
+        em { font-style: italic; }
+
+        ul, ol {
+            margin: 8pt 0 12pt 24pt;
+            padding-left: 6pt;
+        }
+
+        li { margin-bottom: 5pt; text-align: justify; }
+
+        code {
+            font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+            font-size: 10pt;
+            background: var(--code-bg);
+            padding: 1pt 4pt;
+            border-radius: 3px;
+            color: #8b0000;
+        }
+
+        pre {
+            font-family: 'SF Mono', Menlo, Consolas, 'Courier New', monospace;
+            font-size: 9pt;
+            line-height: 1.45;
+            background: var(--code-bg);
+            border: 1px solid #ddd;
+            border-left: 3px solid var(--accent);
+            padding: 10pt 12pt;
+            margin: 10pt 0 14pt 0;
+            overflow-x: auto;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: var(--ink);
+            font-size: 9pt;
+        }
+
+        /* ---------- SVG DIAGRAM WRAPPER ---------- */
+        .diagram-wrap {
+            margin: 14pt 0 6pt 0;
+            padding: 14pt 10pt;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .diagram-wrap svg {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }
+
+        /* SVG element classes */
+        .diagram-wrap svg text {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            fill: #1a1a1a;
+            font-size: 11px;
+        }
+        .diagram-wrap svg .big   { font-size: 13px; font-weight: 700; }
+        .diagram-wrap svg .small { font-size: 10px; fill: #555; }
+        .diagram-wrap svg .lbl   { font-size: 10px; fill: #333; }
+        .diagram-wrap svg .ctr   { text-anchor: middle; dominant-baseline: middle; }
+        .diagram-wrap svg .start { text-anchor: start; dominant-baseline: middle; }
+
+        .diagram-wrap svg .box {
+            fill: #ffffff;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+        }
+        .diagram-wrap svg .oval {
+            fill: #f5f5f5;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+        }
+        .diagram-wrap svg .diamond {
+            fill: #ffffff;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+        }
+        .diagram-wrap svg .para {
+            fill: #f0f4f8;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+        }
+        .diagram-wrap svg .proc-circle {
+            fill: #fff8e6;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+        }
+        .diagram-wrap svg .store {
+            fill: #eef6ff;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+        }
+        .diagram-wrap svg .entity {
+            fill: #f5f5f5;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+        }
+        .diagram-wrap svg .boundary {
+            fill: #ffffff;
+            stroke: #1a1a1a;
+            stroke-width: 1.5;
+            stroke-dasharray: 0;
+        }
+        .diagram-wrap svg .line {
+            fill: none;
+            stroke: #1a1a1a;
+            stroke-width: 1.3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .diagram-wrap svg .line-dash {
+            fill: none;
+            stroke: #666;
+            stroke-width: 1;
+            stroke-dasharray: 4 3;
+        }
+        .diagram-wrap svg .arrow {
+            fill: #1a1a1a;
+            stroke: none;
+        }
+
+        .caption {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            font-style: italic;
+            color: var(--muted);
+            text-align: center;
+            margin: 4pt 0 14pt 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10pt 0 14pt 0;
+            font-size: 10.5pt;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        th, td {
+            padding: 7pt 9pt;
+            text-align: left;
+            vertical-align: top;
+            border: 1px solid var(--rule);
+        }
+
+        th {
+            background: var(--table-head);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 700;
+            font-size: 10pt;
+        }
+
+        tbody tr:nth-child(even) td { background: var(--table-alt); }
+
+        .toolbar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .dl-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: #141210;
+            background: #FACC15;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(250, 204, 21, 0.35);
+            transition: transform 0.15s ease, background 0.2s, box-shadow 0.2s;
+        }
+
+        .dl-btn:hover {
+            background: #EAB308;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 28px rgba(250, 204, 21, 0.45);
+        }
+
+        .dl-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+        @page {
+            size: letter;
+            margin: 1in 0.9in;
+        }
+
+        @media print {
+            html, body {
+                background: #ffffff;
+                padding: 0;
+                font-size: 11pt;
+            }
+            .page {
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                box-shadow: none;
+                border-radius: 0;
+            }
+            .toolbar { display: none !important; }
+            a { color: inherit; text-decoration: none; }
+            h1, h2, h3, h4 { page-break-after: avoid; }
+            table, pre, .diagram-wrap { page-break-inside: avoid; }
+            p, li { orphans: 3; widows: 3; }
+        }
+
+        @media (max-width: 720px) {
+            body { padding: 16px 8px; }
+            .page { padding: 24px 18px; }
+            .toolbar { top: 12px; right: 12px; }
+            .dl-btn { padding: 10px 16px; font-size: 13px; }
+            h1 { font-size: 17pt; }
+            h2 { font-size: 13pt; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <button class="dl-btn" onclick="window.print()" aria-label="Download as PDF">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/>
+        </svg>
+        Download PDF
+    </button>
+</div>
+
+<article class="page">
+
+<h1>Chapter 2: System Analysis and Design</h1>
+
+<h2>2.1 Existing System / Process</h2>
+
+<p>Kirby's Hardware Trading is a small-scale retail hardware store that has historically operated using fully manual processes. The store's day-to-day operations have relied on paper-based tracking, handwritten receipts, and mental arithmetic — a workflow that has proven adequate for very low transaction volumes but that breaks down as the business grows.</p>
+
+<h3>2.1.1 Description of the Current Manual Process</h3>
+
+<p>Prior to the development of the proposed system, the store's operations were divided into the following manual procedures:</p>
+
+<p><strong>Inventory Tracking.</strong> Stock levels are recorded in a handwritten ledger or notebook. When a shipment arrives, the store owner manually writes the new quantity next to each product's existing entry. When a sale occurs, the cashier is expected to subtract the sold quantity by hand. There is no systematic verification, and no early-warning mechanism for low stock — the owner discovers an item is out of stock only when a customer asks for it and it cannot be found on the shelf.</p>
+
+<p><strong>Sales Transactions.</strong> Each sale is recorded on a carbon-copy receipt pad. The cashier manually computes line totals, applies a mental or calculator-based tax calculation, and hands the customer a handwritten receipt. The carbon copy is filed for later tallying, but there is no consistent daily reconciliation and no aggregated view of revenue across a period.</p>
+
+<p><strong>Product Pricing.</strong> Prices are posted on a whiteboard or marked on shelf labels. When a price changes, the owner must update every label by hand. There is no historical record of price changes, and no way to verify what price was charged on a specific date.</p>
+
+<p><strong>Customer Records.</strong> The store occasionally keeps the names and contact numbers of regular customers in a small address book. Repeat purchases are not tracked. There is no way to identify a customer's lifetime spend, order frequency, or preferred products.</p>
+
+<p><strong>Reporting.</strong> At the end of each day, the owner counts the cash drawer against the carbon-copy receipts. At the end of the month, sales totals are compiled by manually summing dozens of receipts. Generating a report for a specific week, month, or product category requires hours of manual arithmetic.</p>
+
+<p><strong>Staff Oversight.</strong> When more than one person operates the store, the owner has no reliable way to verify which employee performed a given transaction, made a pricing change, or deleted a record. There is no audit trail and no accountability mechanism beyond personal trust.</p>
+
+<h3>2.1.2 Problems Identified in the Current System</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30%;">Problem Area</th>
+            <th>Specific Issue</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Inventory accuracy</td><td>Manual stock updates drift from reality over time. Shrinkage and miscounts go undetected until a stock-out occurs.</td></tr>
+        <tr><td>Low-stock detection</td><td>No mechanism notifies the owner when a product falls below a threshold. Restocking is reactive, not proactive.</td></tr>
+        <tr><td>Sales reporting</td><td>Generating any period-based report requires manual compilation that is error-prone and slow.</td></tr>
+        <tr><td>Transaction tracing</td><td>Carbon-copy receipts cannot be searched. Finding a specific sale from three months ago is practically impossible.</td></tr>
+        <tr><td>Customer relationship</td><td>Repeat customers are not tracked. The store cannot identify its top buyers or measure lifetime value.</td></tr>
+        <tr><td>Staff accountability</td><td>No audit log means any employee action is untraceable.</td></tr>
+        <tr><td>Business intelligence</td><td>The owner has no data to base decisions on — no sales trends, no seasonality, no product performance ranking.</td></tr>
+        <tr><td>Physical record loss</td><td>Paper receipts and ledgers are vulnerable to water damage, fire, loss, and simple misplacement.</td></tr>
+    </tbody>
+</table>
+
+<p>These problems collectively limit the store's ability to scale, to make data-driven decisions, and to operate reliably as transaction volume increases.</p>
+
+<h2>2.2 Proposed System</h2>
+
+<p>The proposed system — <strong>Kirby's Hardware POS and Inventory Management System</strong> — is a web-based, offline-capable point-of-sale and inventory management platform designed specifically for the operational realities of a small Philippine hardware store. It replaces the entire manual workflow with a digital system that is accessible from any browser-equipped device (laptop, tablet, or smartphone) without requiring dedicated hardware.</p>
+
+<h3>2.2.1 System Overview</h3>
+
+<p>The proposed system consolidates seven previously-separate manual processes into a single integrated application:</p>
+
+<ol>
+    <li><strong>Point of Sale</strong> — replaces the carbon-copy receipt pad with an interactive cart and payment interface that writes structured order documents to a cloud database.</li>
+    <li><strong>Inventory Management</strong> — replaces the handwritten ledger with a searchable, filterable catalog that supports size/brand variant matrices, product images, and automated low-stock detection.</li>
+    <li><strong>Order History</strong> — replaces the physical receipt archive with a searchable table of every transaction.</li>
+    <li><strong>Customer Tracking</strong> — replaces the address book with a structured customer database that automatically aggregates order count and lifetime spend.</li>
+    <li><strong>Audit Logging</strong> — introduces a full activity trail that records every sale, login, inventory change, and settings update with a timestamp and the user responsible.</li>
+    <li><strong>Reporting &amp; Analytics</strong> — replaces manual month-end arithmetic with one-click CSV and PDF exports and live dashboards.</li>
+    <li><strong>AI Assistant</strong> — provides a conversational interface that answers natural-language questions about the store's operations.</li>
+</ol>
+
+<h3>2.2.2 Key Innovations</h3>
+
+<p><strong>Offline-first operation.</strong> Every sale, stock update, and product change is written to the browser's local storage first, then synchronized to the cloud. If the store's internet connection drops mid-transaction, the sale is queued and replayed automatically when connectivity returns.</p>
+
+<p><strong>No dedicated hardware.</strong> The entire system runs in a web browser. The store does not need to purchase a specialized POS terminal — an existing laptop, tablet, or even a smartphone is sufficient.</p>
+
+<p><strong>Real-time multi-device sync.</strong> Because Firestore pushes changes to every connected client, a sale entered on the cashier's tablet appears on the owner's phone within a fraction of a second.</p>
+
+<p><strong>Fault-tolerant AI integration.</strong> The AI assistant is built on a two-provider fallback chain (Gemini → Groq) with strict timeouts and error isolation.</p>
+
+<p><strong>Statistical sales forecasting.</strong> Rather than relying on the LLM for numeric predictions, the system uses a pure-Python forecasting engine that scores four candidate statistical models via rolling-origin cross-validation and returns a 7-day forecast with 95% prediction intervals.</p>
+
+<h2>2.3 System Requirements</h2>
+
+<p>The proposed system is deliberately designed to run on commodity hardware and widely available software. There is no need for specialized servers, dedicated POS terminals, or proprietary operating systems.</p>
+
+<h3>2.3.1 Hardware Requirements</h3>
+
+<h4>Client Device (Cashier or Owner)</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 25%;">Component</th>
+            <th style="width: 30%;">Minimum</th>
+            <th>Recommended</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Processor</td><td>Dual-core 1.6 GHz</td><td>Quad-core 2.0 GHz or better</td></tr>
+        <tr><td>RAM</td><td>2 GB</td><td>4 GB or more</td></tr>
+        <tr><td>Storage</td><td>500 MB free</td><td>1 GB free</td></tr>
+        <tr><td>Display</td><td>1024 × 768</td><td>1920 × 1080 or tablet-size 10"</td></tr>
+        <tr><td>Network</td><td>Intermittent internet (offline support active)</td><td>Stable broadband or 4G LTE</td></tr>
+        <tr><td>Input</td><td>Keyboard + mouse, or touchscreen</td><td>Touchscreen for POS use</td></tr>
+    </tbody>
+</table>
+
+<h4>Server Side</h4>
+
+<p>No physical server is required. The system is hosted entirely on managed cloud infrastructure: Vercel Edge Network (static assets), Vercel Serverless Functions (Python API), Google Cloud Firestore (data), and Firebase Authentication (identity).</p>
+
+<h3>2.3.2 Software Requirements</h3>
+
+<h4>Client Side</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30%;">Software</th>
+            <th>Requirement</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Operating System</td><td>Windows 10+, macOS 11+, Linux, Android 8+, or iOS 14+</td></tr>
+        <tr><td>Web Browser</td><td>Chrome 90+, Edge 90+, Firefox 88+, or Safari 14+</td></tr>
+        <tr><td>JavaScript</td><td>Must be enabled</td></tr>
+        <tr><td>Local Storage</td><td>At least 10 MB of available quota</td></tr>
+        <tr><td>Cookies</td><td>Required for Firebase Auth session persistence</td></tr>
+    </tbody>
+</table>
+
+<h4>Server Side</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30%;">Software</th>
+            <th>Requirement</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Runtime</td><td>Python 3.11 (managed by Vercel)</td></tr>
+        <tr><td>Key Python libraries</td><td><code>firebase-admin</code>, <code>requests</code></td></tr>
+        <tr><td>Environment Variables</td><td><code>FIREBASE_SERVICE_ACCOUNT_JSON</code>, <code>GEMINI_API_KEY</code>, <code>GROQ_API_KEY</code></td></tr>
+    </tbody>
+</table>
+
+<h3>2.3.3 Development Requirements</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30%;">Tool</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Visual Studio Code</td><td>Primary code editor</td></tr>
+        <tr><td>Git</td><td>Version control</td></tr>
+        <tr><td>GitHub</td><td>Source repository hosting</td></tr>
+        <tr><td>Chrome DevTools</td><td>Debugging, performance profiling, network inspection</td></tr>
+        <tr><td>Firebase Console</td><td>Database administration, auth user management, quota monitoring</td></tr>
+    </tbody>
+</table>
+
+<h2>2.4 System Features</h2>
+
+<p>The system delivers the following major features, grouped by functional area.</p>
+
+<h3>2.4.1 Authentication &amp; Access Control</h3>
+<ul>
+    <li><strong>Secure login</strong> via Firebase Authentication (email + password)</li>
+    <li><strong>Role-based access control</strong> with two roles: Administrator and Cashier</li>
+    <li><strong>Deactivated-account rejection</strong> at sign-in</li>
+    <li><strong>Password reset</strong> via email link</li>
+    <li><strong>Session persistence</strong> across page reloads and offline periods</li>
+    <li><strong>Two-admin maximum</strong> with a minimum of one active admin enforced at the UI level</li>
+</ul>
+
+<h3>2.4.2 Point of Sale</h3>
+<ul>
+    <li><strong>Product catalog</strong> with category filter and search</li>
+    <li><strong>Variant selection</strong> for products with size and/or brand options</li>
+    <li><strong>Cart management</strong> with quantity steppers, per-line remove, and clear-cart</li>
+    <li><strong>Live totals</strong> with configurable tax rate</li>
+    <li><strong>Payment processing</strong> for Cash and GCash</li>
+    <li><strong>GCash QR generation</strong> from configured number and account name</li>
+    <li><strong>GCash reference validation</strong> — 13-digit numeric</li>
+    <li><strong>Stock validation</strong> at cart-add time and again at checkout</li>
+    <li><strong>Printable receipt</strong> with store header, footer, cashier name, and receipt number</li>
+    <li><strong>Offline sale queueing</strong> with automatic sync on reconnect</li>
+</ul>
+
+<h3>2.4.3 Inventory Management</h3>
+<ul>
+    <li><strong>Product CRUD</strong> with name, SKU, category, price, min-stock, supplier, and description</li>
+    <li><strong>Product images</strong> with client-side resizing to 400×400 JPEG</li>
+    <li><strong>Option groups</strong> — supports 0, 1, or 2 option dimensions</li>
+    <li><strong>Variant matrices</strong> with per-variant stock and optional per-variant pricing</li>
+    <li><strong>Stock badge states</strong> — In Stock, Low Stock, Out of Stock, Over Stocked</li>
+    <li><strong>Clickable stat cards</strong> that filter the table</li>
+    <li><strong>Category management</strong> with inline "add new category"</li>
+    <li><strong>CSV export</strong> of the full inventory</li>
+    <li><strong>Paginated table</strong> with 10 rows per page</li>
+</ul>
+
+<h3>2.4.4 Orders Module</h3>
+<ul>
+    <li><strong>Order table</strong> with status and date filters</li>
+    <li><strong>Order detail modal</strong> showing receipt number, customer, phone, date, payment method, GCash reference, and per-line items</li>
+    <li><strong>Order deletion</strong> with audit logging</li>
+    <li><strong>Timezone-correct "Today" filter</strong> — start-of-day in Asia/Manila</li>
+</ul>
+
+<h3>2.4.5 Customers Module</h3>
+<ul>
+    <li><strong>Customer CRUD</strong> with name, email, phone</li>
+    <li><strong>Automatic aggregation</strong> of order count and lifetime spend</li>
+    <li><strong>Auto-sync on POS sale</strong> — placing an order with a named customer updates their record atomically</li>
+    <li><strong>Search</strong> across name, email, and phone</li>
+</ul>
+
+<h3>2.4.6 Audit Trail</h3>
+<ul>
+    <li><strong>Every action logged</strong> with timestamp, user, module, action, and description</li>
+    <li><strong>Owner-friendly labels</strong> — "Sale" instead of <code>transaction:pos</code></li>
+    <li><strong>Filters</strong> — search, staff, time range, category, and action type</li>
+    <li><strong>Active users panel</strong> derived from login/logout events</li>
+    <li><strong>Per-user daily summary</strong> showing action counts, sales totals, and deletion counts</li>
+    <li><strong>CSV export</strong> of the activity log</li>
+</ul>
+
+<h3>2.4.7 Reports &amp; Analytics</h3>
+<ul>
+    <li><strong>Sales, Inventory, Customer, Financial reports</strong></li>
+    <li><strong>CSV and PDF export</strong> for each report type</li>
+    <li><strong>Period selector</strong> — Today, Yesterday, Last 7/30 days, This/Last Month, This/Last Year, Custom range</li>
+    <li><strong>Overview charts</strong> — 4 tabbed analytics: revenue trend, top products, category breakdown, hourly heatmap</li>
+    <li><strong>Live KPI cards</strong> — Today's Sales, Orders Today, Products in Stock, Active Customers</li>
+</ul>
+
+<h3>2.4.8 AI Assistant</h3>
+<ul>
+    <li><strong>Deterministic NLP intent classifier</strong> — 14 intents recognized before any LLM call</li>
+    <li><strong>Local handlers</strong> for structured queries (low stock, top sellers, today's sales, etc.)</li>
+    <li><strong>LLM fallback</strong> — Gemini primary, Groq fallback, for open-ended questions</li>
+    <li><strong>Compact context injection</strong> — the LLM receives only aggregated JSON</li>
+    <li><strong>Sales forecasting</strong> — statistical 7-day projection with confidence intervals</li>
+    <li><strong>Restock recommendations</strong> — ranked by urgency using 30-day sales velocity</li>
+    <li><strong>Clickable product names</strong> that navigate to the inventory search</li>
+    <li><strong>Bilingual support</strong> — responds in Tagalog / Taglish if the user writes in Tagalog / Taglish</li>
+    <li><strong>Persistent chat history</strong> across page reloads</li>
+</ul>
+
+<h3>2.4.9 User Management</h3>
+<ul>
+    <li><strong>Create new users</strong> with role assignment</li>
+    <li><strong>Edit user profile</strong> — name, email, role</li>
+    <li><strong>Password reset email</strong> dispatch per user</li>
+    <li><strong>Deactivate / reactivate</strong> accounts</li>
+    <li><strong>Delete profile records</strong></li>
+    <li><strong>Admin password re-authentication</strong> required for all sensitive operations</li>
+    <li><strong>Search, filter by role, filter by status</strong></li>
+    <li><strong>Paginated table</strong> with 10 rows per page</li>
+</ul>
+
+<h3>2.4.10 Settings</h3>
+<ul>
+    <li><strong>Store information</strong> — name, address, contact number</li>
+    <li><strong>Receipt footer</strong> configuration</li>
+    <li><strong>Tax rate</strong> configuration (0–50%)</li>
+    <li><strong>GCash credentials</strong> — number and account name</li>
+    <li><strong>Reset to defaults</strong> option</li>
+    <li><strong>Live propagation</strong> — settings changes broadcast to all open tabs</li>
+</ul>
+
+<h3>2.4.11 System-Wide Features</h3>
+<ul>
+    <li><strong>Dark / Light theme</strong> with a View-Transitions-based circular reveal animation</li>
+    <li><strong>Fully responsive layout</strong> — desktop, tablet, and mobile</li>
+    <li><strong>Offline banner</strong> that appears whenever the network is unavailable or sales are queued</li>
+    <li><strong>Service Worker</strong> for PWA installation and offline app-shell caching</li>
+    <li><strong>Notification bell</strong> with badge count for low-stock items</li>
+    <li><strong>Auto-update prompt</strong> when a new app version is deployed</li>
+    <li><strong>Toast notifications</strong> for all user-facing events</li>
+</ul>
+
+<h2>2.5 Use Case Diagram</h2>
+
+<p>The use case diagram identifies the two primary actors — <strong>Cashier</strong> and <strong>Administrator</strong> — and the operations each can perform. The Cashier role is a strict subset of the Administrator role.</p>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowUC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- System boundary -->
+    <rect class="boundary" x="240" y="40" width="500" height="560" rx="6"/>
+    <text class="big ctr" x="490" y="70">Kirby's Hardware POS &amp; Inventory Management System</text>
+
+    <!-- Actor: Cashier (left) -->
+    <g transform="translate(100, 300)">
+        <circle cx="0" cy="-30" r="12" fill="#f5f5f5" stroke="#1a1a1a" stroke-width="1.5"/>
+        <line class="line" x1="0" y1="-18" x2="0" y2="15"/>
+        <line class="line" x1="-18" y1="-5" x2="18" y2="-5"/>
+        <line class="line" x1="0" y1="15" x2="-14" y2="40"/>
+        <line class="line" x1="0" y1="15" x2="14" y2="40"/>
+        <text class="big ctr" x="0" y="65">Cashier</text>
+    </g>
+
+    <!-- Actor: Administrator (right) -->
+    <g transform="translate(800, 300)">
+        <circle cx="0" cy="-30" r="12" fill="#f5f5f5" stroke="#1a1a1a" stroke-width="1.5"/>
+        <line class="line" x1="0" y1="-18" x2="0" y2="15"/>
+        <line class="line" x1="-18" y1="-5" x2="18" y2="-5"/>
+        <line class="line" x1="0" y1="15" x2="-14" y2="40"/>
+        <line class="line" x1="0" y1="15" x2="14" y2="40"/>
+        <text class="big ctr" x="0" y="65">Administrator</text>
+    </g>
+
+    <!-- Use cases — cashier + admin (left column, x=390) -->
+    <g>
+        <ellipse class="oval" cx="390" cy="120" rx="130" ry="20"/><text class="ctr" x="390" y="120">Log In / Log Out</text>
+        <ellipse class="oval" cx="390" cy="168" rx="130" ry="20"/><text class="ctr" x="390" y="168">Reset Password</text>
+        <ellipse class="oval" cx="390" cy="216" rx="130" ry="20"/><text class="ctr" x="390" y="216">Process Sale (POS)</text>
+        <ellipse class="oval" cx="390" cy="264" rx="130" ry="20"/><text class="ctr" x="390" y="264">Print Receipt</text>
+        <ellipse class="oval" cx="390" cy="312" rx="130" ry="20"/><text class="ctr" x="390" y="312">View Dashboard</text>
+        <ellipse class="oval" cx="390" cy="360" rx="130" ry="20"/><text class="ctr" x="390" y="360">View Orders</text>
+        <ellipse class="oval" cx="390" cy="408" rx="130" ry="20"/><text class="ctr" x="390" y="408">Manage Customers</text>
+        <ellipse class="oval" cx="390" cy="456" rx="130" ry="20"/><text class="ctr" x="390" y="456">View Reports &amp; Export</text>
+        <ellipse class="oval" cx="390" cy="504" rx="130" ry="20"/><text class="ctr" x="390" y="504">Ask AI Assistant</text>
+    </g>
+
+    <!-- Use cases — admin only (right column, x=600) -->
+    <g>
+        <ellipse class="oval" cx="600" cy="168" rx="110" ry="20"/><text class="ctr" x="600" y="168">Manage Inventory</text>
+        <ellipse class="oval" cx="600" cy="264" rx="110" ry="20"/><text class="ctr" x="600" y="264">View Audit Trail</text>
+        <ellipse class="oval" cx="600" cy="360" rx="110" ry="20"/><text class="ctr" x="600" y="360">Manage Users</text>
+        <ellipse class="oval" cx="600" cy="456" rx="110" ry="20"/><text class="ctr" x="600" y="456">Configure Settings</text>
+    </g>
+
+    <!-- Cashier connection lines to left column ellipses -->
+    <g class="line">
+        <line x1="130" y1="300" x2="258" y2="120"/>
+        <line x1="130" y1="300" x2="258" y2="168"/>
+        <line x1="130" y1="300" x2="258" y2="216"/>
+        <line x1="130" y1="300" x2="258" y2="264"/>
+        <line x1="130" y1="300" x2="258" y2="312"/>
+        <line x1="130" y1="300" x2="258" y2="360"/>
+        <line x1="130" y1="300" x2="258" y2="408"/>
+        <line x1="130" y1="300" x2="258" y2="456"/>
+        <line x1="130" y1="300" x2="258" y2="504"/>
+    </g>
+
+    <!-- Administrator connection lines to right column ellipses -->
+    <g class="line">
+        <line x1="770" y1="300" x2="712" y2="168"/>
+        <line x1="770" y1="300" x2="712" y2="264"/>
+        <line x1="770" y1="300" x2="712" y2="360"/>
+        <line x1="770" y1="300" x2="712" y2="456"/>
+    </g>
+</svg>
+</div>
+<p class="caption">Figure 2.1 — Use Case Diagram of the Proposed System</p>
+
+<h3>2.5.1 Actor Descriptions</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Actor</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Cashier</strong></td>
+            <td>A store employee responsible for day-to-day customer transactions. Can process sales, view orders, manage customers, view dashboards and reports, and interact with the AI assistant. Cannot modify inventory, manage users, view audit logs, or change settings.</td>
+        </tr>
+        <tr>
+            <td><strong>Administrator</strong></td>
+            <td>The store owner or trusted manager. Has all cashier capabilities plus administrative access to inventory CRUD, user management, audit trail, and system settings.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>2.5.2 Use Case Descriptions</h3>
+
+<h4>UC-01: Log In</h4>
+<p><strong>Actors:</strong> Cashier, Administrator<br>
+<strong>Precondition:</strong> The user has a valid account in Firebase Authentication.<br>
+<strong>Main Flow:</strong> (1) User enters email and password. (2) System validates the credentials via Firebase Auth. (3) System retrieves the user's <code>profiles/{uid}</code> document. (4) System checks the <code>active</code> flag. (5) System loads the dashboard with role-appropriate navigation.<br>
+<strong>Alternate Flow:</strong> If the profile is marked inactive, the system signs the user out and displays "This account has been deactivated."</p>
+
+<h4>UC-02: Process Sale</h4>
+<p><strong>Actors:</strong> Cashier, Administrator<br>
+<strong>Precondition:</strong> The user is logged in and the product catalog is loaded.<br>
+<strong>Main Flow:</strong> (1) Cashier selects products from the catalog. (2) System adds items to the cart with the correct price. (3) Cashier clicks Checkout. (4) System displays the payment modal with the total. (5) Cashier selects payment method and enters payment details. (6) System runs a Firestore transaction that decrements stock and writes the order document. (7) System displays a printable receipt.<br>
+<strong>Alternate Flow:</strong> If the network is unavailable, the transaction is queued locally and the receipt is still generated.</p>
+
+<h4>UC-03: Manage Inventory</h4>
+<p><strong>Actors:</strong> Administrator only<br>
+<strong>Main Flow:</strong> (1) Admin navigates to the Inventory page. (2) System displays the product catalog table. (3) Admin can add, edit, or delete products. (4) For products with options, the admin configures option groups and variant stock in a matrix editor. (5) Changes are written to Firestore and audited.</p>
+
+<h4>UC-04: View Reports &amp; Export</h4>
+<p><strong>Actors:</strong> Cashier, Administrator<br>
+<strong>Main Flow:</strong> (1) User navigates to the Reports page. (2) User selects a report period. (3) User clicks a report type. (4) System builds the report data from local cache. (5) System triggers a CSV download or opens a print-ready PDF.</p>
+
+<h4>UC-05: Ask AI Assistant</h4>
+<p><strong>Actors:</strong> Cashier, Administrator<br>
+<strong>Main Flow:</strong> (1) User opens the AI panel. (2) User types a natural-language question. (3) System classifies the intent locally. (4) If a deterministic handler exists, the system answers from Firestore aggregates. (5) If the intent is unknown but POS-relevant, the system forwards a compact context snapshot to Gemini, falling back to Groq if Gemini is unavailable.</p>
+
+<h4>UC-06: Manage Users</h4>
+<p><strong>Actors:</strong> Administrator only<br>
+<strong>Main Flow:</strong> (1) Admin navigates to the User Management page. (2) System lists all profiles. (3) Admin creates, edits, deactivates, reactivates, or deletes a user. (4) Sensitive operations require admin password re-authentication. (5) Changes are audited.</p>
+
+<h4>UC-07: View Audit Trail</h4>
+<p><strong>Actors:</strong> Administrator only<br>
+<strong>Main Flow:</strong> (1) Admin navigates to the Audit Trail page. (2) System displays the activity log table. (3) Admin can filter, search, and export the log.</p>
+
+<h2>2.6 Data Flow Diagram (DFD)</h2>
+
+<p>The Data Flow Diagram describes how information moves through the system — from external entities, through processes, and into data stores. Three levels are presented below.</p>
+
+<h3>2.6.1 Context Diagram (Level 0)</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowDFD0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- Center process (circle) -->
+    <circle class="proc-circle" cx="450" cy="210" r="90"/>
+    <text class="big ctr" x="450" y="195">Kirby's Hardware</text>
+    <text class="big ctr" x="450" y="215">POS &amp; Inventory</text>
+    <text class="big ctr" x="450" y="235">System</text>
+    <text class="small ctr" x="450" y="255">(Process 0.0)</text>
+
+    <!-- External entity: Cashier (top-left) -->
+    <rect class="entity" x="40" y="60" width="160" height="60" rx="4"/>
+    <text class="big ctr" x="120" y="90">Cashier</text>
+
+    <!-- External entity: Administrator (bottom-left) -->
+    <rect class="entity" x="40" y="300" width="160" height="60" rx="4"/>
+    <text class="big ctr" x="120" y="330">Administrator</text>
+
+    <!-- External entity: LLM Providers (top-right) -->
+    <rect class="entity" x="700" y="60" width="160" height="60" rx="4"/>
+    <text class="big ctr" x="780" y="90">Gemini / Groq</text>
+
+    <!-- External entity: Firestore (bottom-right) -->
+    <rect class="entity" x="700" y="300" width="160" height="60" rx="4"/>
+    <text class="big ctr" x="780" y="330">Firestore</text>
+
+    <!-- Arrows from Cashier to Process -->
+    <line class="line" x1="200" y1="90" x2="368" y2="180" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="248" y="120">Login creds</text>
+    <text class="lbl" x="248" y="134">Sale data</text>
+    <text class="lbl" x="248" y="148">AI questions</text>
+
+    <!-- Arrows from Process to Cashier -->
+    <line class="line" x1="388" y1="200" x2="200" y2="110" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="215" y="168">Receipts</text>
+
+    <!-- Arrows from Administrator to Process -->
+    <line class="line" x1="200" y1="330" x2="368" y2="250" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="215" y="290">User mgmt</text>
+    <text class="lbl" x="215" y="304">Settings</text>
+
+    <!-- Arrows from Process to Administrator -->
+    <line class="line" x1="388" y1="240" x2="200" y2="350" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="248" y="328">Reports</text>
+    <text class="lbl" x="248" y="342">Dashboards</text>
+    <text class="lbl" x="248" y="356">Audit log</text>
+
+    <!-- Arrows between Process and Firestore -->
+    <line class="line" x1="540" y1="240" x2="700" y2="330" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="565" y="298">Read/Write</text>
+
+    <line class="line" x1="700" y1="350" x2="540" y2="260" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="565" y="336">Data</text>
+
+    <!-- Arrows between Process and LLM -->
+    <line class="line" x1="540" y1="180" x2="700" y2="90" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="565" y="120">Prompt +</text>
+    <text class="lbl" x="565" y="134">context</text>
+
+    <line class="line" x1="700" y1="110" x2="540" y2="200" marker-end="url(#arrowDFD0)"/>
+    <text class="lbl" x="565" y="168">Text</text>
+</svg>
+</div>
+<p class="caption">Figure 2.2 — Context Diagram (Level 0 DFD)</p>
+
+<h3>2.6.2 Level 1 DFD</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowDFD1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- External entities -->
+    <rect class="entity" x="20" y="140" width="120" height="50" rx="4"/>
+    <text class="big ctr" x="80" y="165">Cashier</text>
+
+    <rect class="entity" x="20" y="420" width="120" height="50" rx="4"/>
+    <text class="big ctr" x="80" y="445">Administrator</text>
+
+    <rect class="entity" x="760" y="140" width="120" height="50" rx="4"/>
+    <text class="big ctr" x="820" y="160">Gemini</text>
+    <text class="big ctr" x="820" y="178">Groq</text>
+
+    <!-- Processes (circles) -->
+    <g>
+        <circle class="proc-circle" cx="300" cy="80" r="42"/>
+        <text class="ctr" x="300" y="72">1.0</text>
+        <text class="ctr small" x="300" y="90">Authenticate</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="300" cy="200" r="42"/>
+        <text class="ctr" x="300" y="192">2.0</text>
+        <text class="ctr small" x="300" y="210">Route</text>
+        <text class="ctr small" x="300" y="222">Request</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="300" cy="320" r="42"/>
+        <text class="ctr" x="300" y="312">3.0</text>
+        <text class="ctr small" x="300" y="330">Process</text>
+        <text class="ctr small" x="300" y="342">Sale</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="300" cy="440" r="42"/>
+        <text class="ctr" x="300" y="432">4.0</text>
+        <text class="ctr small" x="300" y="450">Manage</text>
+        <text class="ctr small" x="300" y="462">Inventory</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="560" cy="320" r="42"/>
+        <text class="ctr" x="560" y="312">5.0</text>
+        <text class="ctr small" x="560" y="330">Compute</text>
+        <text class="ctr small" x="560" y="342">Reports</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="560" cy="440" r="42"/>
+        <text class="ctr" x="560" y="432">6.0</text>
+        <text class="ctr small" x="560" y="450">Ask AI</text>
+        <text class="ctr small" x="560" y="462">Assistant</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="560" cy="200" r="42"/>
+        <text class="ctr" x="560" y="192">7.0</text>
+        <text class="ctr small" x="560" y="210">Forecast</text>
+    </g>
+
+    <!-- Data stores (open rectangles) -->
+    <g>
+        <line class="store" x1="420" y1="540" x2="760" y2="540"/>
+        <line class="store" x1="420" y1="576" x2="760" y2="576"/>
+        <line class="store" x1="420" y1="540" x2="420" y2="576"/>
+        <line class="store" x1="760" y1="540" x2="760" y2="576"/>
+        <line class="store" x1="470" y1="540" x2="470" y2="576"/>
+        <text class="ctr" x="445" y="562">D1</text>
+        <text class="ctr" x="615" y="562">Firestore (inventory · orders · customers · audit_logs · profiles · config)</text>
+    </g>
+
+    <!-- Cashier → Authenticate -->
+    <line class="line" x1="140" y1="160" x2="258" y2="95" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="160" y="120">Login creds</text>
+
+    <!-- Authenticate → Route -->
+    <line class="line" x1="300" y1="122" x2="300" y2="158" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl start" x="306" y="140">verified uid</text>
+
+    <!-- Cashier → Route -->
+    <line class="line" x1="140" y1="170" x2="258" y2="200" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="160" y="192">Requests</text>
+
+    <!-- Admin → Route -->
+    <line class="line" x1="140" y1="440" x2="258" y2="215" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="160" y="330">Admin mgmt</text>
+
+    <!-- Route → Process Sale -->
+    <line class="line" x1="300" y1="242" x2="300" y2="278" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl start" x="306" y="260">sale intent</text>
+
+    <!-- Route → Manage Inventory -->
+    <line class="line" x1="290" y1="242" x2="290" y2="398" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl start" x="296" y="380">inv intent</text>
+
+    <!-- Route → Compute Reports -->
+    <line class="line" x1="342" y1="200" x2="518" y2="300" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="410" y="240">report intent</text>
+
+    <!-- Route → Ask AI -->
+    <line class="line" x1="342" y1="210" x2="518" y2="430" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="390" y="330">AI intent</text>
+
+    <!-- Route → Forecast -->
+    <line class="line" x1="342" y1="200" x2="518" y2="200" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="400" y="192">forecast intent</text>
+
+    <!-- Process Sale → Firestore -->
+    <line class="line" x1="330" y1="350" x2="470" y2="540" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="360" y="450">order + stock</text>
+
+    <!-- Manage Inventory → Firestore -->
+    <line class="line" x1="330" y1="462" x2="470" y2="552" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="360" y="510">product docs</text>
+
+    <!-- Firestore → Compute Reports -->
+    <line class="line" x1="490" y1="540" x2="540" y2="358" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="440" y="450">aggregates</text>
+
+    <!-- Firestore → Ask AI -->
+    <line class="line" x1="530" y1="540" x2="552" y2="480" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="510" y="510">context</text>
+
+    <!-- Ask AI ↔ Gemini/Groq -->
+    <line class="line" x1="600" y1="425" x2="762" y2="180" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="630" y="300">prompt</text>
+    <line class="line" x1="762" y1="195" x2="600" y2="440" marker-end="url(#arrowDFD1)"/>
+    <text class="lbl" x="630" y="320">response</text>
+
+    <!-- Cashier ← Process Sale (receipt path) -->
+    <line class="line" x1="140" y1="180" x2="258" y2="320" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
+    <text class="lbl" x="140" y="260">receipts</text>
+
+    <!-- Cashier ← Compute Reports (report path) -->
+    <line class="line" x1="140" y1="190" x2="518" y2="320" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
+    <text class="lbl" x="300" y="290">reports</text>
+</svg>
+</div>
+<p class="caption">Figure 2.3 — Level 1 Data Flow Diagram</p>
+
+<h3>2.6.3 Level 2 DFD — Process 4.0 (Process Sale)</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 700" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowDFD2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- External entity: Cashier -->
+    <rect class="entity" x="20" y="40" width="130" height="50" rx="4"/>
+    <text class="big ctr" x="85" y="70">Cashier</text>
+
+    <!-- Data store: Firestore -->
+    <g>
+        <line class="store" x1="720" y1="320" x2="880" y2="320"/>
+        <line class="store" x1="720" y1="370" x2="880" y2="370"/>
+        <line class="store" x1="720" y1="320" x2="720" y2="370"/>
+        <line class="store" x1="880" y1="320" x2="880" y2="370"/>
+        <line class="store" x1="770" y1="320" x2="770" y2="370"/>
+        <text class="ctr" x="745" y="350">D1</text>
+        <text class="ctr small" x="825" y="345">Firestore</text>
+    </g>
+
+    <!-- Processes -->
+    <g>
+        <circle class="proc-circle" cx="200" cy="180" r="48"/>
+        <text class="ctr" x="200" y="170">4.1</text>
+        <text class="ctr small" x="200" y="188">Build</text>
+        <text class="ctr small" x="200" y="200">Cart</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="200" cy="340" r="48"/>
+        <text class="ctr" x="200" y="330">4.2</text>
+        <text class="ctr small" x="200" y="348">Validate</text>
+        <text class="ctr small" x="200" y="360">Stock</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="200" cy="500" r="48"/>
+        <text class="ctr" x="200" y="490">4.3</text>
+        <text class="ctr small" x="200" y="508">Capture</text>
+        <text class="ctr small" x="200" y="520">Payment</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="480" cy="500" r="48"/>
+        <text class="ctr" x="480" y="490">4.4</text>
+        <text class="ctr small" x="480" y="508">Write</text>
+        <text class="ctr small" x="480" y="520">Transaction</text>
+    </g>
+
+    <g>
+        <circle class="proc-circle" cx="480" cy="660" r="42"/>
+        <text class="ctr" x="480" y="650">4.5</text>
+        <text class="ctr small" x="480" y="668">Render</text>
+        <text class="ctr small" x="480" y="680">Receipt</text>
+    </g>
+
+    <!-- Cashier → 4.1 -->
+    <line class="line" x1="150" y1="90" x2="170" y2="140" marker-end="url(#arrowDFD2)"/>
+    <text class="lbl" x="60" y="130">select items</text>
+
+    <!-- 4.1 → 4.2 -->
+    <line class="line" x1="200" y1="228" x2="200" y2="292" marker-end="url(#arrowDFD2)"/>
+    <text class="lbl start" x="206" y="260">cart items</text>
+
+    <!-- Firestore → 4.2 (stock data) -->
+    <line class="line" x1="720" y1="345" x2="248" y2="340" marker-end="url(#arrowDFD2)"/>
+    <text class="lbl" x="440" y="332">stock data</text>
+
+    <!-- 4.2 → 4.3 -->
+    <line class="line" x1="200" y1="388" x2="200" y2="452" marker-end="url(#arrowDFD2)"/>
+    <text class="lbl start" x="206" y="420">validated cart</text>
+
+    <!-- 4.3 → 4.4 -->
+    <line class="line" x1="248" y1="500" x2="432" y2="500" marker-end="url(#arrowDFD2)"/>
+    <text class="lbl ctr" x="340" y="492">payment intent</text>
+
+    <!-- 4.4 → Firestore (write) -->
+    <line class="line" x1="528" y1="500" x2="720" y2="365" marker-end="url(#arrowDFD2)"/>
+    <text class="lbl" x="580" y="440">order + stock</text>
+    <text class="lbl" x="580" y="454">(atomic)</text>
+
+    <!-- 4.4 → 4.5 -->
+    <line class="line" x1="480" y1="548" x2="480" y2="618" marker-end="url(#arrowDFD2)"/>
+    <text class="lbl start" x="486" y="585">confirmed</text>
+
+    <!-- 4.5 → Cashier -->
+    <line class="line" x1="440" y1="680" x2="100" y2="90" marker-end="url(#arrowDFD2)" stroke-dasharray="4 3"/>
+    <text class="lbl" x="270" y="400">receipt</text>
+</svg>
+</div>
+<p class="caption">Figure 2.4 — Level 2 DFD for Process 4.0 (Process Sale)</p>
+
+<h3>2.6.4 Data Flow Description</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 8%;">#</th>
+            <th style="width: 26%;">Process</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>1.0</td><td>Authenticate User</td><td>Validates Firebase ID token, loads the user's profile document, and enforces the active-account check.</td></tr>
+        <tr><td>2.0</td><td>Route Request</td><td>Client-side NLP classification routes the intent to a deterministic handler or to the AI fallback.</td></tr>
+        <tr><td>3.0</td><td>Process Sale</td><td>Full POS transaction — cart building, stock validation, payment capture, atomic Firestore write, and receipt rendering.</td></tr>
+        <tr><td>4.0</td><td>Manage Inventory</td><td>Product CRUD, variant matrix editor, category management, CSV export.</td></tr>
+        <tr><td>5.0</td><td>Compute Reports</td><td>Aggregates orders into revenue-by-period, revenue-by-category, and revenue-by-product views.</td></tr>
+        <tr><td>6.0</td><td>Ask AI Assistant</td><td>LLM fallback with context injection. Gemini primary, Groq fallback.</td></tr>
+        <tr><td>7.0</td><td>Forecast</td><td>Pure-Python statistical forecast. Rolling-origin CV across four candidate models.</td></tr>
+        <tr><td>D1</td><td>Firestore</td><td>Persistent data store. Six collections, real-time subscriptions, offline write queue.</td></tr>
+    </tbody>
+</table>
+
+<h2>2.7 System Flowchart</h2>
+
+<p>The system flowchart describes the overall operational flow — from the user's first interaction with the login screen through to the completion of a transaction or administrative action.</p>
+
+<h3>2.7.1 Main System Flowchart</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 1100" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowFC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- Center column x=450, box width 220, half-width 110 -->
+
+    <!-- START (oval) -->
+    <ellipse class="oval" cx="450" cy="40" rx="70" ry="22"/>
+    <text class="big ctr" x="450" y="40">START</text>
+
+    <!-- Load page (rect) -->
+    <line class="line" x1="450" y1="62" x2="450" y2="90" marker-end="url(#arrowFC)"/>
+    <rect class="box" x="330" y="90" width="240" height="50" rx="4"/>
+    <text class="ctr" x="450" y="115">Load index.html + service worker</text>
+
+    <!-- Firebase init (rect) -->
+    <line class="line" x1="450" y1="140" x2="450" y2="168" marker-end="url(#arrowFC)"/>
+    <rect class="box" x="330" y="168" width="240" height="50" rx="4"/>
+    <text class="ctr" x="450" y="193">Firebase init (auth + Firestore)</text>
+
+    <!-- Cached session? (diamond) -->
+    <line class="line" x1="450" y1="218" x2="450" y2="246" marker-end="url(#arrowFC)"/>
+    <polygon class="diamond" points="450,246 570,296 450,346 330,296"/>
+    <text class="ctr" x="450" y="296">Cached session?</text>
+
+    <!-- Yes → Restore user session -->
+    <line class="line" x1="330" y1="296" x2="200" y2="296"/>
+    <line class="line" x1="200" y1="296" x2="200" y2="390" marker-end="url(#arrowFC)"/>
+    <text class="lbl" x="250" y="288">Yes</text>
+    <rect class="box" x="90" y="390" width="220" height="50" rx="4"/>
+    <text class="ctr" x="200" y="415">Restore user session</text>
+
+    <!-- No → Show Login View -->
+    <line class="line" x1="570" y1="296" x2="700" y2="296"/>
+    <line class="line" x1="700" y1="296" x2="700" y2="390" marker-end="url(#arrowFC)"/>
+    <text class="lbl" x="600" y="288">No</text>
+    <rect class="box" x="590" y="390" width="220" height="50" rx="4"/>
+    <text class="ctr" x="700" y="415">Show Login View</text>
+
+    <!-- Enter credentials (para) -->
+    <line class="line" x1="700" y1="440" x2="700" y2="480" marker-end="url(#arrowFC)"/>
+    <polygon class="para" points="620,480 800,480 780,530 600,530"/>
+    <text class="ctr" x="700" y="505">Enter credentials</text>
+
+    <!-- Firebase Auth valid? (diamond) -->
+    <line class="line" x1="700" y1="530" x2="700" y2="570" marker-end="url(#arrowFC)"/>
+    <polygon class="diamond" points="700,570 810,620 700,670 590,620"/>
+    <text class="ctr" x="700" y="620">Auth valid?</text>
+
+    <!-- No → Show error and loop back -->
+    <line class="line" x1="810" y1="620" x2="870" y2="620"/>
+    <line class="line" x1="870" y1="620" x2="870" y2="505"/>
+    <line class="line" x1="870" y1="505" x2="800" y2="505" marker-end="url(#arrowFC)"/>
+    <text class="lbl" x="820" y="612">No</text>
+
+    <!-- Yes → Load profile (down the left path) -->
+    <line class="line" x1="700" y1="670" x2="700" y2="720" marker-end="url(#arrowFC)"/>
+    <text class="lbl" x="710" y="700">Yes</text>
+    <rect class="box" x="590" y="720" width="220" height="50" rx="4"/>
+    <text class="ctr" x="700" y="745">Load profile (role, active)</text>
+
+    <!-- Active flag = true? -->
+    <line class="line" x1="700" y1="770" x2="700" y2="800" marker-end="url(#arrowFC)"/>
+    <polygon class="diamond" points="700,800 810,850 700,900 590,850"/>
+    <text class="ctr" x="700" y="850">Active?</text>
+
+    <!-- No → Sign out and stop -->
+    <line class="line" x1="810" y1="850" x2="870" y2="850" marker-end="url(#arrowFC)"/>
+    <text class="lbl" x="820" y="842">No</text>
+    <rect class="box" x="830" y="820" width="60" height="60" rx="4" fill="#fff" stroke="#1a1a1a" stroke-width="1.5" transform="translate(-60,0)"/>
+    <rect class="box" x="770" y="820" width="100" height="60" rx="4"/>
+    <text class="ctr" x="820" y="842">Sign out</text>
+    <text class="ctr" x="820" y="858">+ deny</text>
+
+    <!-- Yes → Load Dashboard -->
+    <line class="line" x1="700" y1="900" x2="700" y2="950" marker-end="url(#arrowFC)"/>
+    <text class="lbl" x="710" y="930">Yes</text>
+
+    <!-- Merge lines -->
+    <line class="line" x1="200" y1="440" x2="200" y2="980"/>
+    <line class="line" x1="200" y1="980" x2="700" y2="980" stroke-dasharray="0"/>
+
+    <rect class="box" x="330" y="950" width="240" height="60" rx="4"/>
+    <text class="ctr" x="450" y="972">Load Dashboard</text>
+    <text class="ctr small" x="450" y="990">Apply role · Subscribe to data</text>
+
+    <!-- END -->
+    <line class="line" x1="450" y1="1010" x2="450" y2="1050" marker-end="url(#arrowFC)"/>
+    <ellipse class="oval" cx="450" cy="1075" rx="60" ry="22"/>
+    <text class="big ctr" x="450" y="1075">END</text>
+</svg>
+</div>
+<p class="caption">Figure 2.5 — Main System Flowchart</p>
+
+<h3>2.7.2 POS Transaction Sub-Flowchart</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 1100" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowPOS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- START -->
+    <ellipse class="oval" cx="450" cy="40" rx="130" ry="22"/>
+    <text class="big ctr" x="450" y="40">START (Checkout)</text>
+
+    <!-- Cart empty? -->
+    <line class="line" x1="450" y1="62" x2="450" y2="90" marker-end="url(#arrowPOS)"/>
+    <polygon class="diamond" points="450,90 550,140 450,190 350,140"/>
+    <text class="ctr" x="450" y="140">Cart empty?</text>
+
+    <!-- Yes → error -->
+    <line class="line" x1="350" y1="140" x2="200" y2="140" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="260" y="132">Yes</text>
+    <rect class="box" x="80" y="115" width="120" height="50" rx="4"/>
+    <text class="ctr" x="140" y="140">Show error</text>
+
+    <!-- No → Open modal -->
+    <line class="line" x1="450" y1="190" x2="450" y2="220" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="460" y="208">No</text>
+    <rect class="box" x="330" y="220" width="240" height="50" rx="4"/>
+    <text class="ctr" x="450" y="245">Open payment modal + total</text>
+
+    <!-- Payment method? -->
+    <line class="line" x1="450" y1="270" x2="450" y2="300" marker-end="url(#arrowPOS)"/>
+    <polygon class="diamond" points="450,300 560,350 450,400 340,350"/>
+    <text class="ctr" x="450" y="350">Method?</text>
+
+    <!-- Cash path (left) -->
+    <line class="line" x1="340" y1="350" x2="200" y2="350" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="260" y="342">Cash</text>
+    <rect class="box" x="80" y="325" width="120" height="50" rx="4"/>
+    <text class="ctr" x="140" y="350">Enter cash</text>
+
+    <!-- GCash path (right) -->
+    <line class="line" x1="560" y1="350" x2="700" y2="350" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="620" y="342">GCash</text>
+    <rect class="box" x="700" y="325" width="180" height="50" rx="4"/>
+    <text class="ctr" x="790" y="350">Show QR + ref input</text>
+
+    <!-- Confirm check + ref valid? -->
+    <line class="line" x1="790" y1="375" x2="790" y2="410" marker-end="url(#arrowPOS)"/>
+    <polygon class="diamond" points="790,410 880,460 790,510 700,460"/>
+    <text class="ctr small" x="790" y="455">Confirm +</text>
+    <text class="ctr small" x="790" y="470">ref valid?</text>
+
+    <!-- No → block -->
+    <line class="line" x1="880" y1="460" x2="890" y2="460"/>
+    <line class="line" x1="890" y1="460" x2="890" y2="380" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="860" y="450">No</text>
+
+    <!-- Merge both paths -->
+    <line class="line" x1="140" y1="375" x2="140" y2="560"/>
+    <line class="line" x1="140" y1="560" x2="450" y2="560"/>
+    <line class="line" x1="790" y1="510" x2="790" y2="560"/>
+    <line class="line" x1="790" y1="560" x2="450" y2="560"/>
+
+    <!-- Re-validate stock -->
+    <line class="line" x1="450" y1="560" x2="450" y2="590" marker-end="url(#arrowPOS)"/>
+    <rect class="box" x="330" y="590" width="240" height="50" rx="4"/>
+    <text class="ctr" x="450" y="615">Re-validate stock for every line</text>
+
+    <!-- Stock sufficient? -->
+    <line class="line" x1="450" y1="640" x2="450" y2="670" marker-end="url(#arrowPOS)"/>
+    <polygon class="diamond" points="450,670 570,720 450,770 330,720"/>
+    <text class="ctr" x="450" y="720">Stock sufficient?</text>
+
+    <!-- No → error -->
+    <line class="line" x1="570" y1="720" x2="700" y2="720" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="620" y="712">No</text>
+    <rect class="box" x="700" y="695" width="160" height="50" rx="4"/>
+    <text class="ctr" x="780" y="720">Show "insufficient stock"</text>
+
+    <!-- Yes → runTransaction -->
+    <line class="line" x1="450" y1="770" x2="450" y2="800" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="460" y="788">Yes</text>
+    <rect class="box" x="290" y="800" width="320" height="70" rx="4"/>
+    <text class="ctr" x="450" y="822">Firestore runTransaction:</text>
+    <text class="ctr small" x="450" y="840">1. Check order not exists · 2. Decrement stock</text>
+    <text class="ctr small" x="450" y="858">3. Write order · 4. Write audit</text>
+
+    <!-- Transaction ok? -->
+    <line class="line" x1="450" y1="870" x2="450" y2="900" marker-end="url(#arrowPOS)"/>
+    <polygon class="diamond" points="450,900 560,950 450,1000 340,950"/>
+    <text class="ctr" x="450" y="950">Transaction ok?</text>
+
+    <!-- Yes → Show receipt -->
+    <line class="line" x1="340" y1="950" x2="200" y2="950" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="255" y="942">Yes</text>
+    <rect class="box" x="60" y="925" width="140" height="50" rx="4"/>
+    <text class="ctr" x="130" y="950">Show receipt</text>
+
+    <!-- No → Queue offline -->
+    <line class="line" x1="560" y1="950" x2="700" y2="950" marker-end="url(#arrowPOS)"/>
+    <text class="lbl" x="625" y="942">No</text>
+    <rect class="box" x="700" y="925" width="170" height="50" rx="4"/>
+    <text class="ctr small" x="785" y="943">Queue order to</text>
+    <text class="ctr small" x="785" y="958">localStorage (offline)</text>
+
+    <!-- END -->
+    <line class="line" x1="130" y1="975" x2="130" y2="1040"/>
+    <line class="line" x1="785" y1="975" x2="785" y2="1040"/>
+    <line class="line" x1="130" y1="1040" x2="450" y2="1040"/>
+    <line class="line" x1="785" y1="1040" x2="450" y2="1040"/>
+    <line class="line" x1="450" y1="1040" x2="450" y2="1060" marker-end="url(#arrowPOS)"/>
+    <ellipse class="oval" cx="450" cy="1080" rx="60" ry="22"/>
+    <text class="big ctr" x="450" y="1080">END</text>
+</svg>
+</div>
+<p class="caption">Figure 2.6 — POS Transaction Sub-Flowchart</p>
+
+<h3>2.7.3 AI Assistant Sub-Flowchart</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 1140" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowAI" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- START -->
+    <ellipse class="oval" cx="450" cy="40" rx="150" ry="22"/>
+    <text class="big ctr" x="450" y="40">START (chat message)</text>
+
+    <!-- Client cooldown check -->
+    <line class="line" x1="450" y1="62" x2="450" y2="90" marker-end="url(#arrowAI)"/>
+    <polygon class="diamond" points="450,90 570,140 450,190 330,140"/>
+    <text class="ctr" x="450" y="140">Cooldown OK?</text>
+
+    <!-- No → wait -->
+    <line class="line" x1="330" y1="140" x2="180" y2="140" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="250" y="132">No</text>
+    <rect class="box" x="60" y="115" width="120" height="50" rx="4"/>
+    <text class="ctr small" x="120" y="133">Show "wait</text>
+    <text class="ctr small" x="120" y="148">Ns"</text>
+
+    <!-- Yes → Post /api/chat -->
+    <line class="line" x1="450" y1="190" x2="450" y2="220" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="460" y="208">Yes</text>
+    <rect class="box" x="330" y="220" width="240" height="50" rx="4"/>
+    <text class="ctr" x="450" y="245">POST /api/chat (Bearer token)</text>
+
+    <!-- Verify token -->
+    <line class="line" x1="450" y1="270" x2="450" y2="300" marker-end="url(#arrowAI)"/>
+    <rect class="box" x="330" y="300" width="240" height="50" rx="4"/>
+    <text class="ctr" x="450" y="325">Server: verify token + load profile</text>
+
+    <!-- NLP classify -->
+    <line class="line" x1="450" y1="350" x2="450" y2="380" marker-end="url(#arrowAI)"/>
+    <rect class="box" x="330" y="380" width="240" height="50" rx="4"/>
+    <text class="ctr" x="450" y="405">nlp_engine.classify(message)</text>
+
+    <!-- Intent known? -->
+    <line class="line" x1="450" y1="430" x2="450" y2="460" marker-end="url(#arrowAI)"/>
+    <polygon class="diamond" points="450,460 570,510 450,560 330,510"/>
+    <text class="ctr" x="450" y="510">Intent known?</text>
+
+    <!-- Yes → local handler -->
+    <line class="line" x1="330" y1="510" x2="180" y2="510" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="250" y="502">Yes</text>
+    <rect class="box" x="60" y="485" width="120" height="50" rx="4"/>
+    <text class="ctr" x="120" y="510">Local handler</text>
+
+    <!-- No → POS relevant? -->
+    <line class="line" x1="450" y1="560" x2="450" y2="590" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="460" y="578">No</text>
+    <polygon class="diamond" points="450,590 570,640 450,690 330,640"/>
+    <text class="ctr" x="450" y="640">POS relevant?</text>
+
+    <!-- No → honest fallback -->
+    <line class="line" x1="570" y1="640" x2="700" y2="640" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="625" y="632">No</text>
+    <rect class="box" x="700" y="615" width="160" height="50" rx="4"/>
+    <text class="ctr small" x="780" y="633">Return fallback</text>
+    <text class="ctr small" x="780" y="648">"not sure"</text>
+
+    <!-- Yes → build context -->
+    <line class="line" x1="450" y1="690" x2="450" y2="720" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="460" y="708">Yes</text>
+    <rect class="box" x="300" y="720" width="300" height="50" rx="4"/>
+    <text class="ctr" x="450" y="745">Build store context + call ask_ai()</text>
+
+    <!-- Gemini? -->
+    <line class="line" x1="450" y1="770" x2="450" y2="800" marker-end="url(#arrowAI)"/>
+    <polygon class="diamond" points="450,800 570,850 450,900 330,850"/>
+    <text class="ctr" x="450" y="850">Gemini ok?</text>
+
+    <!-- Yes → merge -->
+    <line class="line" x1="330" y1="850" x2="200" y2="850" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="250" y="842">Yes</text>
+
+    <!-- No → Groq? -->
+    <line class="line" x1="570" y1="850" x2="680" y2="850" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="615" y="842">No</text>
+    <polygon class="diamond" points="780,800 880,850 780,900 680,850"/>
+    <text class="ctr" x="780" y="850">Groq ok?</text>
+
+    <!-- Groq Yes → merge left -->
+    <line class="line" x1="680" y1="850" x2="660" y2="850"/>
+    <line class="line" x1="660" y1="850" x2="660" y2="960"/>
+    <line class="line" x1="660" y1="960" x2="200" y2="960" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="620" y="920">Yes</text>
+
+    <!-- Groq No → honest fallback -->
+    <line class="line" x1="880" y1="850" x2="890" y2="850"/>
+    <line class="line" x1="890" y1="850" x2="890" y2="920"/>
+    <line class="line" x1="890" y1="920" x2="880" y2="920" marker-end="url(#arrowAI)"/>
+    <text class="lbl" x="864" y="884">No</text>
+    <rect class="box" x="740" y="895" width="140" height="50" rx="4"/>
+    <text class="ctr small" x="810" y="913">Honest fallback</text>
+
+    <!-- Local handler & providers merge -->
+    <line class="line" x1="120" y1="535" x2="120" y2="960"/>
+    <line class="line" x1="120" y1="960" x2="200" y2="960"/>
+
+    <!-- Format response -->
+    <line class="line" x1="200" y1="960" x2="450" y2="960"/>
+    <line class="line" x1="450" y1="960" x2="450" y2="990" marker-end="url(#arrowAI)"/>
+    <rect class="box" x="300" y="990" width="300" height="50" rx="4"/>
+    <text class="ctr" x="450" y="1015">Format response + append to UI</text>
+
+    <!-- END -->
+    <line class="line" x1="450" y1="1040" x2="450" y2="1080" marker-end="url(#arrowAI)"/>
+    <ellipse class="oval" cx="450" cy="1100" rx="60" ry="22"/>
+    <text class="big ctr" x="450" y="1100">END</text>
+</svg>
+</div>
+<p class="caption">Figure 2.7 — AI Assistant Sub-Flowchart</p>
+
+<h3>2.7.4 Inventory Management Sub-Flowchart</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 780" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowINV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- START -->
+    <ellipse class="oval" cx="450" cy="40" rx="180" ry="22"/>
+    <text class="big ctr" x="450" y="40">START (Admin opens Inventory)</text>
+
+    <!-- Fetch products -->
+    <line class="line" x1="450" y1="62" x2="450" y2="90" marker-end="url(#arrowINV)"/>
+    <rect class="box" x="300" y="90" width="300" height="50" rx="4"/>
+    <text class="ctr" x="450" y="115">Fetch products (localStorage → Firestore)</text>
+
+    <!-- Render table -->
+    <line class="line" x1="450" y1="140" x2="450" y2="170" marker-end="url(#arrowINV)"/>
+    <rect class="box" x="300" y="170" width="300" height="50" rx="4"/>
+    <text class="ctr" x="450" y="195">Render table with stats + filters</text>
+
+    <!-- Admin action? -->
+    <line class="line" x1="450" y1="220" x2="450" y2="250" marker-end="url(#arrowINV)"/>
+    <polygon class="diamond" points="450,250 590,310 450,370 310,310"/>
+    <text class="ctr" x="450" y="310">Admin action?</text>
+
+    <!-- Four branches: Add / Edit / Delete / Filter -->
+    <line class="line" x1="310" y1="310" x2="120" y2="310" marker-end="url(#arrowINV)"/>
+    <text class="lbl" x="200" y="302">Add</text>
+    <line class="line" x1="450" y1="370" x2="450" y2="410" marker-end="url(#arrowINV)"/>
+    <text class="lbl" x="460" y="395">Edit</text>
+    <line class="line" x1="590" y1="310" x2="780" y2="310" marker-end="url(#arrowINV)"/>
+    <text class="lbl" x="680" y="302">Delete</text>
+    <line class="line" x1="310" y1="310" x2="120" y2="420"/>
+    <line class="line" x1="120" y1="420" x2="120" y2="480"/>
+
+    <!-- Add box -->
+    <rect class="box" x="40" y="480" width="160" height="50" rx="4"/>
+    <text class="ctr small" x="120" y="500">Product Modal</text>
+    <text class="ctr small" x="120" y="518">(form + options)</text>
+    <line class="line" x1="120" y1="530" x2="120" y2="580" marker-end="url(#arrowINV)"/>
+
+    <!-- Validate input -->
+    <rect class="box" x="20" y="580" width="200" height="50" rx="4"/>
+    <text class="ctr small" x="120" y="600">Validate input</text>
+    <text class="ctr small" x="120" y="618">(name, SKU, price, cat)</text>
+    <line class="line" x1="120" y1="630" x2="120" y2="680" marker-end="url(#arrowINV)"/>
+
+    <!-- Write to Firestore -->
+    <rect class="box" x="20" y="680" width="200" height="50" rx="4"/>
+    <text class="ctr" x="120" y="705">Write to Firestore</text>
+
+    <!-- Delete box -->
+    <rect class="box" x="700" y="400" width="160" height="50" rx="4"/>
+    <text class="ctr" x="780" y="425">Delete modal</text>
+    <line class="line" x1="780" y1="450" x2="780" y2="500" marker-end="url(#arrowINV)"/>
+    <rect class="box" x="700" y="500" width="160" height="50" rx="4"/>
+    <text class="ctr" x="780" y="525">Write to Firestore</text>
+
+    <!-- Refresh + log (merge) -->
+    <line class="line" x1="120" y1="730" x2="120" y2="760"/>
+    <line class="line" x1="780" y1="550" x2="780" y2="760"/>
+    <line class="line" x1="450" y1="410" x2="450" y2="760"/>
+    <line class="line" x1="120" y1="760" x2="780" y2="760"/>
+
+    <line class="line" x1="450" y1="760" x2="450" y2="762"/>
+    <text class="ctr small" x="450" y="755">Log audit entry + refresh table + re-render stats</text>
+</svg>
+</div>
+<p class="caption">Figure 2.8 — Inventory Management Sub-Flowchart</p>
+
+<h2>2.8 Database Design</h2>
+
+<p>The system uses <strong>Cloud Firestore</strong>, a document-oriented NoSQL database. Data is organized into six collections. Because Firestore is schemaless, the schema is enforced at the application layer — each collection's expected shape is documented below.</p>
+
+<h3>2.8.1 Collections Overview</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Collection</th>
+            <th style="width: 18%;">Document ID</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td><code>profiles</code></td><td>Firebase UID</td><td>User accounts (mirrors Firebase Auth with role + active status)</td></tr>
+        <tr><td><code>inventory</code></td><td>Auto-generated</td><td>Product catalog with variant matrices and images</td></tr>
+        <tr><td><code>orders</code></td><td>Receipt number</td><td>Every completed sale with line items and payment details</td></tr>
+        <tr><td><code>customers</code></td><td>Auto-generated</td><td>Customer records with aggregated order count and spend</td></tr>
+        <tr><td><code>audit_logs</code></td><td>Auto-generated</td><td>Immutable activity trail of every meaningful action</td></tr>
+        <tr><td><code>config</code></td><td>Named docs</td><td>Store settings and category list</td></tr>
+    </tbody>
+</table>
+
+<h3>2.8.2 Entity-Relationship Diagram</h3>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 720" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="arrowERD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
+        </marker>
+    </defs>
+
+    <!-- profiles -->
+    <g>
+        <rect class="box" x="40" y="40" width="200" height="180" rx="4"/>
+        <rect class="box" x="40" y="40" width="200" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="140" y="58">profiles</text>
+        <line class="line" x1="40" y1="70" x2="240" y2="70"/>
+        <text class="start" x="50" y="90">id (uid) [PK]</text>
+        <text class="start" x="50" y="110">email</text>
+        <text class="start" x="50" y="130">full_name</text>
+        <text class="start" x="50" y="150">role</text>
+        <text class="start" x="50" y="170">active</text>
+        <text class="start" x="50" y="190">created_at</text>
+        <text class="start" x="50" y="210">lastLoginAt</text>
+    </g>
+
+    <!-- inventory -->
+    <g>
+        <rect class="box" x="660" y="40" width="200" height="220" rx="4"/>
+        <rect class="box" x="660" y="40" width="200" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="760" y="58">inventory</text>
+        <line class="line" x1="660" y1="70" x2="860" y2="70"/>
+        <text class="start" x="670" y="90">id [PK]</text>
+        <text class="start" x="670" y="110">name</text>
+        <text class="start" x="670" y="130">sku</text>
+        <text class="start" x="670" y="150">category</text>
+        <text class="start" x="670" y="170">price</text>
+        <text class="start" x="670" y="190">quantity</text>
+        <text class="start" x="670" y="210">min_stock</text>
+        <text class="start" x="670" y="230">options[]</text>
+        <text class="start" x="670" y="250">variants{}</text>
+    </g>
+
+    <!-- orders -->
+    <g>
+        <rect class="box" x="40" y="380" width="220" height="200" rx="4"/>
+        <rect class="box" x="40" y="380" width="220" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="150" y="398">orders</text>
+        <line class="line" x1="40" y1="410" x2="260" y2="410"/>
+        <text class="start" x="50" y="430">id (receipt) [PK]</text>
+        <text class="start" x="50" y="450">createdAt</text>
+        <text class="start" x="50" y="470">customerName</text>
+        <text class="start" x="50" y="490">customerPhone</text>
+        <text class="start" x="50" y="510">items[]</text>
+        <text class="start" x="50" y="530">subtotal · tax · total</text>
+        <text class="start" x="50" y="550">paymentMethod</text>
+        <text class="start" x="50" y="570">gcashReference</text>
+    </g>
+
+    <!-- customers -->
+    <g>
+        <rect class="box" x="660" y="440" width="200" height="170" rx="4"/>
+        <rect class="box" x="660" y="440" width="200" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="760" y="458">customers</text>
+        <line class="line" x1="660" y1="470" x2="860" y2="470"/>
+        <text class="start" x="670" y="490">id [PK]</text>
+        <text class="start" x="670" y="510">name</text>
+        <text class="start" x="670" y="530">email</text>
+        <text class="start" x="670" y="550">phone</text>
+        <text class="start" x="670" y="570">orders (count)</text>
+        <text class="start" x="670" y="590">totalSpent</text>
+    </g>
+
+    <!-- audit_logs -->
+    <g>
+        <rect class="box" x="380" y="240" width="180" height="200" rx="4"/>
+        <rect class="box" x="380" y="240" width="180" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="470" y="258">audit_logs</text>
+        <line class="line" x1="380" y1="270" x2="560" y2="270"/>
+        <text class="start" x="390" y="290">id [PK]</text>
+        <text class="start" x="390" y="310">timestamp</text>
+        <text class="start" x="390" y="330">user (name)</text>
+        <text class="start" x="390" y="350">action</text>
+        <text class="start" x="390" y="370">module</text>
+        <text class="start" x="390" y="390">description</text>
+        <text class="start" x="390" y="410">severity</text>
+        <text class="start" x="390" y="430">txn{}</text>
+    </g>
+
+    <!-- config -->
+    <g>
+        <rect class="box" x="360" y="500" width="220" height="130" rx="4"/>
+        <rect class="box" x="360" y="500" width="220" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="470" y="518">config</text>
+        <line class="line" x1="360" y1="530" x2="580" y2="530"/>
+        <text class="start" x="370" y="550">id = "settings"</text>
+        <text class="start" x="370" y="568">id = "categories"</text>
+        <text class="start" x="370" y="586">taxRate · storeName</text>
+        <text class="start" x="370" y="604">storeAddress · gcash*</text>
+        <text class="start" x="370" y="622">list[]</text>
+    </g>
+
+    <!-- Relationship: profiles (1) → audit_logs (N) -->
+    <line class="line" x1="240" y1="130" x2="380" y2="290" marker-end="url(#arrowERD)"/>
+    <text class="lbl ctr" x="300" y="200">user 1:N</text>
+
+    <!-- Relationship: orders (N) → customers (1) -->
+    <line class="line" x1="260" y1="460" x2="660" y2="510" marker-end="url(#arrowERD)"/>
+    <text class="lbl ctr" x="460" y="480">customer N:1</text>
+
+    <!-- Relationship: orders items → inventory product -->
+    <line class="line" x1="240" y1="400" x2="660" y2="200" marker-end="url(#arrowERD)"/>
+    <text class="lbl" x="400" y="330">product 1:N</text>
+
+</svg>
+</div>
+<p class="caption">Figure 2.9 — Entity-Relationship Diagram (Firestore Collections)</p>
+
+<h3>2.8.3 Collection Schemas</h3>
+
+<h4>profiles</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Field</th>
+            <th style="width: 18%;">Type</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td><code>id</code></td><td>string</td><td>Same as Firebase Auth UID. Acts as the document ID.</td></tr>
+        <tr><td><code>email</code></td><td>string</td><td>User's email (mirrors Firebase Auth).</td></tr>
+        <tr><td><code>full_name</code></td><td>string</td><td>Display name.</td></tr>
+        <tr><td><code>role</code></td><td>string</td><td><code>"admin"</code> or <code>"cashier"</code>.</td></tr>
+        <tr><td><code>active</code></td><td>boolean</td><td>If <code>false</code>, the user cannot sign in.</td></tr>
+        <tr><td><code>created_at</code></td><td>ISO 8601 string</td><td>Account creation timestamp.</td></tr>
+        <tr><td><code>lastLoginAt</code></td><td>ISO 8601 string</td><td>Updated on every successful sign-in.</td></tr>
+    </tbody>
+</table>
+
+<h4>inventory</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Field</th>
+            <th style="width: 18%;">Type</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td><code>id</code></td><td>string</td><td>Auto-generated document ID.</td></tr>
+        <tr><td><code>name</code></td><td>string</td><td>Product name (unique per store).</td></tr>
+        <tr><td><code>sku</code></td><td>string</td><td>Product code (unique per store).</td></tr>
+        <tr><td><code>category</code></td><td>string</td><td>Category key.</td></tr>
+        <tr><td><code>price</code></td><td>number</td><td>Base selling price in PHP. Individual variants may override.</td></tr>
+        <tr><td><code>quantity</code></td><td>number</td><td>Total stock across all variants (computed).</td></tr>
+        <tr><td><code>min_stock</code></td><td>number</td><td>Low-stock threshold.</td></tr>
+        <tr><td><code>supplier</code></td><td>string</td><td>Supplier name.</td></tr>
+        <tr><td><code>description</code></td><td>string</td><td>Free-text description.</td></tr>
+        <tr><td><code>spec</code></td><td>string</td><td>Optional display specification.</td></tr>
+        <tr><td><code>image</code></td><td>string (Base64 JPEG)</td><td>Client-resized product thumbnail.</td></tr>
+        <tr><td><code>options</code></td><td>array | null</td><td>Option groups — e.g., <code>[{"name":"Size","values":["S","M","L"]}]</code>.</td></tr>
+        <tr><td><code>variants</code></td><td>object | null</td><td>Per-variant stock and price keyed by <code>"value1::value2"</code>.</td></tr>
+        <tr><td><code>created_at</code></td><td>ISO 8601 string</td><td>Creation timestamp.</td></tr>
+        <tr><td><code>updated_at</code></td><td>ISO 8601 string</td><td>Last modification timestamp.</td></tr>
+    </tbody>
+</table>
+
+<h4>orders</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Field</th>
+            <th style="width: 18%;">Type</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td><code>id</code></td><td>string</td><td>Receipt number in the format <code>REC-YYYYMMDD-HHMMSS-NNNN</code>.</td></tr>
+        <tr><td><code>createdAt</code></td><td>ISO 8601 string</td><td>Sale timestamp (UTC).</td></tr>
+        <tr><td><code>customerName</code></td><td>string</td><td>Optional customer name.</td></tr>
+        <tr><td><code>customerPhone</code></td><td>string</td><td>Optional customer phone.</td></tr>
+        <tr><td><code>items</code></td><td>array</td><td>Line items — each with <code>name</code>, <code>productId</code>, <code>category</code>, <code>size</code>, <code>brand</code>, <code>quantity</code>, <code>price</code>.</td></tr>
+        <tr><td><code>subtotal</code></td><td>number</td><td>Sum of line totals before tax.</td></tr>
+        <tr><td><code>tax</code></td><td>number</td><td>Tax amount (default 8%).</td></tr>
+        <tr><td><code>total</code></td><td>number</td><td>Subtotal + tax.</td></tr>
+        <tr><td><code>paymentMethod</code></td><td>string</td><td><code>"cash"</code> or <code>"gcash"</code>.</td></tr>
+        <tr><td><code>gcashReference</code></td><td>string (optional)</td><td>13-digit GCash reference number.</td></tr>
+        <tr><td><code>status</code></td><td>string</td><td>Always <code>"Completed"</code> in the current version.</td></tr>
+    </tbody>
+</table>
+
+<h4>customers</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Field</th>
+            <th style="width: 18%;">Type</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td><code>id</code></td><td>string</td><td>Auto-generated document ID.</td></tr>
+        <tr><td><code>name</code></td><td>string</td><td>Customer name.</td></tr>
+        <tr><td><code>email</code></td><td>string</td><td>Optional email.</td></tr>
+        <tr><td><code>phone</code></td><td>string</td><td>Optional phone.</td></tr>
+        <tr><td><code>orders</code></td><td>number</td><td>Count of orders attributed to this customer.</td></tr>
+        <tr><td><code>totalSpent</code></td><td>number</td><td>Lifetime spend.</td></tr>
+        <tr><td><code>createdAt</code></td><td>ISO 8601 string</td><td>Record creation timestamp.</td></tr>
+    </tbody>
+</table>
+
+<h4>audit_logs</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Field</th>
+            <th style="width: 18%;">Type</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td><code>id</code></td><td>string</td><td>Auto-generated document ID.</td></tr>
+        <tr><td><code>timestamp</code></td><td>ISO 8601 string</td><td>When the action occurred.</td></tr>
+        <tr><td><code>user</code></td><td>string</td><td>Name of the user who performed the action.</td></tr>
+        <tr><td><code>action</code></td><td>string</td><td>One of: <code>create</code>, <code>update</code>, <code>delete</code>, <code>transaction</code>, <code>login</code>, <code>logout</code>, <code>export</code>.</td></tr>
+        <tr><td><code>module</code></td><td>string</td><td>One of: <code>pos</code>, <code>inventory</code>, <code>customers</code>, <code>auth</code>, <code>settings</code>, <code>reports</code>, <code>orders</code>, <code>audit</code>.</td></tr>
+        <tr><td><code>description</code></td><td>string</td><td>Human-readable summary.</td></tr>
+        <tr><td><code>severity</code></td><td>string</td><td><code>"info"</code>, <code>"warning"</code>, or <code>"critical"</code>.</td></tr>
+        <tr><td><code>txn</code></td><td>object (optional)</td><td>Present on sale records — contains <code>id</code>, <code>items</code>, <code>total</code>, <code>payment</code>, <code>customer</code>.</td></tr>
+    </tbody>
+</table>
+
+<h4>config</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 22%;">Document ID</th>
+            <th style="width: 18%;">Fields</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>settings</code></td>
+            <td><code>storeName</code>, <code>storeAddress</code>, <code>storeContact</code>, <code>receiptFooter</code>, <code>taxRate</code>, <code>gcashNumber</code>, <code>gcashName</code></td>
+            <td>Single document containing all store-wide configuration.</td>
+        </tr>
+        <tr>
+            <td><code>categories</code></td>
+            <td><code>list</code> (array of strings)</td>
+            <td>Master list of product categories.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>2.8.4 Relationships and Referential Integrity</h3>
+
+<p>Because Firestore does not enforce foreign keys, the application maintains referential integrity through the following rules:</p>
+
+<ul>
+    <li><strong>profiles.id ↔ Firebase Auth UID.</strong> The document ID is always set to the Firebase UID at account creation, ensuring a 1:1 mapping.</li>
+    <li><strong>orders.items[].productId → inventory.id.</strong> Each line item stores the product's document ID.</li>
+    <li><strong>audit_logs.user ↔ profiles.full_name.</strong> The audit log stores the actor's name, not the UID.</li>
+    <li><strong>customers.orders / totalSpent ↔ orders.</strong> Denormalized counters updated atomically on every POS sale.</li>
+</ul>
+
+<h3>2.8.5 Firestore Indexes</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 30%;">Collection</th>
+            <th style="width: 30%;">Indexed Field</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td><code>orders</code></td><td><code>createdAt</code> (descending)</td><td>Powers the recent-orders query and the date-range filter</td></tr>
+        <tr><td><code>audit_logs</code></td><td><code>timestamp</code> (descending)</td><td>Powers the activity log listing</td></tr>
+        <tr><td><code>inventory</code></td><td><code>sku</code> (unique)</td><td>Ensures product codes remain unique across the catalog</td></tr>
+        <tr><td><code>inventory</code></td><td><code>created_at</code> (descending)</td><td>Sorts the catalog by newest first</td></tr>
+    </tbody>
+</table>
+
+<h3>2.8.6 Security Rules</h3>
+
+<p>Firestore Security Rules enforce access at the database level, independent of the client code.</p>
+
+<pre><code>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only authenticated users can read/write anything.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Profiles: self-create only; role/active mutations require admin.
+    match /profiles/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth.uid == userId;
+      allow update, delete: if request.auth != null && isAdmin();
+    }
+
+    // Orders: any authenticated user can create; only admin can delete.
+    match /orders/{orderId} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if request.auth != null && isAdmin();
+    }
+
+    // Audit logs: append-only for regular users.
+    match /audit_logs/{logId} {
+      allow read, create: if request.auth != null;
+      allow update, delete: if request.auth != null && isAdmin();
+    }
+
+    function isAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}</code></pre>
+
+<p class="caption">Figure 2.10 — Firestore Security Rules</p>
+
+<p>These rules guarantee that:</p>
+
+<ul>
+    <li>Unauthenticated requests are rejected at the database layer, not just the application layer.</li>
+    <li>Users can only create their own profile (during signup) but cannot promote themselves.</li>
+    <li>Order deletion is restricted to administrators.</li>
+    <li>Audit log entries cannot be silently altered or removed by non-admins — protecting the integrity of the activity trail.</li>
+</ul>
+
+</article>
+
+</body>
+</html>
