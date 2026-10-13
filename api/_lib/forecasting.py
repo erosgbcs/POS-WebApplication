@@ -303,6 +303,26 @@ def forecast_next_7_days(orders: list) -> dict:
     """
     daily = aggregate_daily(orders)
     series = dense_series(daily, days_back=45)
+
+    # ---------------------------------------------------------------
+    # Strip leading zero-days.
+    #
+    # dense_series pads any day without orders to 0. That's correct
+    # for interior gaps (closed Sundays, holidays) but wrong for the
+    # window BEFORE the store started recording. A store seeded with
+    # 30 days of history gets 15 days of "zero sales" prepended, which
+    # drags the OLS slope down and lets historical_mean win the CV
+    # comparison on data that clearly trends.
+    #
+    # Trimming the leading zeros makes the CV score models on the
+    # days that actually exist.
+    # ---------------------------------------------------------------
+    first_real = next((i for i, (_, v) in enumerate(series) if v > 0), None)
+    if first_real is None:
+        series = series[-1:]   # no data at all — keep one entry
+    else:
+        series = series[first_real:]
+
     values = [v for _, v in series]
 
     nonzero_days = sum(1 for v in values if v > 0)

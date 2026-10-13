@@ -492,6 +492,13 @@
     <p>One-time admin tool. Delete this file after use.</p>
 
     <h2>Seed <span class="count-badge" id="seedCount">300 items</span></h2>
+    <div class="preview-panel" id="cloudState" style="margin-bottom: 12px;">
+        <div class="row"><span>Inventory in cloud</span><strong id="statInv">—</strong></div>
+        <div class="row"><span>Orders in cloud</span><strong id="statOrders">—</strong></div>
+        <div class="row"><span>Customers in cloud</span><strong id="statCustomers">—</strong></div>
+        <div class="row"><span>Audit log entries</span><strong id="statAudit">—</strong></div>
+        <div class="row"><span>Config docs</span><strong id="statConfig">—</strong></div>
+    </div>
     <p>The seed generates <strong>size × brand matrices</strong> for categories with a brand pool, and <strong>size-only stocks</strong> for commodity categories (building, fasteners). Each variant gets its own price and stock. Brand pools are defined in <code>CATEGORY_BRAND_POOLS</code>.</p>
 
     <div class="preview-panel" id="seedPreview">
@@ -526,7 +533,7 @@
     <button id="nukeBtn" class="danger" disabled>Nuclear Delete — All Collections</button>
 
     <h2>Seed Orders &amp; Customers <span class="count-badge" id="ordersCount">— orders in cloud</span></h2>
-    <p>Generates realistic order history that references your seeded inventory. <strong>Run the inventory seed first.</strong> Orders are weighted toward peak hours (9am–6pm) and reference actual product IDs and variant prices. Customers are named Filipino buyers with matching phone numbers. Does NOT create Firebase Auth users.</p>
+    <p>Generates realistic order history that references your seeded inventory. <strong>Run the inventory seed first.</strong> Orders are weighted toward peak hours (9am–6pm <strong>Manila time</strong>) and reference actual product IDs and variant prices. Customers are named Filipino buyers with matching phone numbers. Does NOT create Firebase Auth users.</p>
 
     <div class="preview-panel" id="ordersPreview">
         <div class="row"><span>Analyzing…</span><span></span></div>
@@ -598,6 +605,27 @@
         const seedCountTotal = document.getElementById('seedCountTotal');
 
         const ALL_COLLECTIONS = ['inventory', 'orders', 'customers', 'audit_logs', 'config'];
+
+        // ------------------------------------------------------------
+        // Store timezone: Asia/Manila = UTC+8 (no DST). Every order
+        // timestamp the seed creates must be anchored to Manila's
+        // wall clock, not the browser's local timezone, so the app's
+        // Manila-bucketized KPIs and reports agree with what the seed
+        // thinks it wrote.
+        // ------------------------------------------------------------
+        const STORE_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+        /**
+         * Build a Date representing `hour:minute:second` Manila time on
+         * the calendar day `daysAgo` days before today (Manila).
+         */
+        function makeManilaDate(daysAgo, hour, minute, second) {
+            const manilaNow = new Date(Date.now() + STORE_TZ_OFFSET_MS);
+            const y  = manilaNow.getUTCFullYear();
+            const mo = manilaNow.getUTCMonth();
+            const d  = manilaNow.getUTCDate() - daysAgo;
+            return new Date(Date.UTC(y, mo, d, hour - 8, minute, second));
+        }
 
         // Brand pools per category. An item can override with its own `brand`.
         // Categories not listed stay unbranded.
@@ -738,6 +766,7 @@
             invCountBadge.textContent = '… items in cloud';
             const n = await countCollection('inventory');
             invCountBadge.textContent = n === null ? '— items in cloud' : `${n} items in cloud`;
+            window.__refreshCloudState?.();
         }
 
         async function wipeCollection(name) {
@@ -1167,6 +1196,25 @@
 
         renderPreview();
 
+        // Live cloud-state badges — refreshed after every destructive action
+        async function refreshCloudState() {
+            const ids = {
+                inventory:  'statInv',
+                orders:     'statOrders',
+                customers:  'statCustomers',
+                audit_logs: 'statAudit',
+                config:     'statConfig',
+            };
+            for (const [coll, id] of Object.entries(ids)) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                el.textContent = '…';
+                const n = await countCollection(coll);
+                el.textContent = n === null ? '—' : String(n);
+            }
+        }
+        window.__refreshCloudState = refreshCloudState;
+
         // ---- Firebase + auth bootstrap ----
         (async () => {
             clearLog();
@@ -1207,6 +1255,7 @@
 
             log('Counting inventory...', 'info');
             await refreshInventoryCount();
+            await refreshCloudState();
         })();
 
         // ============================================================
@@ -1360,12 +1409,15 @@
             const paymentMethod = useGcash ? 'gcash' : 'cash';
 
             // Receipt ID mirrors the app's format: REC-YYYYMMDD-HHMMSS-NNNN
-            const y = orderDate.getFullYear();
-            const mo = String(orderDate.getMonth() + 1).padStart(2, '0');
-            const d = String(orderDate.getDate()).padStart(2, '0');
-            const hh = String(orderDate.getHours()).padStart(2, '0');
-            const mm = String(orderDate.getMinutes()).padStart(2, '0');
-            const ss = String(orderDate.getSeconds()).padStart(2, '0');
+            // Read components in Manila time, not browser-local, so the
+            // printed receipt matches the store's wall clock.
+            const manila = new Date(orderDate.getTime() + STORE_TZ_OFFSET_MS);
+            const y  = manila.getUTCFullYear();
+            const mo = String(manila.getUTCMonth() + 1).padStart(2, '0');
+            const d  = String(manila.getUTCDate()).padStart(2, '0');
+            const hh = String(manila.getUTCHours()).padStart(2, '0');
+            const mm = String(manila.getUTCMinutes()).padStart(2, '0');
+            const ss = String(manila.getUTCSeconds()).padStart(2, '0');
             const rnd = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
             const id = `REC-${y}${mo}${d}-${hh}${mm}${ss}-${rnd}`;
 
@@ -1385,29 +1437,37 @@
             };
         }
 
-        // Distribute order times across N days, weighted toward business hours.
+        // Distribute order times across N days, weighted toward business
+        // hours in Manila. Each timestamp is anchored to Manila's wall
+        // clock regardless of the browser's local timezone.
         function generateOrderTimes(daysBack, ordersPerDay) {
             const times = [];
-            const now = new Date();
+            const nowMs = Date.now();
+
             for (let dayOffset = 0; dayOffset < daysBack; dayOffset++) {
                 // Slight ramp: fewer orders on older days for a "growth" trend
                 const rampFactor = 0.6 + (0.4 * (daysBack - dayOffset) / daysBack);
                 const dayCount = Math.max(2, Math.round(ordersPerDay * rampFactor * (0.7 + Math.random() * 0.6)));
 
                 for (let i = 0; i < dayCount; i++) {
-                    const d = new Date(now);
-                    d.setDate(d.getDate() - dayOffset);
-                    // Peak hours 9am–6pm; 15% chance of early/late edge
+                    // Peak hours 9am–6pm Manila; 15% chance of early/late edge
                     const earlyEdge = Math.random() < 0.15;
                     let hour;
-                    if (earlyEdge) hour = 7 + Math.floor(Math.random() * 2);  // 7–8am
+                    if (earlyEdge) hour = 7 + Math.floor(Math.random() * 2);         // 7–8am
                     else if (Math.random() < 0.15) hour = 18 + Math.floor(Math.random() * 3); // 6–8pm
-                    else hour = 9 + Math.floor(Math.random() * 9); // 9am–5:59pm
-                    d.setHours(hour);
-                    d.setMinutes(Math.floor(Math.random() * 60));
-                    d.setSeconds(Math.floor(Math.random() * 60));
+                    else hour = 9 + Math.floor(Math.random() * 9);                  // 9am–5:59pm
+
+                    const d = makeManilaDate(
+                        dayOffset,
+                        hour,
+                        Math.floor(Math.random() * 60),
+                        Math.floor(Math.random() * 60)
+                    );
+
                     // Don't generate future-dated orders within today
-                    if (d.getTime() > now.getTime()) d.setTime(now.getTime() - Math.floor(Math.random() * 3600000));
+                    if (d.getTime() > nowMs) {
+                        d.setTime(nowMs - Math.floor(Math.random() * 3600000));
+                    }
                     times.push(d);
                 }
             }
@@ -1799,7 +1859,7 @@
                     const localOrders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
                     const merged = [...orders.map(({ _customerId, ...o }) => o), ...localOrders]
                         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                        .slice(0, 500);
+                        .slice(0, 2000);
                     localStorage.setItem('pos_orders', JSON.stringify(merged));
 
                     const localCustomers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
@@ -1853,6 +1913,7 @@
                     log('Local caches cleared.', 'ok');
                 } catch (e) {}
                 await refreshOrdersCount();
+                await refreshInventoryCount();
             } catch (e) {
                 log('Error: ' + e.message, 'err');
                 console.error(e);
@@ -1992,12 +2053,13 @@
             const useGcash = opts.includeGcash && Math.random() < 0.3;
             const paymentMethod = useGcash ? 'gcash' : 'cash';
 
-            const y = orderDate.getFullYear();
-            const mo = String(orderDate.getMonth() + 1).padStart(2, '0');
-            const d = String(orderDate.getDate()).padStart(2, '0');
-            const hh = String(orderDate.getHours()).padStart(2, '0');
-            const mm = String(orderDate.getMinutes()).padStart(2, '0');
-            const ss = String(orderDate.getSeconds()).padStart(2, '0');
+            const manila = new Date(orderDate.getTime() + STORE_TZ_OFFSET_MS);
+            const y  = manila.getUTCFullYear();
+            const mo = String(manila.getUTCMonth() + 1).padStart(2, '0');
+            const d  = String(manila.getUTCDate()).padStart(2, '0');
+            const hh = String(manila.getUTCHours()).padStart(2, '0');
+            const mm = String(manila.getUTCMinutes()).padStart(2, '0');
+            const ss = String(manila.getUTCSeconds()).padStart(2, '0');
             const rnd = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
 
             return {
@@ -2078,10 +2140,16 @@
 
                     let daySum = 0;
                     for (let o = 0; o < s.ordersPerDay; o++) {
-                        const orderDate = new Date(dayDate);
                         const hour = 9 + Math.floor(Math.random() * 9);
-                        orderDate.setHours(hour, Math.floor(Math.random() * 60), Math.floor(Math.random() * 60), 0);
-                        if (orderDate > now) orderDate.setTime(now.getTime() - Math.floor(Math.random() * 3600000));
+                        const orderDate = makeManilaDate(
+                            dayOffset,
+                            hour,
+                            Math.floor(Math.random() * 60),
+                            Math.floor(Math.random() * 60)
+                        );
+                        if (orderDate.getTime() > now.getTime()) {
+                            orderDate.setTime(now.getTime() - Math.floor(Math.random() * 3600000));
+                        }
 
                         const orderTarget = targetTotal / s.ordersPerDay;
                         const order = buildOrderToHitTarget(inventory, customers, orderDate, orderTarget, { includeGcash: true });
@@ -2106,7 +2174,7 @@
                 try {
                     const merged = orders.map(({ _customerId, ...o }) => o)
                         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                        .slice(0, 500);
+                        .slice(0, 2000);
                     localStorage.setItem('pos_orders', JSON.stringify(merged));
 
                     const byId = new Map();
@@ -2154,6 +2222,7 @@
             await clearAiCache();
             log('AI cache cleared — next forecast re-runs on fresh data.', 'info');
             await refreshOrdersCount();
+            await refreshInventoryCount();
         }
 
         // Render the scenario grid
