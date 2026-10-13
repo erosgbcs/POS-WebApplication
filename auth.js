@@ -309,6 +309,8 @@
         if (cached) {
             try {
                 const user = JSON.parse(cached);
+
+                // Local mode: pull role from the local user store.
                 if (getAuthMode() !== authMode.supabase && user?.email) {
                     const stored = findUserByEmail(user.email);
                     if (stored) {
@@ -316,6 +318,37 @@
                         user.user_metadata = { ...(user.user_metadata || {}), role: stored.role };
                     }
                 }
+
+                // Firebase mode: if the cached user is missing a role,
+                // re-hydrate it from the profiles doc so admin-only pages
+                // stay unlocked after a reload.
+                const hasRole = user?.role
+                    || user?.user_metadata?.role
+                    || user?.app_metadata?.role;
+                if (!hasRole && user?.uid && getAuthMode() === authMode.supabase) {
+                    try {
+                        const { doc, getDoc } = await import(
+                            'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
+                        );
+                        const fb = await window.POS_SUPABASE?.getFirebase?.();
+                        if (fb) {
+                            const snap = await getDoc(doc(fb.db, 'profiles', user.uid));
+                            if (snap.exists()) {
+                                const profile = snap.data() || {};
+                                user.role = profile.role;
+                                user.user_metadata = {
+                                    ...(user.user_metadata || {}),
+                                    full_name: profile.full_name,
+                                    role: profile.role
+                                };
+                                localStorage.setItem('pos_current_user', JSON.stringify(user));
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[auth] role re-hydrate failed:', e);
+                    }
+                }
+
                 window.loadDashboard?.(user);
                 return;
             } catch (e) {

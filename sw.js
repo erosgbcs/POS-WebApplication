@@ -17,7 +17,7 @@
  */
 
 // ---- Bump this string on every meaningful deploy ----
-const CACHE_VERSION = 'kirby-pos-v8';
+const CACHE_VERSION = 'kirby-pos-v9';
 
 const APP_CACHE   = `${CACHE_VERSION}-app`;
 const ASSET_CACHE = `${CACHE_VERSION}-assets`;
