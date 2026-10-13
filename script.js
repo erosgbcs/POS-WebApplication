@@ -1025,11 +1025,17 @@ renderCustomers(customerSearch?.value || '');
     if (document.getElementById('ovHourlyHeatmap') && typeof renderHourlyHeatmap === 'function') {
         renderHourlyHeatmap();
     }
-    // AI Forecast — destroy + recreate so its amber flips with the theme.
-    // The chart re-renders on the next refreshAiCards() call, but if
-    // the user just toggled theme mid-view we nudge it immediately.
+    // AI Forecast — the canvas holds theme-specific colors (amber
+    // accent line, tooltip surfaces, point borders). On theme toggle
+    // we must rebuild it, not just destroy it. _destroyAiForecastChart()
+    // alone leaves an empty <canvas> behind.
+    //
+    // refreshAiCards() reads the forecast from localStorage cache —
+    // no network round-trip — and its call to renderAiForecast()
+    // internally destroys and recreates the Chart.js instance with
+    // fresh theme colors.
     if (aiForecastChartInstance) {
-        _destroyAiForecastChart();
+        refreshAiCards();
     }
     }
 
