@@ -11691,6 +11691,44 @@ html, body {
 }
 
 /* ============================================================
+   THEME REVEAL — CROSS-BROWSER CIRCULAR TRANSITION
+   Works in every browser (no startViewTransition API required).
+   An overlay expands from the click point using clip-path.
+   ============================================================ */
+
+.theme-reveal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    pointer-events: none;
+    /* 35% yellow — lets the underlying page show through as the
+       circle expands, so it reads as a tinted-glass wash instead
+       of a solid color block. */
+    background-color: rgba(250, 204, 21, 0.35);
+    clip-path: circle(0px at 50% 50%);
+    will-change: clip-path;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+html[data-theme="light"] .theme-reveal-overlay {
+    background-color: rgba(224, 163, 0, 0.35);
+}
+
+@keyframes circular-reveal {
+    from {
+        clip-path: circle(0px at var(--click-x, 50%) var(--click-y, 50%));
+    }
+    to {
+        clip-path: circle(var(--max-radius, 150vmax) at var(--click-x, 50%) var(--click-y, 50%));
+    }
+}
+
+.theme-reveal-overlay.animate {
+    animation: circular-reveal 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ============================================================
    MOBILE FIXES — PASS 2
    Fixes specific overflows observed on real phones:
    KPI value truncation, filter dropdown clipping,

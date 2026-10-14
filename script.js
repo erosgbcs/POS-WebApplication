@@ -1130,16 +1130,51 @@ renderCustomers(customerSearch?.value || '');
     }
 
     function performThemeReveal(sourceEl, nextTheme) {
-        // Shared work — called either directly (fallback path) or
-        // inside the View Transition callback.
-        const persistAndApply = () => {
+        // ------------------------------------------------------------
+        // Cross-browser circular reveal. Does NOT use startViewTransition
+        // (that API is missing in this browser). Instead: a full-screen
+        // overlay whose clip-path expands from the click point using
+        // a plain CSS keyframe animation. Works in every browser.
+        // ------------------------------------------------------------
+
+        const overlay = document.getElementById('theme-reveal-overlay');
+
+        // Safety net — if the overlay element is missing, just swap.
+        if (!overlay) {
             applyTheme(nextTheme);
             try { localStorage.setItem(THEME_KEY, nextTheme); } catch (e) {}
-        };
+            refreshChartsAfterThemeChange();
+            return;
+        }
 
-        // Chart rebuilds go into idle time so they never compete with
-        // the transition for main-thread frames.
-        const scheduleChartRefresh = () => {
+        // 1. Where did the user click?
+        const rect = sourceEl?.getBoundingClientRect?.();
+        const clickX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+        const clickY = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+
+        // 2. Radius big enough to cover the whole screen from that point.
+        const dx = Math.max(clickX, window.innerWidth - clickX);
+        const dy = Math.max(clickY, window.innerHeight - clickY);
+        const maxRadius = Math.hypot(dx, dy) + 120;
+
+        // 3. Feed the geometry to the keyframes.
+        overlay.style.setProperty('--click-x', `${clickX}px`);
+        overlay.style.setProperty('--click-y', `${clickY}px`);
+        overlay.style.setProperty('--max-radius', `${maxRadius}px`);
+
+        // 4. Swap the theme on the page behind the overlay.
+        applyTheme(nextTheme);
+        try { localStorage.setItem(THEME_KEY, nextTheme); } catch (e) {}
+
+        // 5. Restart the animation (reflow trick handles rapid re-clicks).
+        overlay.classList.remove('animate');
+        void overlay.offsetWidth;
+        overlay.classList.add('animate');
+
+        // 6. Cleanup + chart refresh after the 600ms animation.
+        setTimeout(() => {
+            overlay.classList.remove('animate');
+
             const run = () => {
                 try { refreshChartsAfterThemeChange(); }
                 catch (e) { console.warn('[theme] chart refresh failed', e); }
@@ -1149,69 +1184,7 @@ renderCustomers(customerSearch?.value || '');
             } else {
                 setTimeout(run, 60);
             }
-        };
-
-        // ---- Fallback path: no View Transitions support ----
-        // The API is missing in the user's browser (old Chrome,
-        // Codespaces iframes, older Safari, Firefox, etc.). Use a
-        // CSS cross-fade instead — works everywhere, visible on
-        // every device, and requires no browser-specific API.
-        if (!shouldUseViewTransitionReveal()) {
-            const root = document.documentElement;
-            root.classList.add('theme-fading');
-
-            // The color transitions declared in style.css do the
-            // smooth fade. We just swap the theme and let CSS handle
-            // the rest.
-            persistAndApply();
-
-            setTimeout(() => root.classList.remove('theme-fading'), 420);
-            setTimeout(scheduleChartRefresh, 440);
-            return;
-        }
-
-        // ---- Primary path: View Transitions ----
-        const { cx, cy, radius } = computeThemeRevealGeometry(sourceEl);
-
-        // The keyframes read these off <html>, so the pseudo-element
-        // knows where the circle should originate and how far to grow.
-        const root = document.documentElement;
-        root.style.setProperty('--reveal-x', `${cx}px`);
-        root.style.setProperty('--reveal-y', `${cy}px`);
-        root.style.setProperty('--reveal-r', `${radius}px`);
-
-        // Mobile performance: strip every backdrop-filter, ambient
-        // glow, and CSS transition for the duration of the reveal.
-        // The browser is compositing two full-page snapshots plus a
-        // clip-path; anything extra pushes mid-range Android GPUs
-        // below 60fps. They all come back on transition.finished.
-        root.classList.add('theme-revealing');
-
-        const transition = document.startViewTransition(async () => {
-            persistAndApply();
-            // Give the compositor a clean frame before the snapshot
-            // is captured. No chart work happens here anymore — it's
-            // all deferred to scheduleChartRefresh() below.
-            const isMobile = window.innerWidth < 768;
-            if (isMobile) {
-                await new Promise(resolve => requestAnimationFrame(resolve));
-            } else {
-                await new Promise(resolve =>
-                    requestAnimationFrame(() => requestAnimationFrame(resolve))
-                );
-            }
-        });
-
-        transition.finished.finally(() => {
-            root.style.removeProperty('--reveal-x');
-            root.style.removeProperty('--reveal-y');
-            root.style.removeProperty('--reveal-r');
-            root.classList.remove('theme-revealing');
-
-            // Only now — after the snapshot animation is over — do the
-            // chart rebuilds.
-            scheduleChartRefresh();
-        });
+        }, 620);
     }
 
     function initializeTheme() {
