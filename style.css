@@ -11905,3 +11905,20 @@ html:not([data-theme="light"]) .ai-forecast-summary-warn {
     color: #9a3412;
     border-color: rgba(251, 146, 60, 0.4);
 }
+/* ============================================================
+   THEME CROSS-FADE FALLBACK
+   Used when View Transitions is not available (older Chrome,
+   Codespaces iframes, etc.). Transitions only color properties
+   so it stays GPU-cheap and works on every browser since ~2011.
+   ============================================================ */
+html.theme-fading,
+html.theme-fading *,
+html.theme-fading *::before,
+html.theme-fading *::after {
+    transition:
+        background-color 400ms cubic-bezier(0.4, 0, 0.2, 1),
+        color            400ms cubic-bezier(0.4, 0, 0.2, 1),
+        border-color     400ms cubic-bezier(0.4, 0, 0.2, 1),
+        fill             400ms cubic-bezier(0.4, 0, 0.2, 1),
+        stroke           400ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}

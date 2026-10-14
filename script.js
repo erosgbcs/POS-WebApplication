@@ -24,13 +24,16 @@
     const isMobile = () => window.innerWidth < 768;
     const isTablet = () => window.innerWidth >= 768 && window.innerWidth < 1024;
     const isDesktop = () => window.innerWidth >= 1024;
-    
-    // Disable animations on mobile for better performance
+
+    // Disable decorative background animations on mobile for battery
+    // and paint performance. This used to be `* { animation-duration:
+    // 0.1s !important; }` — that rule also compressed the theme-reveal
+    // transition down to 100ms, which made it invisible. Scoped to just
+    // the ambient glow shapes now.
     if (isMobile()) {
         const style = document.createElement('style');
         style.textContent = `
-            * { animation-duration: 0.1s !important; }
-            .bg-glow, .geo-shape { animation-duration: 0.1s !important; }
+            .bg-glow, .geo-shape { animation: none !important; }
         `;
         document.head.appendChild(style);
     }
@@ -1005,38 +1008,69 @@ renderCustomers(customerSearch?.value || '');
     function applyTheme(theme) {
     const isLight = theme === 'light';
     document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
-    
+
     if (themeToggle) {
         const nextMode = isLight ? 'dark' : 'light';
         themeToggle.setAttribute('aria-label', `Switch to ${nextMode} mode`);
         themeToggle.setAttribute('title', `Switch to ${nextMode} mode`);
     }
-    
-    // Re-render charts with theme-appropriate colors
-    if (document.getElementById('ovSalesChart') && typeof renderSalesChart === 'function') {
-        renderSalesChart();
+    // Chart re-renders are deferred to refreshChartsAfterThemeChange().
+    // Running them here blocks the main thread during the view-transition
+    // snapshot, which is what produces the visible stutter on toggle.
     }
-    if (document.getElementById('ovTopProductsChart') && typeof renderTopProductsChart === 'function') {
-        renderTopProductsChart();
+
+    /* Runs AFTER the reveal animation has finished. Uses idle time
+       so it never competes with the compositor. */
+    function refreshChartsAfterThemeChange() {
+        if (document.getElementById('ovSalesChart') && typeof renderSalesChart === 'function') {
+            renderSalesChart();
+        }
+        if (document.getElementById('ovTopProductsChart') && typeof renderTopProductsChart === 'function') {
+            renderTopProductsChart();
+        }
+        if (document.getElementById('ovCategoryChart') && typeof renderSalesByCategoryChart === 'function') {
+            renderSalesByCategoryChart();
+        }
+        if (document.getElementById('ovHourlyHeatmap') && typeof renderHourlyHeatmap === 'function') {
+            renderHourlyHeatmap();
+        }
+        // In-place color update for the AI forecast chart — avoids the
+        // expensive Chart.js teardown/rebuild that refreshAiCards() causes.
+        if (aiForecastChartInstance) {
+            refreshAiChartsInPlace();
+        }
     }
-    if (document.getElementById('ovCategoryChart') && typeof renderSalesByCategoryChart === 'function') {
-        renderSalesByCategoryChart();
-    }
-    if (document.getElementById('ovHourlyHeatmap') && typeof renderHourlyHeatmap === 'function') {
-        renderHourlyHeatmap();
-    }
-    // AI Forecast — the canvas holds theme-specific colors (amber
-    // accent line, tooltip surfaces, point borders). On theme toggle
-    // we must rebuild it, not just destroy it. _destroyAiForecastChart()
-    // alone leaves an empty <canvas> behind.
-    //
-    // refreshAiCards() reads the forecast from localStorage cache —
-    // no network round-trip — and its call to renderAiForecast()
-    // internally destroys and recreates the Chart.js instance with
-    // fresh theme colors.
-    if (aiForecastChartInstance) {
-        refreshAiCards();
-    }
+
+    /* Updates chart colors on the existing Chart.js instance instead
+       of destroying and rebuilding it. No network call, no canvas
+       reallocation, no layout thrash. */
+    function refreshAiChartsInPlace() {
+        if (!aiForecastChartInstance) return;
+        const isLight = document.documentElement.dataset.theme === 'light';
+        const accent    = isLight ? '#E0A300' : '#FACC15';
+        const accentRgb = isLight ? '224, 163, 0' : '250, 204, 21';
+        const tickColor = isLight ? '#756c5e' : '#8a8275';
+
+        const ds = aiForecastChartInstance.data.datasets;
+        ds.forEach(d => {
+            if (d.label === 'forecast') {
+                d.borderColor = accent;
+                d.pointBackgroundColor = accent;
+            }
+            if (d.label === '_bandUpper') {
+                d.backgroundColor = `rgba(${accentRgb}, 0.14)`;
+            }
+        });
+
+        const opts = aiForecastChartInstance.options;
+        if (opts.plugins?.tooltip) {
+            opts.plugins.tooltip.titleColor = isLight ? '#100e0a' : '#fef9e7';
+            opts.plugins.tooltip.bodyColor  = isLight ? '#756c5e' : '#d6cfc0';
+            opts.plugins.tooltip.borderColor = `rgba(${accentRgb}, 0.35)`;
+        }
+        if (opts.scales?.x?.ticks) opts.scales.x.ticks.color = tickColor;
+
+        aiForecastChartInstance.update('none');
     }
 
     /* ============================================================
@@ -1077,32 +1111,20 @@ renderCustomers(customerSearch?.value || '');
        available without spinning up a benchmark.
        ------------------------------------------------------------ */
     function shouldUseViewTransitionReveal() {
-        // 1. API must exist.
+        // View Transitions works in Chrome/Edge 111+ and Safari 18+.
+        // The API check is the only real gate we need. The hardware
+        // checks from earlier were masking the reveal on capable
+        // devices — Chrome caps deviceMemory at 8, most phones report 4,
+        // so the mem>=8 test rejected nearly every Android.
         if (typeof document.startViewTransition !== 'function') return false;
 
-        // 2. Respect the OS-level reduced-motion preference. Users
-        //    who ask for less motion almost always want this off.
+        // The ONE case where we intentionally skip the reveal: the
+        // user has asked the OS for reduced motion. This is the most
+        // common reason people report "nothing happens" — check your
+        // system settings if this still doesn't work.
         if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             return false;
         }
-
-        // 3. Desktop / large screens: always use the reveal.
-        if (window.innerWidth >= 1024) return true;
-
-        // 4. Mobile tier gate. Chrome only exposes deviceMemory on
-        //    Android; iOS Safari leaves it undefined — iOS devices
-        //    are all Metal-backed and handle the reveal fine, so we
-        //    treat `undefined` as "capable".
-        //
-        //    Thresholds:
-        //      >= 8 GB  → flagship (S22+, iPhone 13+, Pixel 7+) — reveal
-        //      4 GB     → capable mid-tier (Helio G99, SD 685) — reveal
-        //      < 4 GB   → entry-level (Helio A22, 3 GB Androids) — flash
-        //
-        //    To force the flash on your Helio G99 specifically,
-        //    change this to `mem < 8`.
-        const mem = navigator.deviceMemory;
-        if (typeof mem === 'number' && mem < 4) return false;
 
         return true;
     }
@@ -1115,22 +1137,36 @@ renderCustomers(customerSearch?.value || '');
             try { localStorage.setItem(THEME_KEY, nextTheme); } catch (e) {}
         };
 
-        // ---- Fallback path: no View Transitions, low-tier device,
-        //      or user prefers reduced motion ----
+        // Chart rebuilds go into idle time so they never compete with
+        // the transition for main-thread frames.
+        const scheduleChartRefresh = () => {
+            const run = () => {
+                try { refreshChartsAfterThemeChange(); }
+                catch (e) { console.warn('[theme] chart refresh failed', e); }
+            };
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(run, { timeout: 500 });
+            } else {
+                setTimeout(run, 60);
+            }
+        };
+
+        // ---- Fallback path: no View Transitions support ----
+        // The API is missing in the user's browser (old Chrome,
+        // Codespaces iframes, older Safari, Firefox, etc.). Use a
+        // CSS cross-fade instead — works everywhere, visible on
+        // every device, and requires no browser-specific API.
         if (!shouldUseViewTransitionReveal()) {
-            const { cx, cy, radius } = computeThemeRevealGeometry(sourceEl);
+            const root = document.documentElement;
+            root.classList.add('theme-fading');
 
-            const flash = document.createElement('div');
-            flash.className = 'reveal-flash';
-            flash.style.left = `${cx}px`;
-            flash.style.top = `${cy}px`;
-            flash.style.width = `${radius * 2}px`;
-            flash.style.height = `${radius * 2}px`;
-            document.body.appendChild(flash);
+            // The color transitions declared in style.css do the
+            // smooth fade. We just swap the theme and let CSS handle
+            // the rest.
+            persistAndApply();
 
-            // Swap the theme at the peak of the flash.
-            setTimeout(persistAndApply, 170);
-            setTimeout(() => flash.remove(), 700);
+            setTimeout(() => root.classList.remove('theme-fading'), 420);
+            setTimeout(scheduleChartRefresh, 440);
             return;
         }
 
@@ -1153,11 +1189,9 @@ renderCustomers(customerSearch?.value || '');
 
         const transition = document.startViewTransition(async () => {
             persistAndApply();
-            // Give Chart.js a moment to flush its canvas repaints.
-            // The bar is set by how long the slowest device takes.
-            // Desktop: two rAFs is fine. Mobile: a single frame + a
-            // short timeout is faster and the canvases are hidden
-            // anyway (see html.theme-revealing canvas { visibility }).
+            // Give the compositor a clean frame before the snapshot
+            // is captured. No chart work happens here anymore — it's
+            // all deferred to scheduleChartRefresh() below.
             const isMobile = window.innerWidth < 768;
             if (isMobile) {
                 await new Promise(resolve => requestAnimationFrame(resolve));
@@ -1173,6 +1207,10 @@ renderCustomers(customerSearch?.value || '');
             root.style.removeProperty('--reveal-y');
             root.style.removeProperty('--reveal-r');
             root.classList.remove('theme-revealing');
+
+            // Only now — after the snapshot animation is over — do the
+            // chart rebuilds.
+            scheduleChartRefresh();
         });
     }
 
