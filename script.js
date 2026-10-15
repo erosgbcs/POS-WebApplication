@@ -1129,6 +1129,8 @@ renderCustomers(customerSearch?.value || '');
         return true;
     }
 
+    let themeRevealInProgress = false;
+
     function performThemeReveal(sourceEl, nextTheme) {
         // ------------------------------------------------------------
         // Cross-browser circular reveal. Does NOT use startViewTransition
@@ -1146,6 +1148,11 @@ renderCustomers(customerSearch?.value || '');
             refreshChartsAfterThemeChange();
             return;
         }
+
+        if (themeRevealInProgress) return;
+        themeRevealInProgress = true;
+        sourceEl?.classList.add('spin');
+        sourceEl?.setAttribute('aria-busy', 'true');
 
         // 1. Where did the user click?
         const rect = sourceEl?.getBoundingClientRect?.();
@@ -1171,9 +1178,15 @@ renderCustomers(customerSearch?.value || '');
         void overlay.offsetWidth;
         overlay.classList.add('animate');
 
-        // 6. Cleanup + chart refresh after the 600ms animation.
+        // 6. Cleanup + chart refresh after the reveal animation.
+        const revealDuration = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+            ? 0
+            : 580;
         setTimeout(() => {
             overlay.classList.remove('animate');
+            sourceEl?.classList.remove('spin');
+            sourceEl?.removeAttribute('aria-busy');
+            themeRevealInProgress = false;
 
             const run = () => {
                 try { refreshChartsAfterThemeChange(); }
@@ -1184,7 +1197,7 @@ renderCustomers(customerSearch?.value || '');
             } else {
                 setTimeout(run, 60);
             }
-        }, 620);
+        }, revealDuration);
     }
 
     function initializeTheme() {
@@ -4714,4 +4727,3 @@ window.addEventListener('inventory-products-loaded', () => {
 
     init();
     })();
-

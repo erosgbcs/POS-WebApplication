@@ -604,12 +604,12 @@
     <li>Click <strong>Delete</strong>. The product is removed from the catalog, the local cache, and Firestore; a deletion entry is written to the audit log with severity "warning".</li>
 </ol>
 
-<h3>4.3.3 AI Assistant</h3>
+<h3>4.3.3 Kirby Assistant</h3>
 
-<div class="screenshot" data-label="AI Assistant panel open"></div>
-<p class="caption">Figure 4.20 — AI Assistant Panel</p>
+<div class="screenshot" data-label="Kirby Assistant panel open"></div>
+<p class="caption">Figure 4.20 — Kirby Assistant Panel</p>
 
-<p>The AI Assistant is accessed via the floating action button at the bottom-right of every page. It slides out as a panel from the right edge and contains a scrollable chat thread, a horizontal quick-prompt chip bar, and a text input at the bottom.</p>
+<p>Kirby is accessed via the floating action button at the bottom-right of every page. The panel is labeled <strong>Ask Kirby</strong>, slides out from the right edge, and contains a scrollable chat thread, a horizontal quick-prompt chip bar, and a text input at the bottom.</p>
 
 <h4>Step-by-Step: Asking a Structured Question</h4>
 
@@ -621,17 +621,25 @@
     <li>The response appears in the chat thread with formatted values — money in green pills, stock keywords highlighted, and product names rendered as clickable buttons.</li>
 </ol>
 
-<div class="screenshot" data-label="AI Assistant chat — structured question answered"></div>
-<p class="caption">Figure 4.21 — AI Response to a Structured Question</p>
+<div class="screenshot" data-label="Kirby chat — structured question answered"></div>
+<p class="caption">Figure 4.21 — Kirby Response to a Structured Question</p>
 
 <h4>Step-by-Step: Asking an Open-Ended Question</h4>
 
 <ol class="step-list">
-    <li>Open the AI panel and type a free-form question (e.g., <em>"Are we trending up or down this month?"</em>).</li>
+    <li>Open the Kirby panel and type a free-form question (e.g., <em>"Are we trending up or down this month?"</em>).</li>
     <li>The NLP engine does not find a specific intent, but recognizes the message as POS-relevant.</li>
-    <li>The backend assembles a compact JSON snapshot of store aggregates — sales summaries, recent daily series, top products, inventory alerts — and forwards it to the LLM (Gemini primary, Groq fallback).</li>
-    <li>The LLM produces a response grounded entirely in the provided snapshot. It is instructed never to invent numbers.</li>
+    <li>The backend assembles a compact JSON snapshot of store aggregates — sales summaries, recent daily series, top products, inventory alerts — and forwards it to Gemini first, with Groq as the fallback provider.</li>
+    <li>The provider produces a response grounded entirely in the provided snapshot. It is instructed to identify as Kirby, respond in the user's language, and never invent numbers.</li>
     <li>The response renders in the chat thread with a "via gemini" meta line indicating the provider.</li>
+</ol>
+
+<h4>Step-by-Step: Asking an Unrelated Question</h4>
+
+<ol class="step-list">
+    <li>Type a question outside the store and POS scope, such as a general knowledge, coding, or entertainment question.</li>
+    <li>The backend identifies that the request is not POS-relevant and returns a local scope response instead of sending it to Gemini or Groq.</li>
+    <li>Kirby explains that it is focused on store operations and suggests an inventory, sales, order, or transaction question.</li>
 </ol>
 
 <h4>Step-by-Step: Clicking a Product Name in a Response</h4>

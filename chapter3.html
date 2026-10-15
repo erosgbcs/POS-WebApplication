@@ -367,7 +367,7 @@
 │  PRESENTATION TIER (Browser)                                │
 │                                                             │
 │  ┌────────────────┐  ┌────────────────┐  ┌───────────────┐ │
-│  │  Dashboard UI  │  │  POS Terminal  │  │  AI Assistant │ │
+│  │  Dashboard UI  │  │  POS Terminal  │  │  Kirby        │ │
 │  │  (script.js)   │  │  (pos.js)      │  │  (ai.js)      │ │
 │  └────────────────┘  └────────────────┘  └───────────────┘ │
 │                                                             │
@@ -405,7 +405,7 @@
 │                                                             │
 │  ┌──────────────────┐  ┌──────────────┐  ┌───────────────┐ │
 │  │  Cloud Firestore │  │ Firebase Auth│  │  Gemini / Groq│ │
-│  │  (5 collections) │  │  (Email + PW)│  │  (LLM APIs)   │ │
+│  │  (6 collections) │  │  (Email + PW)│  │  (LLM APIs)   │ │
 │  └──────────────────┘  └──────────────┘  └───────────────┘ │
 └─────────────────────────────────────────────────────────────┘</code></pre>
 
@@ -421,23 +421,23 @@
     <li>The receipt is displayed immediately from local state — the user never waits for the network.</li>
 </ol>
 
-<p><strong>AI Assistant Flow.</strong> When a user submits a chat message:</p>
+<p><strong>Kirby Assistant Flow.</strong> When a user submits a chat message:</p>
 
 <ol>
     <li><code>nlp_engine.py</code> first attempts local intent classification (deterministic keyword matching with fuzzy product lookup).</li>
     <li>If the intent is matched, a predefined handler returns structured data without touching an LLM.</li>
-    <li>If the intent is <code>unknown</code> but the message is POS-relevant, the backend assembles a compact JSON snapshot of store aggregates and forwards it to Gemini (primary) or Groq (fallback).</li>
+    <li>If the intent is <code>unknown</code> but the message is POS-relevant, the backend assembles a compact JSON snapshot of store aggregates and forwards it to Gemini (primary) or Groq (fallback). Unrelated messages receive a local scope response and are not sent to either provider.</li>
 </ol>
 
 <p><strong>Real-Time Sync Flow.</strong> Firestore <code>onSnapshot</code> subscriptions push updates to every open tab as data changes. The dashboard's <code>scheduleOverviewRefresh()</code> debounces rapid bursts into a single render, preventing redundant chart rebuilds and AI proxy calls.</p>
 
 <h3>3.2.3 Design Decisions</h3>
 
-<p>The architecture is <strong>local-first</strong>: every read operation hits localStorage before Firestore, and every write queues locally if Firestore is unreachable. This guarantees the POS terminal remains functional through internet outages — the single most important reliability requirement for a retail system.</p>
+<p>The architecture is <strong>offline-capable</strong>: Firestore's client SDK persists cached data and queues supported writes in IndexedDB, while the POS adds a dedicated localStorage queue for sales that need explicit replay and status feedback. This allows the terminal to continue key POS work through temporary internet outages without claiming that every server operation is available offline.</p>
 
 <p>The backend is <strong>stateless</strong>: no session state, no in-memory cache between requests, no long-running processes. Each Python function cold-starts on demand, reads configuration from environment variables, and exits after responding. This makes the system horizontally scalable by construction.</p>
 
-<p>The AI layer is <strong>opportunistic</strong>: LLM providers are treated as a fallback for open-ended questions only. All deterministic intents ("show low stock," "today's sales," "best sellers") are served by local Python handlers with zero AI cost and zero latency.</p>
+<p>The AI layer is <strong>opportunistic</strong>: Kirby uses local deterministic intent handling for known POS requests. Gemini and Groq are treated as a fallback for POS-relevant open-ended questions only; the shared prompt requires the providers to identify as Kirby, use only supplied store data, respond in the user's language, and redirect unrelated requests.</p>
 
 <h2>3.3 User Interface Design</h2>
 
@@ -480,7 +480,7 @@
 
 <p><strong>User Management.</strong> An admin-only screen listing all staff accounts with role badges, status indicators, last-login timestamps, and actions (edit, password reset, deactivate, delete). New accounts are created via a modal form that requires admin password re-authentication.</p>
 
-<p><strong>AI Assistant Panel.</strong> A slide-out drawer from the right edge containing a scrollable chat thread, a horizontal quick-prompt chip bar, and a text input. The AI can answer open-ended questions about sales, stock, customers, and trends; structured questions are handled by the local NLP engine.</p>
+<p><strong>Kirby Assistant Panel.</strong> A slide-out drawer from the right edge containing a scrollable chat thread, a horizontal quick-prompt chip bar, and a text input. Kirby can answer open-ended questions about sales, stock, customers, and trends; structured questions are handled by the local NLP engine, while unrelated questions are redirected to the store-focused capabilities.</p>
 
 <h3>3.3.3 Responsive Behavior</h3>
 
@@ -620,7 +620,7 @@
     <li><strong>Groq</strong> (fallback, <code>openai/gpt-oss-20b</code>) — used when Gemini fails, times out, or is missing credentials</li>
 </ul>
 
-<p><strong>Server (_lib/nlp_engine.py)</strong> — A deterministic intent classifier that runs before any LLM call. Recognizes fourteen intents (greeting, help, low_stock, out_of_stock, inventory_check, product_search, daily_sales, sales_summary, sales_history, best_seller, transaction_history, sales_forecast, restock_recommendation) using weighted keyword + phrase matching with fuzzy product-name resolution.</p>
+<p><strong>Server (_lib/nlp_engine.py)</strong> — A deterministic intent classifier that runs before any LLM call. Recognizes thirteen intents (greeting, help, low_stock, out_of_stock, inventory_check, product_search, daily_sales, sales_summary, sales_history, best_seller, transaction_history, sales_forecast, restock_recommendation) using weighted keyword and phrase matching with fuzzy product-name resolution. The classifier includes English and Tagalog/Taglish vocabulary.</p>
 
 <p><strong>Server (_lib/handlers.py)</strong> — Implements each intent as a pure function over Firestore data. Handlers never invent numbers; if data is unavailable, they return an honest error. The AI system prompt (for the LLM fallback) explicitly forbids hallucinating values and instructs the model to reply with a specific refusal phrase when the provided context is insufficient.</p>
 

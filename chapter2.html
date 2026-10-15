@@ -334,7 +334,7 @@
 
 <h2>2.1 Existing System / Process</h2>
 
-<p>Kirby's Hardware Trading is a small-scale retail hardware store that has historically operated using fully manual processes. The store's day-to-day operations have relied on paper-based tracking, handwritten receipts, and mental arithmetic — a workflow that has proven adequate for very low transaction volumes but that breaks down as the business grows.</p>
+<p>Kirby's Hardware is a small-scale retail hardware store that has historically operated using fully manual processes. The store's day-to-day operations have relied on paper-based tracking, handwritten receipts, and mental arithmetic — a workflow that has proven adequate for very low transaction volumes but that breaks down as the business grows.</p>
 
 <h3>2.1.1 Description of the Current Manual Process</h3>
 
@@ -377,7 +377,7 @@
 
 <h2>2.2 Proposed System</h2>
 
-<p>The proposed system — <strong>Kirby's Hardware POS and Inventory Management System</strong> — is a web-based, offline-capable point-of-sale and inventory management platform designed specifically for the operational realities of a small Philippine hardware store. It replaces the entire manual workflow with a digital system that is accessible from any browser-equipped device (laptop, tablet, or smartphone) without requiring dedicated hardware.</p>
+<p>The proposed system — <strong>Kirby's Hardware POS and Inventory Management System</strong> — is a browser-based point-of-sale and inventory management platform designed specifically for the operational realities of a small Philippine hardware store. It replaces the manual workflow with a responsive single-page application accessible from a laptop, tablet, or smartphone without requiring dedicated POS hardware. Firebase Authentication and Cloud Firestore provide the identity, data, synchronization, and offline persistence services, while Vercel hosts the static frontend and protected Python API functions.</p>
 
 <h3>2.2.1 System Overview</h3>
 
@@ -395,13 +395,13 @@
 
 <h3>2.2.2 Key Innovations</h3>
 
-<p><strong>Offline-first operation.</strong> Every sale, stock update, and product change is written to the browser's local storage first, then synchronized to the cloud. If the store's internet connection drops mid-transaction, the sale is queued and replayed automatically when connectivity returns.</p>
+<p><strong>Offline-capable operation.</strong> Firestore's browser persistence caches application data and queues supported writes in IndexedDB. POS sales also use an application-level <code>localStorage.pos_order_queue</code> so a completed offline sale can be shown immediately and replayed when connectivity returns.</p>
 
 <p><strong>No dedicated hardware.</strong> The entire system runs in a web browser. The store does not need to purchase a specialized POS terminal — an existing laptop, tablet, or even a smartphone is sufficient.</p>
 
 <p><strong>Real-time multi-device sync.</strong> Because Firestore pushes changes to every connected client, a sale entered on the cashier's tablet appears on the owner's phone within a fraction of a second.</p>
 
-<p><strong>Fault-tolerant AI integration.</strong> The AI assistant is built on a two-provider fallback chain (Gemini → Groq) with strict timeouts and error isolation.</p>
+<p><strong>Kirby AI integration.</strong> Kirby first classifies supported requests locally and uses deterministic handlers for structured POS questions. Only POS-relevant open-ended questions are sent to Gemini, with Groq as the fallback provider; unrelated questions are redirected rather than answered as general chat.</p>
 
 <p><strong>Statistical sales forecasting.</strong> Rather than relying on the LLM for numeric predictions, the system uses a pure-Python forecasting engine that scores four candidate statistical models via rolling-origin cross-validation and returns a 7-day forecast with 95% prediction intervals.</p>
 
@@ -567,9 +567,9 @@
 
 <h3>2.4.8 AI Assistant</h3>
 <ul>
-    <li><strong>Deterministic NLP intent classifier</strong> — 14 intents recognized before any LLM call</li>
+    <li><strong>Deterministic NLP intent classifier</strong> — 13 intents recognized before any LLM call</li>
     <li><strong>Local handlers</strong> for structured queries (low stock, top sellers, today's sales, etc.)</li>
-    <li><strong>LLM fallback</strong> — Gemini primary, Groq fallback, for open-ended questions</li>
+    <li><strong>Kirby LLM fallback</strong> — Gemini primary and Groq fallback for POS-relevant open-ended questions; unrelated questions are redirected locally</li>
     <li><strong>Compact context injection</strong> — the LLM receives only aggregated JSON</li>
     <li><strong>Sales forecasting</strong> — statistical 7-day projection with confidence intervals</li>
     <li><strong>Restock recommendations</strong> — ranked by urgency using 30-day sales velocity</li>

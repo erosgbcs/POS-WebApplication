@@ -2758,14 +2758,40 @@ body {
     backdrop-filter: blur(12px);
     cursor: pointer;
     font: 600 12px/1 'Inter', sans-serif;
-    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
+    transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease,
+        transform 0.25s ease, box-shadow 0.25s ease;
+    overflow: hidden;
+    isolation: isolate;
 }
 
 .theme-toggle:hover,
 .theme-toggle:focus-visible {
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.04);
     border-color: rgba(250, 204, 21, 0.7);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
     outline: none;
+}
+
+.theme-toggle:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.theme-toggle::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    background: currentColor;
+    opacity: 0;
+    transform: scale(0.35);
+    transition: opacity 0.2s ease, transform 0.35s cubic-bezier(.2, .8, .2, 1);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.theme-toggle.spin::after {
+    opacity: 0.1;
+    transform: scale(1);
 }
 
 .nav-right > .theme-toggle {
@@ -2784,6 +2810,12 @@ body {
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.8;
+    transform-origin: center;
+    transition: transform 0.45s cubic-bezier(.2, .8, .2, 1), opacity 0.25s ease;
+}
+
+.theme-toggle.spin .theme-icon {
+    transform: rotate(180deg) scale(1.14);
 }
 
 .theme-icon-sun {
@@ -2792,6 +2824,57 @@ body {
 
 .theme-icon-moon {
     display: none;
+}
+
+/* The overlay reveals the already-swapped theme without forcing a
+   full-page layout animation. clip-path stays on the compositor. */
+.theme-reveal-overlay {
+    --click-x: 50vw;
+    --click-y: 50vh;
+    --max-radius: 0px;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    pointer-events: none;
+    background: #0f172a;
+    clip-path: circle(0 at var(--click-x) var(--click-y));
+    opacity: 0;
+    will-change: clip-path, opacity;
+}
+
+[data-theme="light"] .theme-reveal-overlay {
+    background: #f8fafc;
+}
+
+.theme-reveal-overlay.animate {
+    animation: themeReveal 560ms cubic-bezier(.22, .75, .2, 1) both;
+}
+
+@keyframes themeReveal {
+    0% {
+        opacity: 0.98;
+        clip-path: circle(0 at var(--click-x) var(--click-y));
+    }
+    72% {
+        opacity: 0.98;
+    }
+    100% {
+        opacity: 0;
+        clip-path: circle(var(--max-radius) at var(--click-x) var(--click-y));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .theme-toggle,
+    .theme-icon,
+    .theme-toggle::after {
+        transition-duration: 0.01ms;
+    }
+
+    .theme-reveal-overlay.animate {
+        animation: none;
+        opacity: 0;
+    }
 }
 
 [data-theme="light"] body {

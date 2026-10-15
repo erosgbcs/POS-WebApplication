@@ -63,14 +63,34 @@ def _send_json(handler, status, payload):
 
 
 def _fallback_unknown(message: str) -> dict:
+    normalized = NLPEngine.normalize(message)
+    tagalog_markers = {
+        "ako", "ang", "ano", "ba", "bakit", "bilang", "gusto", "hindi",
+        "ikaw", "ilan", "ito", "kailangan", "kumusta", "magkano", "may",
+        "mga", "na", "ng", "ngayon", "paano", "salamat", "tulong", "wala",
+    }
+    is_tagalog = bool(set(normalized.split()) & tagalog_markers)
+
+    if is_tagalog:
+        response = (
+            "Nakatutok ako sa POS at sa datos ng tindahan. "
+            "Makakatulong ako sa imbentaryo, benta, transaksyon, at forecast. "
+            "Halimbawa: “Ilang martilyo ang natitira?” o "
+            "“Magkano ang benta ngayong araw?”"
+        )
+    else:
+        response = (
+            "I’m a POS assistant focused on your store’s data. "
+            "I can help with inventory, sales, transactions, and forecasts. "
+            "For example: “How many hammers are left?” or "
+            "“What were today’s sales?”"
+        )
+
     return {
         "success": True,
         "intent": "unknown",
         "source": "local_fallback",
-        "response": (
-            "I'm not sure what you mean. I can help with inventory, "
-            "sales, transactions, and sales forecasts."
-        ),
+        "response": response,
         "data": {},
     }
 
@@ -172,6 +192,10 @@ def process_request(body: dict, authorization: str) -> dict:
 
     augmented_prompt = (
         f"{history_block}"
+        "REQUEST_SCOPE: Answer only if the user's request concerns Kirby's "
+        "Hardware store or POS operations. If it is unrelated, politely "
+        "redirect to POS capabilities in the user's language; do not answer "
+        "the unrelated topic.\n\n"
         f"STORE_DATA:\n{json.dumps(context, indent=2)}\n\n"
         f"User question: {message}"
     )
@@ -193,7 +217,7 @@ def process_request(body: dict, authorization: str) -> dict:
         "intent": "unknown",
         "source": "local_fallback",
         "response": (
-            "The AI assistant is temporarily unavailable, and I couldn't "
+            "Kirby is temporarily unavailable, and I couldn't "
             "resolve that request locally. You can still ask about inventory, "
             "sales, transactions, and forecasts."
         ),

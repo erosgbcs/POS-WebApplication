@@ -255,7 +255,7 @@
 
 <p>The scale of this sector is substantial. As of end-2023, the Philippines had 1,241,766 micro, small, and medium enterprises (MSMEs), accounting for 99.6% of all firms and employing 6,364,367 workers, or 66.8% of the total workforce (Asian Development Bank [ADB], 2024). Wholesale and retail trade consistently holds the highest share of MSMEs at 48.6%, and 82.1% of these enterprises are located in the provinces outside the National Capital Region (ADB, 2024). Mom-and-pop retail stores alone contribute an estimated ₱1.12 trillion to ₱1.46 trillion annually to the national retail economy, underscoring their role as a critical component of Philippine commerce (San Juan, 2025). More than 99% of businesses in the Philippines are MSMEs, contributing roughly 40% to gross domestic product (Cruz, 2026).</p>
 
-<p>Kirby's Hardware Trading, located along Gungon Street in Santa Maria, Bulacan, is one such enterprise. The store stocks a broad catalog spanning nine categories — tools, hardware, electrical, plumbing, paint, garden, building supplies, fasteners, and safety equipment — and serves a mix of walk-in retail buyers and small-scale contractors. As with most Philippine hardware retailers of comparable size, the store has traditionally relied on manual processes: handwritten stock ledgers, carbon-copy sales receipts, whiteboard price lists, and month-end arithmetic done by hand.</p>
+<p>Kirby's Hardware, located along Gungon Street in Santa Maria, Bulacan, is one such enterprise. The store stocks a broad catalog spanning nine categories — tools, hardware, electrical, plumbing, paint, garden, building supplies, fasteners, and safety equipment — and serves a mix of walk-in retail buyers and small-scale contractors. As with most Philippine hardware retailers of comparable size, the store has traditionally relied on manual processes: handwritten stock ledgers, carbon-copy sales receipts, whiteboard price lists, and month-end arithmetic done by hand.</p>
 
 <p>These manual practices, while adequate during the store's earliest years, have become increasingly difficult to sustain. A growing product catalog (now exceeding three hundred SKUs, many with size and brand variations) has made accurate stock tracking impractical to maintain by hand. Research on retail MSMEs confirms that inventory management without proper information systems potentially causes recording errors, reporting delays, and data discrepancies that affect managerial decision-making (Pratiwi et al., 2026). A growing volume of daily transactions has made end-of-day reconciliation error-prone. And a growing base of repeat customers has made the absence of any customer-record system an active business limitation — the owner cannot identify his best buyers, cannot measure their spending patterns, and cannot target any kind of loyalty effort.</p>
 
@@ -364,7 +364,7 @@
 
 <h3>1.3.1 General Objective</h3>
 
-<p>To design, develop, and deploy a browser-based, offline-capable, AI-assisted Point-of-Sale and Inventory Management System for Kirby's Hardware Trading that replaces the store's manual business processes with a digital workflow, and that provides the store owner with accurate, real-time visibility into sales, inventory, and customer activity — without requiring any dedicated hardware purchase or recurring software subscription.</p>
+<p>To design, develop, and deploy a browser-based, offline-capable, AI-assisted Point-of-Sale and Inventory Management System for Kirby's Hardware that replaces the store's manual business processes with a digital workflow, and that provides the store owner with accurate, real-time visibility into sales, inventory, and customer activity — without requiring any dedicated hardware purchase or recurring software subscription.</p>
 
 <h3>1.3.2 Specific Objectives</h3>
 
@@ -395,7 +395,7 @@
 
     <li><strong>Maintain a complete audit trail.</strong> Record every sale, login, inventory change, settings update, and user-management action in an immutable activity log that displays owner-friendly labels, supports filtering and export, and provides per-user activity summaries for staff oversight.</li>
 
-    <li><strong>Preserve full functionality through internet outages.</strong> Guarantee that the POS workflow, receipt generation, and inventory lookup remain fully operational when the network is unavailable, by queuing failed writes locally and replaying them automatically when connectivity returns.</li>
+    <li><strong>Preserve key POS functions through internet outages.</strong> Keep receipt generation, inventory lookup, and sale capture usable during temporary network loss by using Firestore offline persistence and a local pending-sale queue that replays when connectivity returns.</li>
 
     <li><strong>Deliver a fully responsive user interface.</strong> Ensure the system is usable on desktop, tablet, and smartphone browsers without modification, so that the store can operate on whatever device is available without purchasing specialized hardware.</li>
 
@@ -426,13 +426,13 @@
 
 <p><strong>Settings.</strong> Store information, receipt footer, tax rate, and GCash credentials configuration, with live propagation to all open clients.</p>
 
-<p><strong>AI Assistant.</strong> Natural-language chat interface with local intent classification, deterministic handlers for structured queries, and external LLM fallback for open-ended questions. The AI system prompt forbids inventing numbers and sends only aggregate snapshots to the LLM.</p>
+<p><strong>Kirby Assistant.</strong> Natural-language chat interface with local intent classification, deterministic handlers for structured queries, and Gemini-to-Groq fallback for POS-relevant open-ended questions. The assistant is named Kirby, responds in English or Tagalog/Taglish according to the user's language, refuses unrelated topics, forbids invented numbers, and sends only aggregate snapshots to the LLM.</p>
 
 <p><strong>Statistical Forecasting.</strong> A pure-Python sales forecasting engine that scores four candidate models via rolling-origin CV and returns a 7-day revenue forecast with 95% prediction intervals.</p>
 
-<p><strong>Offline Support.</strong> A service-worker-based app shell cache and an application-level pending-sale queue so that the POS remains fully operational during internet outages.</p>
+<p><strong>Offline Support.</strong> A service-worker-based app-shell cache, Firestore offline persistence, and an application-level pending-sale queue so that the POS can continue recording sales during connectivity interruptions and synchronize them when the connection returns.</p>
 
-<p><strong>Authentication.</strong> Firebase Authentication with Firebase ID token verification on every backend request; role-based access control enforced both client-side and server-side.</p>
+<p><strong>Authentication.</strong> Firebase Authentication with email/password sign-in, persistent browser sessions, Firebase ID-token verification on every backend request, and role-based access control enforced in the interface and protected server functions.</p>
 
 <h3>1.4.2 Limitations</h3>
 
@@ -460,11 +460,11 @@
 
 <p><strong>L11 — Forecasting accuracy under sparse data.</strong> The statistical forecasting engine requires a minimum of three nonzero days to produce output, and its accuracy is bounded by the quality of the historical data. A store that has been operating for only a few weeks will see forecasts with very wide confidence intervals. Research confirms that limited historical data is a persistent challenge for SME cash flow forecasting (ICAEW, 2025).</p>
 
-<p><strong>L12 — AI answers for out-of-scope questions.</strong> The AI assistant is designed for POS-relevant questions about the store's own data. It will decline to answer questions unrelated to the store's operations and will not perform general-knowledge tasks, creative writing, or coding assistance.</p>
+<p><strong>L12 — AI answers for out-of-scope questions.</strong> Kirby is designed for POS-relevant questions about the store's own data. It redirects questions unrelated to the store's operations and does not perform general-knowledge tasks, creative writing, or coding assistance.</p>
 
 <p><strong>L13 — Multi-tenant operation.</strong> The system is deployed for a single store. Running multiple independent stores on the same deployment would require additional tenancy modeling that is not part of this study.</p>
 
-<p><strong>L14 — Language coverage beyond English and Tagalog.</strong> The NLP intent classifier recognizes English and Tagalog / Taglish queries. Other Philippine languages are not explicitly supported.</p>
+<p><strong>L14 — Language coverage beyond English and Tagalog.</strong> The NLP intent classifier and assistant responses recognize English and Tagalog / Taglish queries. Other Philippine languages are not explicitly supported.</p>
 
 <p><strong>L15 — Historical data migration.</strong> The system does not include a tool for importing historical sales or inventory records from paper ledgers or from other software.</p>
 
@@ -557,7 +557,7 @@
 
 <p class="caption">Table 1.1 — Significance of the Study by Stakeholder</p>
 
-<p>In summary, the proposed system addresses a genuine operational gap for small Philippine hardware retailers: it delivers the capabilities of a commercial POS platform — real-time inventory, automatic reporting, customer tracking, and forecasting — without the cost, hardware dependency, or connectivity requirement that makes commercial systems inaccessible to this segment. For Kirby's Hardware Trading specifically, the system replaces a set of manual workflows that have become unsustainable with a digital workflow that is faster, more accurate, and — critically — available on whatever hardware the store already owns.</p>
+<p>In summary, the proposed system addresses a genuine operational gap for small Philippine hardware retailers: it delivers the capabilities of a commercial POS platform — real-time inventory, automatic reporting, customer tracking, and forecasting — without the cost, hardware dependency, or connectivity requirement that makes commercial systems inaccessible to this segment. For Kirby's Hardware specifically, the system replaces a set of manual workflows that have become unsustainable with a digital workflow that is faster, more accurate, and — critically — available on whatever hardware the store already owns.</p>
 
 <div class="references">
 

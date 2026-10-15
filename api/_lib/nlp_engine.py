@@ -28,7 +28,7 @@ class NLPEngine:
         "greeting": {
             "keywords": {
                 "hello": 3, "hi": 3, "hey": 3, "greetings": 2, "yo": 1,
-                "kumusta": 3, "kamusta": 3, "musta": 2,
+                "kumusta": 3, "kamusta": 3, "musta": 2, "mabuhay": 3,
             },
             "phrases": [
                 "good morning", "good afternoon", "good evening", "good day",
@@ -39,7 +39,7 @@ class NLPEngine:
         "help": {
             "keywords": {
                 "help": 3, "ask": 1, "capable": 2, "support": 2,
-                "tulong": 3, "tulungan": 3,
+                "tulong": 3, "tulungan": 3, "makatulong": 2,
             },
             "phrases": [
                 "what can you do", "help me", "what can i ask",
@@ -54,6 +54,7 @@ class NLPEngine:
                 "stock": 2, "replenish": 3, "almost": 2,
                 "kulang": 3, "kaunti": 2, "paubos": 3, "ubos": 2,
                 "restockin": 3, "dagdagan": 3, "punuin": 2,
+                "nauubusan": 3, "nauubos": 3,
             },
             "phrases": [
                 "low stock", "running low", "need restock", "need reorder",
@@ -61,19 +62,20 @@ class NLPEngine:
                 "what should i restock",
                 "paubos na", "kulang na", "kaunti na lang",
                 "kailangan i-restock", "ano ang kailangan i-restock",
-                "anong paubos na",
+                "anong paubos na", "malapit nang maubos",
             ],
             "min_score": 5,
         },
         "out_of_stock": {
             "keywords": {
                 "out": 3, "zero": 2, "none": 2, "empty": 2, "unavailable": 2,
-                "ubos": 3, "wala": 2,
+                "ubos": 3, "wala": 2, "walang": 2, "naubusan": 3,
             },
             "phrases": [
                 "out of stock", "no stock", "zero stock", "sold out",
                 "what products are out of stock", "which products are out of stock",
-                "wala nang stock", "ubos na ang stock", "ubos na lahat",
+                "wala nang stock", "walang stock", "ubos na ang stock",
+                "ubos na lahat", "naubusan ng stock",
             ],
             "min_score": 5,
         },
@@ -81,14 +83,16 @@ class NLPEngine:
             "keywords": {
                 "have": 3, "left": 3, "stock": 2, "quantity": 2, "available": 2,
                 "much": 1, "many": 1,
-                "magkano": 3, "ilan": 3, "may": 2, "meron": 2,
-                "natitira": 3, "presyo": 3, "halaga": 2,
+                "magkano": 3, "ilan": 3, "may": 2, "meron": 2, "mayroon": 2,
+                "dami": 3, "bilang": 2, "nasa": 1,
+                "natitira": 3, "natira": 3, "presyo": 3, "halaga": 2,
             },
             "phrases": [
                 "how many", "how much", "do we have", "is there", "in stock",
                 "how many hammers are left",
                 "ilan pa", "meron pa ba", "may stock ba",
-                "magkano ang", "ilan ang", "ilan na lang",
+                "mayroon pa ba", "magkano ang", "ilan ang", "ilan na lang",
+                "gaano karami", "ano ang natitirang stock",
             ],
             "min_score": 4,
         },
@@ -96,13 +100,13 @@ class NLPEngine:
             "keywords": {
                 "find": 3, "search": 3, "product": 2, "item": 2, "price": 2,
                 "hanapin": 3, "hanap": 3, "tingnan": 2,
-                "magkano": 2, "presyo": 3,
+                "magkano": 2, "presyo": 3, "tignan": 2,
             },
             "phrases": [
                 "find product", "search product", "look for",
                 "price of", "how much is", "how much does",
                 "hanapin ang", "hanapin ang presyo",
-                "magkano ang presyo",
+                "magkano ang presyo", "tingnan ang produkto",
             ],
             "min_score": 4,
         },
@@ -110,12 +114,14 @@ class NLPEngine:
             "keywords": {
                 "today": 3, "sales": 3, "revenue": 2, "earned": 2, "sold": 2,
                 "ngayon": 3, "benta": 3, "kita": 3, "kumita": 2,
+                "nabenta": 2, "pinagbentahan": 2,
             },
             "phrases": [
                 "today's sales", "sales today", "earned today",
                 "sold today", "revenue today", "how much did we sell today",
                 "benta ngayon", "kita ngayon", "magkano ang benta ngayon",
                 "kumita tayo ngayon",
+                "magkano ang kinita ngayon", "ano ang nabenta ngayon",
             ],
             "min_score": 5,
         },
@@ -125,6 +131,7 @@ class NLPEngine:
                 "total": 2, "sales": 2, "revenue": 2,
                 "linggo": 2, "buwan": 2, "taon": 2,
                 "benta": 2, "kita": 2, "kabuuang": 3,
+                "kinita": 2, "nakabenta": 2,
             },
             "phrases": [
                 "this week", "this month", "this year",
@@ -134,6 +141,7 @@ class NLPEngine:
                 "ngayong linggo", "ngayong buwan", "ngayong taon",
                 "nakaraang linggo", "nakaraang buwan",
                 "kabuuang benta", "kabuuang kita",
+                "magkano ang kinita", "magkano ang kabuuang benta",
             ],
             "min_score": 5,
         },
@@ -142,11 +150,13 @@ class NLPEngine:
                 "history": 3, "past": 2, "previous": 2, "daily": 2,
                 "weekly": 2, "sales": 2,
                 "nakaraan": 2, "nakalipas": 2,
+                "nakaraang": 2, "mga benta": 2,
             },
             "phrases": [
                 "sales history", "past sales", "previous sales",
                 "daily sales", "weekly sales",
                 "kasaysayan ng benta", "nakaraang benta",
+                "mga nakaraang benta", "listahan ng benta",
             ],
             "min_score": 4,
         },
@@ -156,6 +166,7 @@ class NLPEngine:
                 "selling": 2, "popular": 2, "most": 2,
                 "sold": 2, "sell": 2, "sells": 2,
                 "mabenta": 3, "pinaka": 2, "sikat": 2,
+                "pinakamabenta": 3,
             },
             "phrases": [
                 "best seller", "best sellers", "best selling",
@@ -171,7 +182,7 @@ class NLPEngine:
                 "best seller this week",
                 "best seller this month",
                 "pinaka-mabenta", "pinakamabenta",
-                "anong mabenta", "ano ang mabenta",
+                "anong mabenta", "ano ang mabenta", "alin ang pinakamabenta",
             ],
             "min_score": 5,
         },
@@ -190,7 +201,8 @@ class NLPEngine:
                 "show recent orders", "show transactions",
                 "list orders", "list transactions",
                 "huling order", "huling transaksyon",
-                "ipakita ang mga order",
+                "ipakita ang mga order", "mga huling transaksyon",
+                "ipakita ang transaksyon", "listahan ng mga order",
             ],
             "min_score": 4,
         },
@@ -199,6 +211,7 @@ class NLPEngine:
                 "forecast": 3, "predict": 3, "projection": 3,
                 "future": 2, "next": 1,
                 "hulaan": 3, "hula": 3, "susunod": 2,
+                "tantiya": 3, "tantya": 3,
             },
             "phrases": [
                 "predict sales", "sales forecast", "next week",
@@ -206,6 +219,7 @@ class NLPEngine:
                 "predict sales for next week",
                 "hulaan ang benta", "susunod na linggo",
                 "susunod na buwan", "hinaharap na benta",
+                "tantyahin ang benta", "ano ang magiging benta",
             ],
             "min_score": 5,
         },
@@ -214,6 +228,7 @@ class NLPEngine:
                 "recommend": 3, "restock": 3, "reorder": 3,
                 "suggest": 2, "should": 2, "order": 2, "buy": 2,
                 "irekomenda": 3, "bilhin": 2, "dagdagan": 3,
+                "iminumungkahi": 3, "kailangan": 2,
             },
             "phrases": [
                 "what should i restock", "recommend restock",
@@ -221,6 +236,7 @@ class NLPEngine:
                 "should i buy", "recommend products to restock",
                 "ano ang dapat i-restock",
                 "anong dapat bilhin", "ano ang kailangan bilhin",
+                "ano ang dapat idagdag", "anong produkto ang bibilhin",
             ],
             "min_score": 5,
         },
@@ -385,6 +401,11 @@ class NLPEngine:
         "report", "reports", "audit", "logs", "user", "users", "staff",
         "cashier", "admin", "day", "week", "month", "year", "today",
         "yesterday", "store", "shop", "business", "kirby",
+        "benta", "bentahe", "kita", "kinita", "nabenta",
+        "imbentaryo", "produkto", "item", "paninda",
+        "resibo", "transaksyon", "presyo",
+        "halaga", "dami", "bilang", "tinda", "mabenta", "restock",
+        "tindahan",
     }
 
     def is_pos_relevant(self, text: str) -> bool:

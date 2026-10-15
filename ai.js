@@ -57,7 +57,20 @@
         try {
             const helper = window.POS_FIREBASE?.getIdToken;
             if (typeof helper === 'function') {
-                return await helper();
+                let token = await helper();
+                if (token) return token;
+
+                // Firebase may still be restoring browser persistence when
+                // the dashboard first opens. Wait for the auth observer
+                // before concluding that the user has no token.
+                const getCurrentUser = window.POS_FIREBASE?.getCurrentUser;
+                if (typeof getCurrentUser === 'function') {
+                    const session = await getCurrentUser();
+                    if (session?.user) {
+                        token = await helper();
+                        if (token) return token;
+                    }
+                }
             }
             // Fallback: reach through the client SDK directly.
             const fb = await window.POS_FIREBASE?.getFirebase?.();
@@ -89,7 +102,11 @@
         try { payload = await res.json(); } catch (e) {}
 
         if (!res.ok) {
-            const msg = payload?.error || `Request failed (${res.status}). Try again in a moment.`;
+            const msg = payload?.error || (
+                res.status === 401
+                    ? 'Kirby needs an active signed-in session. Sign in again and retry.'
+                    : `Request failed (${res.status}). Try again in a moment.`
+            );
             throw new Error(msg);
         }
         if (!payload || payload.success !== true) {
