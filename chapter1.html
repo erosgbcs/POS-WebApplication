@@ -253,7 +253,7 @@
 
 <p>Retail hardware stores occupy a uniquely important position in the Philippine economy. They supply the raw materials, tools, and construction supplies that local households, small contractors, and community infrastructure projects depend on daily. Unlike supermarkets or convenience chains, hardware retailers typically operate as independent, family-owned businesses — often single-location, owner-managed, and serving a walk-in customer base within a specific barangay or municipality. Their operational efficiency directly determines how quickly a community can build, repair, and maintain its homes and infrastructure.</p>
 
-<p>The scale of this sector is substantial. The Philippines has more than one million micro, small, and medium enterprises (MSMEs), accounting for nearly all registered firms and employing a significant share of the workforce. Wholesale and retail trade represents the largest share of MSMEs, many of which operate in provinces outside the National Capital Region. Mom-and-pop retail stores make a substantial contribution to the national retail economy, underscoring their role as a critical component of Philippine commerce.</p>
+<p>The scale of this sector is substantial. The Philippines has more than one million micro, small, and medium enterprises (MSMEs), accounting for nearly all registered firms and employing a significant share of the workforce. Wholesale and retail trade represents the largest share of MSMEs, many of which operate in provinces outside the National Capital Region (Asian Development Bank [ADB], 2024). Mom-and-pop retail stores make a substantial contribution to the national retail economy, underscoring their role as a critical component of Philippine commerce.</p>
 
 <p>Kirby's Hardware, located along Gungon Street in Santa Maria, Bulacan, is one such enterprise. The store stocks a broad catalog spanning nine categories — tools, hardware, electrical, plumbing, paint, garden, building supplies, fasteners, and safety equipment — and serves a mix of walk-in retail buyers and small-scale contractors. As with most Philippine hardware retailers of comparable size, the store has traditionally relied on manual processes: handwritten stock ledgers, carbon-copy sales receipts, whiteboard price lists, and month-end arithmetic done by hand.</p>
 
@@ -261,7 +261,7 @@
 
 <h3>1.1.1 The Shift in Retail Technology</h3>
 
-<p>Over the past decade, point-of-sale (POS) and inventory management systems have become standard equipment in retail businesses worldwide. In larger urban markets, integrated POS platforms are sold as turnkey solutions bundled with dedicated hardware — barcode scanners, receipt printers, cash drawers, and touch-screen terminals. These systems deliver real-time inventory tracking, automatic sales reporting, and customer relationship management as core features. Modern POS systems automate inventory tracking, generate sales reports, and offer user-friendly interfaces that require minimal training, including support for product variants such as size and color. POS systems also help retailers track sales performance, manage inventory efficiently, and provide better service to customers.</p>
+<p>Over the past decade, point-of-sale (POS) and inventory management systems have become standard equipment in retail businesses worldwide. In larger urban markets, integrated POS platforms are sold as turnkey solutions bundled with dedicated hardware — barcode scanners, receipt printers, cash drawers, and touch-screen terminals. These systems deliver real-time inventory tracking, automatic sales reporting, and customer relationship management as core features. Modern POS systems automate inventory tracking, generate sales reports, and offer user-friendly interfaces that require minimal training, including support for product variants such as size and color (Stripe, 2025). POS systems also help retailers track sales performance, manage inventory efficiently, and provide better service to customers.</p>
 
 <p>For small neighborhood retailers, however, the traditional hardware-based POS model presents three substantial barriers:</p>
 
@@ -274,9 +274,9 @@
 <p>At the same time, three technology shifts have made a fundamentally different approach feasible:</p>
 
 <ul>
-    <li><strong>Universal browser availability.</strong> Every laptop, tablet, and smartphone manufactured in recent years ships with a modern web browser capable of running complex client-side applications — eliminating the need for dedicated hardware. A browser-based POS can therefore provide flexibility across smartphones, tablets, and computers.</li>
-    <li><strong>Serverless cloud platforms.</strong> Serverless architecture offers small and medium enterprises a scalable, cost-efficient alternative to traditional infrastructure. Pay-per-use pricing and automatic scaling can reduce operational costs, making serverless computing particularly attractive for startups and SMEs.</li>
-    <li><strong>Client-side offline storage.</strong> Modern browser APIs allow web applications to function fully offline — reading cached data, queuing writes, and syncing automatically when connectivity returns. Cloud Firestore provides offline data access and real-time synchronization. IndexedDB provides a persistent store for saving and retrieving application data without network connectivity. Service workers make applications more reliable by enabling them to work even when the user is offline.</li>
+    <li><strong>Universal browser availability.</strong> Every laptop, tablet, and smartphone manufactured in recent years ships with a modern web browser capable of running complex client-side applications — eliminating the need for dedicated hardware. A browser-based POS can therefore provide flexibility across smartphones, tablets, and computers (Stripe, 2025).</li>
+    <li><strong>Serverless cloud platforms.</strong> Serverless architecture offers small and medium enterprises a scalable, cost-efficient alternative to traditional infrastructure. Pay-per-use pricing and automatic scaling can reduce operational costs, making serverless computing particularly attractive for startups and SMEs (Preety &amp; Sharma, 2025).</li>
+    <li><strong>Client-side offline storage.</strong> Modern browser APIs allow web applications to function fully offline — reading cached data, queuing writes, and syncing automatically when connectivity returns. Cloud Firestore provides offline data access and real-time synchronization (Google, 2017). IndexedDB provides a persistent store for saving and retrieving application data without network connectivity, while service workers can support offline app-shell behavior (Microsoft, 2024a, 2024b).</li>
 </ul>
 
 <p>These three shifts — universal browsers, serverless infrastructure, and offline-capable clients — together make it possible to build a POS system that costs nearly nothing to run, works on hardware the store already owns, and remains fully functional through internet outages.</p>
@@ -295,7 +295,7 @@
 
 <p>Answering these questions manually requires hours of arithmetic and produces results that are already stale by the time they are computed. Commercial POS systems answer them, but only after the store has invested in the hardware and connectivity those systems demand.</p>
 
-<p>Recent advances in large language models (LLMs) and statistical forecasting have made it feasible to embed business intelligence directly into a low-cost POS platform. The application combines natural-language interaction with deterministic handlers and statistical forecasting to answer operational questions, project the next seven days of revenue, and rank products by restock urgency. Neither capability requires the store to purchase separate analytics software or hire a data analyst.</p>
+<p>Recent advances in large language models (LLMs) and statistical forecasting have made it feasible to embed business intelligence directly into a low-cost POS platform (Gartner, 2026; IEEE, 2025a). The application combines natural-language interaction with deterministic handlers and statistical forecasting to answer operational questions, project the next seven days of revenue, and rank products by restock urgency. Neither capability requires the store to purchase separate analytics software or hire a data analyst.</p>
 
 <p>This study is therefore motivated by a simple premise: <em>a small Philippine hardware retailer should be able to run a fully digital, AI-assisted point-of-sale and inventory operation on the hardware it already owns, with no recurring software cost, and without losing business continuity when the internet goes down.</em></p>
 
@@ -559,9 +559,7 @@
 
 <p>In summary, the proposed system addresses a genuine operational gap for small Philippine hardware retailers: it delivers the capabilities of a commercial POS platform — real-time inventory, automatic reporting, customer tracking, and forecasting — without the cost, hardware dependency, or connectivity requirement that makes commercial systems inaccessible to this segment. For Kirby's Hardware specifically, the system replaces a set of manual workflows that have become unsustainable with a digital workflow that is faster, more accurate, and — critically — available on whatever hardware the store already owns.</p>
 
-<!-- Reference list retained outside the rendered school-documentation output.
-     APA citations are not required for this version. -->
-<template id="archived-reference-list">
+<div class="references">
 
 <h2>References</h2>
 
@@ -619,7 +617,7 @@
 
 <p>Zenodo. (2025, August 5). <em>A flexible and scalable role-based authorization system for .NET applications</em>. https://zenodo.org</p>
 
-</template>
+</div>
 
 </article>
 
