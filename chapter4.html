@@ -300,20 +300,22 @@
 
 <h1>Chapter 4: System Demonstration</h1>
 
-<p>This chapter presents the operational walkthrough of the Kirby's Hardware POS and Inventory Management System. Each section documents a functional area of the system with an accompanying screenshot, a step-by-step explanation of the workflow, and a summary of the observable outcomes. Screenshots are captured from a Chrome desktop session at 1920×1080 resolution unless otherwise noted; mobile and tablet views are included where the interface materially differs.</p>
+<p>This chapter presents the operational walkthrough of the Kirby's Hardware POS and Inventory Management System as implemented in the web application. The demonstration follows the actual navigation labels, forms, buttons, data views, Firebase-backed workflows, offline indicators, and Kirby assistant behavior. Screenshot boxes are provided as placeholders for the student's captured application screenshots; mobile and tablet views should be included where the interface materially differs.</p>
 
-<h2>4.1 User Login / Authentication</h2>
+<p>The application opens with a Firebase Authentication login screen. After authentication, the user is taken to a role-aware dashboard containing the Overview, Point of Sale, Inventory, Orders, Customers, Reports, Audit Trail, User Management, and Settings pages. The Administrator can access administrative pages, while the Cashier is limited to operational pages required for sales and customer service.</p>
 
-<p>The authentication module is the entry point to the entire system. It enforces identity verification through Firebase Authentication and role-based access control through the store's Firestore profile collection. The demonstration covers the login screen, the forgot-password flow, and the two distinct post-authentication experiences for the Administrator and Cashier roles.</p>
+<h2>4.1 User Login/Authentication</h2>
+
+<p>The authentication module is the entry point to the entire system. It enforces identity verification through Firebase Authentication and role-based access control through the store's Firestore profile collection. The demonstration covers the login screen, the Administrator-controlled cashier password-reset workflow, and the two distinct post-authentication experiences for the Administrator and Cashier roles.</p>
 
 <h3>4.1.1 Login Screen</h3>
 
 <div class="screenshot" data-label="Login screen (desktop)"></div>
 <p class="caption">Figure 4.1 — Login Screen</p>
 
-<p>The login screen appears immediately when the application is opened without a cached session. It is a two-panel layout: the left panel displays the store branding (Kirby's Hardware logo, store name, and a live system-status indicator), while the right panel contains the authentication form.</p>
+<p>The login screen appears when the application is opened without an active Firebase session. It is a two-panel layout: the left panel displays the Kirby's Hardware branding and system status, while the right panel contains the authentication form.</p>
 
-<p>The form captures two fields — email address and password — and includes a show-password toggle, a "Remember me" checkbox, and a "Forgot Password?" link. Inline validation prevents submission when the email is malformed or the password is shorter than six characters.</p>
+<p>The form captures two fields — email address and password — and includes a show-password toggle, a "Remember me" checkbox, and guidance that cashier password resets must be requested from an Administrator. Inline validation prevents submission when the email is malformed or the password is shorter than six characters.</p>
 
 <h4>Step-by-Step Login Workflow</h4>
 
@@ -347,12 +349,40 @@
 
 <h3>4.1.2 Forgot Password Flow</h3>
 
-<div class="screenshot" data-label="Forgot password view"></div>
-<p class="caption">Figure 4.2 — Forgot Password View</p>
+<div class="screenshot" data-label="Administrator User Management password-reset action"></div>
+<p class="caption">Figure 4.2 — Administrator Password-Reset Action</p>
 
-<p>Clicking <strong>Forgot Password?</strong> transitions to a dedicated reset view. The user enters their email address, and the system dispatches a Firebase password-reset email. An information box confirms delivery or notes that no account exists for the entered address — without revealing whether a specific email is registered.</p>
+<p>Cashier accounts do not use a public self-service password-reset link. A cashier must request a reset from an Administrator. This keeps account recovery under store management and prevents a cashier from initiating a reset for another account from the login screen.</p>
 
-<p>The <strong>Back to Sign In</strong> button returns the user to the login view.</p>
+<h4>Step-by-Step: Administrator Reset for a Cashier</h4>
+
+<ol class="step-list">
+    <li>The Administrator signs in using the administrator account.</li>
+    <li>Open <strong>User Management</strong> from the dashboard sidebar.</li>
+    <li>Locate the cashier account in the user list. The table identifies the account by name, email, role, and active status.</li>
+    <li>Click the key icon in the account's action controls. The action is labeled <strong>Send password reset</strong>.</li>
+    <li>Confirm the reset request when prompted. The system sends a Firebase password-reset email to the cashier's registered email address.</li>
+    <li>The cashier opens the email, follows the reset link, creates a new password, and signs in again from the login screen.</li>
+</ol>
+
+<h4>Password Reset Outcomes</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th style="width: 32%;">Condition</th>
+            <th>Observed application behavior</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Administrator confirms reset</td><td>A Firebase password-reset email is sent to the selected cashier account and a success toast confirms the action.</td></tr>
+        <tr><td>Reset service or network error</td><td>An error toast explains that the reset request could not be completed. The Administrator can try again after the service is available.</td></tr>
+        <tr><td>Inactive or deleted account</td><td>The Administrator must reactivate or recreate the account before the cashier can sign in.</td></tr>
+        <tr><td>Unauthorized user</td><td>The User Management page and its reset controls are unavailable to Cashier accounts.</td></tr>
+    </tbody>
+</table>
+
+<p>The reset request does not sign the cashier into the dashboard. The cashier must complete the password change from the email link and then sign in with the updated password. Administrators may also use the account controls to edit, deactivate, reactivate, or delete user records according to their role and store policy.</p>
 
 <h3>4.1.3 Role-Based Landing Experience</h3>
 
@@ -384,7 +414,7 @@
 
 <p class="caption">Table 4.1 — Role-Based Page Visibility</p>
 
-<h2>4.2 Dashboard / Homepage</h2>
+<h2>4.2 Dashboard/Homepage</h2>
 
 <p>The Overview page is the default landing view after authentication and serves as the primary operational snapshot of the store. It consolidates KPIs, analytics, AI-generated insights, and recent activity into a single scrollable page.</p>
 
@@ -473,14 +503,14 @@
 
 <h2>4.3 Main System Functions</h2>
 
-<p>This section demonstrates the system's three core operational workflows: Point of Sale, Inventory Management, and AI-assisted Querying.</p>
+<p>This section demonstrates the core operational workflows visible in the web application: processing a sale, managing inventory, and using the Kirby assistant. Orders, customers, reports, and settings are demonstrated in the data-management and output sections that follow.</p>
 
 <h3>4.3.1 Point of Sale</h3>
 
 <div class="screenshot" data-label="POS page (full view)"></div>
 <p class="caption">Figure 4.13 — Point of Sale Interface</p>
 
-<p>The POS page is a two-column layout: a product catalog on the left and the current order cart on the right. The catalog can be filtered by category and searched by product name, SKU, or category. Products with size or brand variations display their variants as chips; clicking a product opens an inline dropdown for the cashier to choose a specific variant before adding it to the cart.</p>
+<p>The POS page is a two-column layout: a product catalog on the left and the current order cart on the right. The catalog provides category filtering and product search. Products with size, brand, or other configured options require the cashier to select the appropriate variant before it is added to the cart.</p>
 
 <h4>Step-by-Step: Processing a Sale</h4>
 
@@ -545,7 +575,7 @@
 <div class="screenshot" data-label="Inventory page (full view)"></div>
 <p class="caption">Figure 4.17 — Inventory Management Page</p>
 
-<p>The Inventory page displays a statistics bar (Total Products, Over Stock, Low Stock, Out of Stock), a filter row (search, category, stock level), and a paginated product table. The stat cards are clickable and act as quick filters — clicking "Low Stock" filters the table to low-stock products only.</p>
+<p>The Inventory page displays a statistics bar (Total Products, Over Stock, Low Stock, Out of Stock), a filter row (search, category, stock level), and a product table. The stat cards are clickable and act as quick filters — clicking "Low Stock" filters the table to low-stock products only.</p>
 
 <h4>Step-by-Step: Adding a New Product (Simple, No Variants)</h4>
 
@@ -631,7 +661,7 @@
     <li>The NLP engine does not find a specific intent, but recognizes the message as POS-relevant.</li>
     <li>The backend assembles a compact JSON snapshot of store aggregates — sales summaries, recent daily series, top products, inventory alerts — and forwards it to Gemini first, with Groq as the fallback provider.</li>
     <li>The provider produces a response grounded entirely in the provided snapshot. It is instructed to identify as Kirby, respond in the user's language, and never invent numbers.</li>
-    <li>The response renders in the chat thread with a "via gemini" meta line indicating the provider.</li>
+    <li>The response is rendered in the chat thread; provider metadata may be shown when returned by the API.</li>
 </ol>
 
 <h4>Step-by-Step: Asking an Unrelated Question</h4>
@@ -811,7 +841,7 @@
     <li>Confirm the dialog. All settings revert to the canonical defaults (store name, address, contact, footer, 8% tax rate, default GCash credentials).</li>
 </ol>
 
-<h2>4.5 Reports / Output</h2>
+<h2>4.5 Reports/Output</h2>
 
 <p>The Reports page provides four report types, each exportable as CSV or PDF. Reports respect a shared period selector so the user can generate matching exports for any date range.</p>
 
@@ -874,7 +904,7 @@
 
 <p>The Forecast tab of the AI Insights card is itself a system output — a 7-day revenue projection generated by the statistical forecasting engine. The panel displays the chosen model, the model's historical error (MAPE), a trend indicator, and a chart showing the projected daily revenue. When the underlying data supports a trend, the chart renders as a line; when it does not, a flat-forecast view is shown with an explanatory note.</p>
 
-<h2>4.6 Other Features</h2>
+<h2>4.6 Other features</h2>
 
 <p>Beyond the core operational modules, the system includes a set of supporting features that improve usability, resilience, and cross-device accessibility. These are enumerated below.</p>
 
@@ -885,7 +915,7 @@
 
 <p>The application supports two full themes — a warm charcoal dark mode and a warm ivory light mode — sharing the same structural tokens and accent color. The toggle is available in the top navigation bar on the dashboard and in the top-right corner of the login screen.</p>
 
-<p>Theme switching is accompanied by a circular reveal animation driven by the View Transitions API when the browser supports it (Chrome, Edge), and a brief radial flash for browsers that do not (Firefox, older Safari). The chosen theme persists across reloads via localStorage.</p>
+<p>Theme switching is accompanied by a circular reveal animation centered on the selected toggle. The animation uses a lightweight CSS clip-path overlay, includes a reduced-motion fallback, and prevents repeated clicks from interrupting the transition. The chosen theme persists across reloads via localStorage.</p>
 
 <h3>4.6.2 Responsive Layout</h3>
 

@@ -330,9 +330,9 @@
 
 <article class="page">
 
-<h1>Chapter 2: System Analysis and Design</h1>
+<h1>Chapter 2: System analysis and Design</h1>
 
-<h2>2.1 Existing System / Process</h2>
+<h2>2.1 Existing system/Process</h2>
 
 <p>Kirby's Hardware is a small-scale retail hardware store that has historically operated using fully manual processes. The store's day-to-day operations have relied on paper-based tracking, handwritten receipts, and mental arithmetic — a workflow that has proven adequate for very low transaction volumes but that breaks down as the business grows.</p>
 
@@ -388,18 +388,18 @@
     <li><strong>Inventory Management</strong> — replaces the handwritten ledger with a searchable, filterable catalog that supports size/brand variant matrices, product images, and automated low-stock detection.</li>
     <li><strong>Order History</strong> — replaces the physical receipt archive with a searchable table of every transaction.</li>
     <li><strong>Customer Tracking</strong> — replaces the address book with a structured customer database that automatically aggregates order count and lifetime spend.</li>
-    <li><strong>Audit Logging</strong> — introduces a full activity trail that records every sale, login, inventory change, and settings update with a timestamp and the user responsible.</li>
+    <li><strong>Audit Logging</strong> — introduces an activity trail that records every sale, login, inventory change, and settings update with a timestamp and the user responsible.</li>
     <li><strong>Reporting &amp; Analytics</strong> — replaces manual month-end arithmetic with one-click CSV and PDF exports and live dashboards.</li>
     <li><strong>AI Assistant</strong> — provides a conversational interface that answers natural-language questions about the store's operations.</li>
 </ol>
 
 <h3>2.2.2 Key Innovations</h3>
 
-<p><strong>Offline-capable operation.</strong> Firestore's browser persistence caches application data and queues supported writes in IndexedDB. POS sales also use an application-level <code>localStorage.pos_order_queue</code> so a completed offline sale can be shown immediately and replayed when connectivity returns.</p>
+<p><strong>Offline-capable operation.</strong> Firestore's browser persistence caches supported application data and queues supported writes in IndexedDB. POS sales also use an application-level <code>localStorage.pos_order_queue</code> so eligible network-failed sales can be queued and replayed when connectivity returns. Authentication, API chat, forecasting, and other server-dependent operations still require connectivity or previously cached data.</p>
 
 <p><strong>No dedicated hardware.</strong> The entire system runs in a web browser. The store does not need to purchase a specialized POS terminal — an existing laptop, tablet, or even a smartphone is sufficient.</p>
 
-<p><strong>Real-time multi-device sync.</strong> Because Firestore pushes changes to every connected client, a sale entered on the cashier's tablet appears on the owner's phone within a fraction of a second.</p>
+<p><strong>Real-time multi-device sync.</strong> Because Firestore pushes changes to connected clients, a successfully synchronized sale can appear on another connected device shortly after it is recorded. Offline or queued sales appear after synchronization completes.</p>
 
 <p><strong>Kirby AI integration.</strong> Kirby first classifies supported requests locally and uses deterministic handlers for structured POS questions. Only POS-relevant open-ended questions are sent to Gemini, with Groq as the fallback provider; unrelated questions are redirected rather than answered as general chat.</p>
 
@@ -422,10 +422,10 @@
         </tr>
     </thead>
     <tbody>
-        <tr><td>Processor</td><td>Dual-core 1.6 GHz</td><td>Quad-core 2.0 GHz or better</td></tr>
-        <tr><td>RAM</td><td>2 GB</td><td>4 GB or more</td></tr>
-        <tr><td>Storage</td><td>500 MB free</td><td>1 GB free</td></tr>
-        <tr><td>Display</td><td>1024 × 768</td><td>1920 × 1080 or tablet-size 10"</td></tr>
+        <tr><td>Processor</td><td>Modern processor capable of running a current browser</td><td>Recent dual-core processor or better</td></tr>
+        <tr><td>RAM</td><td>Enough memory for the operating system and browser</td><td>4 GB or more recommended</td></tr>
+        <tr><td>Storage</td><td>Available space for browser cache and PWA assets</td><td>At least 1 GB free recommended</td></tr>
+        <tr><td>Display</td><td>Desktop or mobile display suitable for the responsive interface</td><td>1920 × 1080 or tablet-size display</td></tr>
         <tr><td>Network</td><td>Intermittent internet (offline support active)</td><td>Stable broadband or 4G LTE</td></tr>
         <tr><td>Input</td><td>Keyboard + mouse, or touchscreen</td><td>Touchscreen for POS use</td></tr>
     </tbody>
@@ -447,10 +447,10 @@
         </tr>
     </thead>
     <tbody>
-        <tr><td>Operating System</td><td>Windows 10+, macOS 11+, Linux, Android 8+, or iOS 14+</td></tr>
-        <tr><td>Web Browser</td><td>Chrome 90+, Edge 90+, Firefox 88+, or Safari 14+</td></tr>
+        <tr><td>Operating System</td><td>A supported desktop or mobile operating system with an up-to-date browser</td></tr>
+        <tr><td>Web Browser</td><td>Current Chrome, Edge, Firefox, Safari, or another standards-compliant browser</td></tr>
         <tr><td>JavaScript</td><td>Must be enabled</td></tr>
-        <tr><td>Local Storage</td><td>At least 10 MB of available quota</td></tr>
+        <tr><td>Local Storage</td><td>Browser storage must be enabled for cached data and queued sales</td></tr>
         <tr><td>Cookies</td><td>Required for Firebase Auth session persistence</td></tr>
     </tbody>
 </table>
@@ -498,7 +498,7 @@
     <li><strong>Secure login</strong> via Firebase Authentication (email + password)</li>
     <li><strong>Role-based access control</strong> with two roles: Administrator and Cashier</li>
     <li><strong>Deactivated-account rejection</strong> at sign-in</li>
-    <li><strong>Password reset</strong> via email link</li>
+    <li><strong>Administrator-controlled cashier password reset</strong> via email link</li>
     <li><strong>Session persistence</strong> across page reloads and offline periods</li>
     <li><strong>Two-admin maximum</strong> with a minimum of one active admin enforced at the UI level</li>
 </ul>
@@ -582,10 +582,10 @@
 <ul>
     <li><strong>Create new users</strong> with role assignment</li>
     <li><strong>Edit user profile</strong> — name, email, role</li>
-    <li><strong>Password reset email</strong> dispatch per user</li>
+    <li><strong>Password reset email</strong> dispatch for cashier accounts by an Administrator</li>
     <li><strong>Deactivate / reactivate</strong> accounts</li>
     <li><strong>Delete profile records</strong></li>
-    <li><strong>Admin password re-authentication</strong> required for all sensitive operations</li>
+    <li><strong>Admin confirmation</strong> is required for user-management actions that expose a confirmation step; password-reset email dispatch uses the selected account's registered email</li>
     <li><strong>Search, filter by role, filter by status</strong></li>
     <li><strong>Paginated table</strong> with 10 rows per page</li>
 </ul>
@@ -602,7 +602,7 @@
 
 <h3>2.4.11 System-Wide Features</h3>
 <ul>
-    <li><strong>Dark / Light theme</strong> with a View-Transitions-based circular reveal animation</li>
+    <li><strong>Dark / Light theme</strong> with a CSS clip-path circular reveal animation and reduced-motion fallback</li>
     <li><strong>Fully responsive layout</strong> — desktop, tablet, and mobile</li>
     <li><strong>Offline banner</strong> that appears whenever the network is unavailable or sales are queued</li>
     <li><strong>Service Worker</strong> for PWA installation and offline app-shell caching</li>
@@ -613,7 +613,7 @@
 
 <h2>2.5 Use Case Diagram</h2>
 
-<p>The use case diagram identifies the two primary actors — <strong>Cashier</strong> and <strong>Administrator</strong> — and the operations each can perform. The Cashier role is a strict subset of the Administrator role.</p>
+<p>The use case diagram identifies the two primary actors — <strong>Cashier</strong> and <strong>Administrator</strong> — and the operations each can perform. The Cashier role is limited to operational tasks, while the Administrator can perform the shared operational tasks and the administrative tasks, including sending password-reset emails for cashier accounts.</p>
 
 <div class="diagram-wrap">
 <svg viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
@@ -650,7 +650,7 @@
     <!-- Use cases — cashier + admin (left column, x=390) -->
     <g>
         <ellipse class="oval" cx="390" cy="120" rx="130" ry="20"/><text class="ctr" x="390" y="120">Log In / Log Out</text>
-        <ellipse class="oval" cx="390" cy="168" rx="130" ry="20"/><text class="ctr" x="390" y="168">Reset Password</text>
+        <ellipse class="oval" cx="390" cy="168" rx="130" ry="20"/><text class="ctr" x="390" y="168">Send Cashier Password Reset</text>
         <ellipse class="oval" cx="390" cy="216" rx="130" ry="20"/><text class="ctr" x="390" y="216">Process Sale (POS)</text>
         <ellipse class="oval" cx="390" cy="264" rx="130" ry="20"/><text class="ctr" x="390" y="264">Print Receipt</text>
         <ellipse class="oval" cx="390" cy="312" rx="130" ry="20"/><text class="ctr" x="390" y="312">View Dashboard</text>
@@ -671,7 +671,6 @@
     <!-- Cashier connection lines to left column ellipses -->
     <g class="line">
         <line x1="130" y1="300" x2="258" y2="120"/>
-        <line x1="130" y1="300" x2="258" y2="168"/>
         <line x1="130" y1="300" x2="258" y2="216"/>
         <line x1="130" y1="300" x2="258" y2="264"/>
         <line x1="130" y1="300" x2="258" y2="312"/>
@@ -683,10 +682,18 @@
 
     <!-- Administrator connection lines to right column ellipses -->
     <g class="line">
-        <line x1="770" y1="300" x2="712" y2="168"/>
+        <line x1="770" y1="300" x2="712" y2="120"/>
         <line x1="770" y1="300" x2="712" y2="264"/>
         <line x1="770" y1="300" x2="712" y2="360"/>
         <line x1="770" y1="300" x2="712" y2="456"/>
+        <line x1="770" y1="300" x2="522" y2="168"/>
+        <line x1="770" y1="300" x2="522" y2="216"/>
+        <line x1="770" y1="300" x2="522" y2="264"/>
+        <line x1="770" y1="300" x2="522" y2="312"/>
+        <line x1="770" y1="300" x2="522" y2="360"/>
+        <line x1="770" y1="300" x2="522" y2="408"/>
+        <line x1="770" y1="300" x2="522" y2="456"/>
+        <line x1="770" y1="300" x2="522" y2="504"/>
     </g>
 </svg>
 </div>
@@ -725,7 +732,7 @@
 <p><strong>Actors:</strong> Cashier, Administrator<br>
 <strong>Precondition:</strong> The user is logged in and the product catalog is loaded.<br>
 <strong>Main Flow:</strong> (1) Cashier selects products from the catalog. (2) System adds items to the cart with the correct price. (3) Cashier clicks Checkout. (4) System displays the payment modal with the total. (5) Cashier selects payment method and enters payment details. (6) System runs a Firestore transaction that decrements stock and writes the order document. (7) System displays a printable receipt.<br>
-<strong>Alternate Flow:</strong> If the network is unavailable, the transaction is queued locally and the receipt is still generated.</p>
+<strong>Alternate Flow:</strong> If a supported network failure occurs, the sale is queued locally and the receipt is generated. Validation, stock, payment, and other permanent errors are displayed and are not silently queued.</p>
 
 <h4>UC-03: Manage Inventory</h4>
 <p><strong>Actors:</strong> Administrator only<br>
@@ -961,18 +968,24 @@
     <line class="line" x1="762" y1="195" x2="600" y2="440" marker-end="url(#arrowDFD1)"/>
     <text class="lbl" x="630" y="320">response</text>
 
-    <!-- Cashier ← Process Sale (receipt path) -->
-    <line class="line" x1="140" y1="180" x2="258" y2="320" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
-    <text class="lbl" x="140" y="260">receipts</text>
+    <!-- Process Sale → Cashier (receipt path) -->
+    <line class="line" x1="258" y1="320" x2="140" y2="180" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
+    <text class="lbl" x="150" y="260">receipts</text>
 
-    <!-- Cashier ← Compute Reports (report path) -->
-    <line class="line" x1="140" y1="190" x2="518" y2="320" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
+    <!-- Compute Reports → Cashier (report path) -->
+    <line class="line" x1="518" y1="320" x2="140" y2="190" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
     <text class="lbl" x="300" y="290">reports</text>
+
+    <!-- Administrator receives management/report outputs -->
+    <line class="line" x1="330" y1="440" x2="140" y2="445" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
+    <text class="lbl" x="170" y="430">inventory status</text>
+    <line class="line" x1="518" y1="320" x2="140" y2="455" marker-end="url(#arrowDFD1)" stroke-dasharray="4 3"/>
+    <text class="lbl" x="310" y="390">reports / analytics</text>
 </svg>
 </div>
 <p class="caption">Figure 2.3 — Level 1 Data Flow Diagram</p>
 
-<h3>2.6.3 Level 2 DFD — Process 4.0 (Process Sale)</h3>
+<h3>2.6.3 Level 2 DFD — Process 3.0 (Process Sale)</h3>
 
 <div class="diagram-wrap">
 <svg viewBox="0 0 900 700" xmlns="http://www.w3.org/2000/svg">
@@ -1295,12 +1308,12 @@
     <rect class="box" x="60" y="925" width="140" height="50" rx="4"/>
     <text class="ctr" x="130" y="950">Show receipt</text>
 
-    <!-- No → Queue offline -->
+    <!-- No → queue only when the failure is network/offline related -->
     <line class="line" x1="560" y1="950" x2="700" y2="950" marker-end="url(#arrowPOS)"/>
     <text class="lbl" x="625" y="942">No</text>
     <rect class="box" x="700" y="925" width="170" height="50" rx="4"/>
-    <text class="ctr small" x="785" y="943">Queue order to</text>
-    <text class="ctr small" x="785" y="958">localStorage (offline)</text>
+    <text class="ctr small" x="785" y="943">If network failure:</text>
+    <text class="ctr small" x="785" y="958">queue in localStorage</text>
 
     <!-- END -->
     <line class="line" x1="130" y1="975" x2="130" y2="1040"/>
@@ -1377,8 +1390,8 @@
     <line class="line" x1="570" y1="640" x2="700" y2="640" marker-end="url(#arrowAI)"/>
     <text class="lbl" x="625" y="632">No</text>
     <rect class="box" x="700" y="615" width="160" height="50" rx="4"/>
-    <text class="ctr small" x="780" y="633">Return fallback</text>
-    <text class="ctr small" x="780" y="648">"not sure"</text>
+    <text class="ctr small" x="780" y="633">Return POS-scope</text>
+    <text class="ctr small" x="780" y="648">redirect response</text>
 
     <!-- Yes → build context -->
     <line class="line" x1="450" y1="690" x2="450" y2="720" marker-end="url(#arrowAI)"/>
@@ -1509,7 +1522,7 @@
 
 <h2>2.8 Database Design</h2>
 
-<p>The system uses <strong>Cloud Firestore</strong>, a document-oriented NoSQL database. Data is organized into six collections. Because Firestore is schemaless, the schema is enforced at the application layer — each collection's expected shape is documented below.</p>
+<p>The system uses <strong>Cloud Firestore</strong>, a document-oriented NoSQL database. Data is organized into six collections. Because Firestore is schemaless, the expected document shape is primarily enforced by the application layer and authenticated access rules — each collection's expected shape is documented below.</p>
 
 <h3>2.8.1 Collections Overview</h3>
 
@@ -1526,7 +1539,7 @@
         <tr><td><code>inventory</code></td><td>Auto-generated</td><td>Product catalog with variant matrices and images</td></tr>
         <tr><td><code>orders</code></td><td>Receipt number</td><td>Every completed sale with line items and payment details</td></tr>
         <tr><td><code>customers</code></td><td>Auto-generated</td><td>Customer records with aggregated order count and spend</td></tr>
-        <tr><td><code>audit_logs</code></td><td>Auto-generated</td><td>Immutable activity trail of every meaningful action</td></tr>
+        <tr><td><code>audit_logs</code></td><td>Auto-generated</td><td>Activity trail of meaningful actions; administrator access follows the deployed rules</td></tr>
         <tr><td><code>config</code></td><td>Named docs</td><td>Store settings and category list</td></tr>
     </tbody>
 </table>
@@ -1799,7 +1812,7 @@
 <ul>
     <li><strong>profiles.id ↔ Firebase Auth UID.</strong> The document ID is always set to the Firebase UID at account creation, ensuring a 1:1 mapping.</li>
     <li><strong>orders.items[].productId → inventory.id.</strong> Each line item stores the product's document ID.</li>
-    <li><strong>audit_logs.user ↔ profiles.full_name.</strong> The audit log stores the actor's name, not the UID.</li>
+    <li><strong>audit_logs.user ↔ profiles.full_name.</strong> The audit log stores the actor's display name, not a strict foreign-key reference to the profile.</li>
     <li><strong>customers.orders / totalSpent ↔ orders.</strong> Denormalized counters updated atomically on every POS sale.</li>
 </ul>
 
@@ -1823,7 +1836,7 @@
 
 <h3>2.8.6 Security Rules</h3>
 
-<p>Firestore Security Rules enforce access at the database level, independent of the client code.</p>
+<p>Firestore Security Rules provide an authenticated database access boundary, while role-based page visibility and administrator checks are also enforced by the application. The rules shown below are a simplified documentation example and must be kept synchronized with the deployed Firebase rules.</p>
 
 <pre><code>rules_version = '2';
 service cloud.firestore {
@@ -1868,7 +1881,7 @@ service cloud.firestore {
     <li>Unauthenticated requests are rejected at the database layer, not just the application layer.</li>
     <li>Users can only create their own profile (during signup) but cannot promote themselves.</li>
     <li>Order deletion is restricted to administrators.</li>
-    <li>Audit log entries cannot be silently altered or removed by non-admins — protecting the integrity of the activity trail.</li>
+    <li>Audit log entries are protected from modification or deletion by non-admins under the documented rule set.</li>
 </ul>
 
 </article>

@@ -359,7 +359,7 @@
 
 <h2>3.2 System Architecture</h2>
 
-<p>The system follows a <strong>three-tier serverless architecture</strong> with a local-first client, an edge-served static frontend, and stateless Python functions for privileged operations.</p>
+<p>The system is documented using a <strong>three-layer serverless architecture</strong>: a browser client with Firebase/local persistence, an edge-served static frontend and Python API layer, and managed Firebase/Firestore plus external AI services. This is a logical documentation model; several client and cloud services operate directly alongside the API layer.</p>
 
 <h3>3.2.1 Architectural Layers</h3>
 
@@ -416,8 +416,8 @@
 <p><strong>POS Transaction Flow.</strong> When a cashier completes a sale, <code>pos.js</code>:</p>
 
 <ol>
-    <li>Runs a Firestore <code>runTransaction()</code> that atomically decrements stock from each product's variant map and writes the order document.</li>
-    <li>If the network is unavailable, the transaction is queued to <code>localStorage.pos_order_queue</code> and replayed when connectivity returns.</li>
+    <li>Runs a Firestore <code>runTransaction()</code> that atomically decrements supported stock fields and writes the order document.</li>
+    <li>If a supported network failure occurs, the sale is queued to <code>localStorage.pos_order_queue</code> and replayed when connectivity returns; permanent validation and unsupported-variant failures remain visible errors.</li>
     <li>The receipt is displayed immediately from local state — the user never waits for the network.</li>
 </ol>
 
@@ -446,15 +446,15 @@
 <h3>3.3.1 Design Principles</h3>
 
 <ol>
-    <li><strong>Single palette, dual theme.</strong> A warm amber accent (<code>#FACC15</code> dark / <code>#E0A300</code> light) with a neutral charcoal/ivory surface. Dark and light themes share the same structural tokens and are switchable via a View-Transitions-powered circular reveal animation.</li>
+    <li><strong>Single palette, dual theme.</strong> A warm amber accent (<code>#FACC15</code> dark / <code>#E0A300</code> light) with a neutral charcoal/ivory surface. Dark and light themes share the same structural tokens and are switchable via a CSS clip-path circular reveal animation.</li>
     <li><strong>Data-first density.</strong> Numeric values use a tabular-numeric font variant and are displayed at scale (32px KPI numbers, 24px stat numbers) so a manager can read the dashboard at a glance.</li>
     <li><strong>Progressive disclosure.</strong> Complex surfaces (Analytics, AI Insights) are consolidated behind tabs. The Overview page shows one chart at a time; the four analytics views (Trend, Products, Categories, Hours) and two AI views (Forecast, Restock) each have their own tab.</li>
-    <li><strong>Offline transparency.</strong> An amber banner appears whenever the browser is offline or queued sales exist, informing the cashier without blocking work.</li>
+    <li><strong>Offline transparency.</strong> An amber banner appears when the browser is offline or queued sales exist, informing the cashier without blocking eligible work.</li>
 </ol>
 
 <h3>3.3.2 Primary Screens</h3>
 
-<p><strong>Login Screen.</strong> Two-panel layout with a brand panel on the left (logo, store name, session status indicator) and an authentication card on the right. Includes an email/password form with show-password toggle, a "Remember me" checkbox, and a forgot-password view.</p>
+<p><strong>Login Screen.</strong> Two-panel layout with a brand panel on the left (logo, store name, session status indicator) and an authentication card on the right. Includes an email/password form with show-password toggle, a "Remember me" checkbox, and guidance that cashier password resets must be requested from an Administrator.</p>
 
 <p><strong>Overview Dashboard.</strong> The landing page after login. Contains:</p>
 
@@ -505,7 +505,7 @@
 
 <h3>3.4.1 Authentication Module (auth.js)</h3>
 
-<p>Handles user sign-in, password reset, session persistence, and role-based access control. Uses Firebase Authentication (email/password) as the identity provider. On successful sign-in, fetches the user's <code>profiles/{uid}</code> document from Firestore to determine role (<code>admin</code> or <code>cashier</code>). Enforces:</p>
+<p>Handles user sign-in, administrator-controlled cashier password-reset email dispatch, session persistence, and role-based access control. Uses Firebase Authentication (email/password) as the identity provider. On successful sign-in, fetches the user's <code>profiles/{uid}</code> document from Firestore to determine role (<code>admin</code> or <code>cashier</code>). Enforces:</p>
 
 <ul>
     <li>Two-admin maximum (a lightweight policy constraint implemented client-side)</li>
@@ -522,7 +522,7 @@
 <ul>
     <li><strong>Auth operations</strong>: <code>signUpUser</code>, <code>signInUser</code>, <code>signOut</code>, <code>getCurrentUser</code>, <code>resetPassword</code>, <code>getIdToken</code></li>
     <li><strong>Inventory CRUD</strong>: <code>getInventoryProducts</code>, <code>addInventoryProduct</code>, <code>updateInventoryProduct</code>, <code>deleteInventoryProduct</code>, <code>getInventoryStats</code></li>
-    <li><strong>Order operations</strong>: <code>commitSale</code> (atomic transaction with stock decrement), <code>getOrders</code>, <code>deleteOrder</code>, <code>subscribeOrders</code></li>
+    <li><strong>Order operations</strong>: <code>commitSale</code> (atomic transaction with stock decrement for supported simple and legacy size-stock records), <code>getOrders</code>, <code>deleteOrder</code>, <code>subscribeOrders</code></li>
     <li><strong>Customer operations</strong>: <code>getCustomers</code>, <code>addCustomer</code>, <code>updateCustomer</code>, <code>deleteCustomer</code>, <code>subscribeCustomers</code></li>
     <li><strong>Audit logging</strong>: <code>addAuditLog</code>, <code>getAuditLogs</code>, <code>clearAuditLogs</code>, <code>subscribeAuditLogs</code></li>
     <li><strong>Config</strong>: <code>getSettings</code>, <code>saveSettings</code>, <code>getCategories</code>, <code>saveCategories</code></li>
@@ -555,7 +555,7 @@
     <li><strong>Stock validation</strong> at both cart-add time and checkout time to prevent overselling</li>
     <li><strong>Payment processing</strong> for cash and GCash</li>
     <li><strong>Receipt generation</strong> with configurable store header, footer, tax rate, and GCash reference number</li>
-    <li><strong>Offline queueing</strong> — failed Firestore transactions are pushed to <code>localStorage.pos_order_queue</code> and replayed on reconnect with idempotency guaranteed by order ID</li>
+    <li><strong>Offline queueing</strong> — eligible network-related sale failures are pushed to <code>localStorage.pos_order_queue</code> and replayed on reconnect with idempotency guaranteed by order ID; validation, variant-model, and business-rule failures remain visible errors</li>
 </ol>
 
 <p>The module runs a live subscription to Firestore so that catalog stock decrements reflect immediately across every open tab.</p>
@@ -673,7 +673,7 @@ Environment variables
 
 <h3>3.5.4 Data Consistency</h3>
 
-<p><strong>Transactional writes.</strong> POS sales use Firestore's <code>runTransaction()</code> to guarantee that either (a) stock is decremented and the order is written, or (b) neither happens. The transaction also acts as an idempotency barrier: if an order with the same receipt number already exists, the transaction aborts without double-decrementing stock.</p>
+<p><strong>Transactional writes.</strong> POS sales use Firestore's <code>runTransaction()</code> for supported simple and legacy size-stock records, guaranteeing that either stock is decremented and the order is written, or neither happens. The transaction also acts as an idempotency barrier: if an order with the same receipt number already exists, the transaction exits without double-decrementing stock. The newer matrix-shaped <code>variants</code> data requires the application variant path and is not described as transactionally supported here.</p>
 
 <p><strong>Idempotent replay.</strong> When an offline order is synced, the same transaction semantics apply. A sale that was already committed (perhaps the network failed during response transmission) does not duplicate. The <code>orderId</code> derived from the receipt number acts as the natural key.</p>
 
@@ -709,7 +709,7 @@ Environment variables
 
 <p><strong>Firestore's built-in offline layer</strong> — Writes made while offline are stored in IndexedDB and replayed automatically when the connection returns. This handles the majority of network transients without any custom code.</p>
 
-<p><strong>Application-level pending queue</strong> — For sales specifically, <code>pos.js</code> maintains a <code>pos_order_queue</code> in localStorage. When <code>commitSale</code> fails, the order is queued and a background flusher replays it on reconnect. The flush loop re-reads the queue from localStorage on each iteration (rather than holding it in memory) so concurrent enqueues are never lost.</p>
+<p><strong>Application-level pending queue</strong> — For eligible network-related sales, <code>pos.js</code> maintains a <code>pos_order_queue</code> in localStorage. A background flusher replays queued sales on reconnect. Validation, stock, unsupported-variant, and other permanent failures remain visible instead of being treated as offline sales.</p>
 
 <p><strong>Effective-online detection</strong> — <code>navigator.onLine</code> lies on captive portals and when the API host is unreachable. A heartbeat sends a <code>HEAD /manifest.json</code> request every 30 seconds; a failed heartbeat flips an <code>__effectiveOnline</code> flag that gates the offline banner and triggers queue flushes.</p>
 
