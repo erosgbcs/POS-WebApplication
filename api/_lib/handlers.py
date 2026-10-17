@@ -588,6 +588,72 @@ DISPATCH = {
 }
 
 
+def localize_result(intent: str, result: dict, ctx: dict) -> dict:
+    """Translate deterministic POS responses when the user writes Tagalog."""
+    if ctx.get("language") != "tagalog":
+        return result
+
+    data = result.get("data") or {}
+    if intent == "greeting":
+        text = "Kumusta! Ako si Kirby. Makakatulong ako sa imbentaryo, benta, transaksyon, at forecast."
+    elif intent == "help":
+        text = "Makakatulong ako sa stock, low stock, benta, best seller, mga transaksyon, at forecast."
+    elif intent in ("inventory_check", "product_search"):
+        product = data.get("product") or {}
+        if data.get("matched") and product:
+            text = f"{product.get('name', 'Ang produkto')} ay may {int(product.get('quantity') or 0)} na stock."
+        else:
+            text = "Hindi ko nahanap ang produktong iyon. Pakisuri ang pangalan at subukan muli."
+    elif intent == "low_stock":
+        items = data.get("items") or []
+        if not items:
+            text = "Maayos ang stock ng lahat ng produkto ngayon."
+        else:
+            summary = ", ".join(f"{item.get('name')} ({item.get('quantity', 0)} na lang)" for item in items[:5])
+            text = f"{data.get('count', len(items))} produkto ang paubos na. Nangunguna: {summary}."
+    elif intent == "out_of_stock":
+        items = data.get("items") or []
+        if not items:
+            text = "Walang produktong out of stock ngayon."
+        else:
+            names = ", ".join(str(item.get("name")) for item in items[:5])
+            text = f"{data.get('count', len(items))} produkto ang ubos na: {names}."
+    elif intent == "daily_sales":
+        text = f"Ang kabuuang benta ngayong araw ay ₱{data.get('revenue', 0):,.2f} mula sa {data.get('order_count', 0)} order."
+    elif intent == "sales_summary":
+        text = f"Kabuuang benta para sa {data.get('label', 'panahong ito')}: ₱{data.get('revenue', 0):,.2f} mula sa {data.get('order_count', 0)} order."
+    elif intent == "sales_history":
+        text = f"Kabuuang benta sa nakaraang 7 araw: ₱{data.get('total', 0):,.2f}."
+    elif intent == "best_seller":
+        items = data.get("items") or []
+        if not items:
+            text = "Wala pang sales data para sa panahong iyon."
+        else:
+            summary = ", ".join(f"{item.get('name')} ({item.get('units_sold', 0)} units)" for item in items)
+            text = f"Pinakamabentang produkto: {summary}."
+    elif intent == "transaction_history":
+        items = data.get("items") or []
+        if not items:
+            text = "Wala pang mga kamakailang transaksyon."
+        else:
+            latest = items[0]
+            text = f"Pinakabagong transaksyon: {latest.get('id')} na nagkakahalaga ng ₱{latest.get('total', 0):,.2f}. May {len(items)} kamakailang transaksyon."
+    elif intent == "sales_forecast":
+        total = data.get("total_predicted_revenue")
+        text = f"Tinatayang benta sa susunod na 7 araw: ₱{total:,.2f}. Batay ito sa kasaysayan ng benta at hindi garantisadong resulta." if total is not None else "Hindi pa sapat ang sales data para gumawa ng maaasahang forecast."
+    elif intent == "restock_recommendation":
+        items = data.get("items") or []
+        if not items:
+            text = "Walang kailangang i-restock sa ngayon."
+        else:
+            summary = ", ".join(str(item.get("name")) for item in items[:5])
+            text = f"Mga produktong dapat i-restock: {summary}."
+    else:
+        return result
+
+    return {**result, "response": text}
+
+
 def dispatch_intent(intent: str, ctx: dict):
     handler = DISPATCH.get(intent)
     if handler is None:

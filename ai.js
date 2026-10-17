@@ -124,10 +124,9 @@
     // ------------------------------------------------------------
     let __forecastInflight = null;
 
-    async function forecastSales({ forceRefresh = false, period = '7d' } = {}) {
-        const horizons = { '7d': 7, '30d': 30, '1y': 365 };
-        const horizon = horizons[period] || horizons['7d'];
-        const cacheKey = `forecast_${period}`;
+    async function forecastSales({ forceRefresh = false } = {}) {
+        const horizon = 7;
+        const cacheKey = 'forecast_7d';
         if (!forceRefresh) {
             const cached = readCache(cacheKey);
             if (cached) return cached;
@@ -162,7 +161,7 @@
                     return 'stable';
                 })();
 
-                const result = { forecast: shaped, summary, trend, period, horizon, _raw: data };
+                const result = { forecast: shaped, summary, trend, horizon, _raw: data };
                 writeCache(cacheKey, result);
                 return result;
             } finally {

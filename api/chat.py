@@ -27,11 +27,23 @@ from _lib.errors import (  # noqa: E402
     AuthError, ChatError, DBError, ProviderError, ValidationError,
 )
 from _lib.firebase_client import get_all_inventory  # noqa: E402
-from _lib.handlers import AI_SYSTEM_PROMPT, dispatch_intent  # noqa: E402
+from _lib.handlers import AI_SYSTEM_PROMPT, dispatch_intent, localize_result  # noqa: E402
 from _lib.nlp_engine import NLPEngine  # noqa: E402
 
 MAX_MESSAGE_CHARS = 500
 MAX_HISTORY_TURNS = 8
+
+TAGALOG_MARKERS = {
+    "ako", "ang", "ano", "ba", "bakit", "bilang", "gusto", "hindi",
+    "ikaw", "ilan", "ito", "kailangan", "kumusta", "magkano", "may",
+    "mga", "na", "ng", "ngayon", "paano", "salamat", "tulong", "wala",
+    "benta", "kita", "imbentaryo", "paubos", "ubos", "suki",
+}
+
+
+def _message_language(message: str) -> str:
+    words = set(NLPEngine.normalize(message).split())
+    return "tagalog" if len(words & TAGALOG_MARKERS) >= 1 else "english"
 
 
 def _cors_headers(handler):
@@ -131,6 +143,7 @@ def process_request(body: dict, authorization: str) -> dict:
     classification = nlp.classify(message)
     intent = classification["intent"]
     confidence = classification["confidence"]
+    language = _message_language(message)
 
     # ---- 4. Local deterministic handler ----
     if intent != "unknown":
@@ -144,6 +157,7 @@ def process_request(body: dict, authorization: str) -> dict:
             "inventory": inventory,
             "product": None,
             "period": nlp.extract_period(message),
+            "language": language,
         }
 
         # Attach a product entity when the intent needs one.
@@ -157,6 +171,7 @@ def process_request(body: dict, authorization: str) -> dict:
 
         result = dispatch_intent(intent, ctx)
         if result is not None:
+            result = localize_result(intent, result, ctx)
             return {
                 "success": True,
                 "intent": intent,
@@ -191,6 +206,7 @@ def process_request(body: dict, authorization: str) -> dict:
         history_block = "RECENT_CONVERSATION:\n" + "\n".join(lines) + "\n\n"
 
     augmented_prompt = (
+        f"LANGUAGE_REQUEST: Reply in {language}. If the user writes Tagalog or Taglish, reply in natural Tagalog or Taglish. Do not reply in English.\n\n"
         f"{history_block}"
         "REQUEST_SCOPE: Answer only if the user's request concerns Kirby's "
         "Hardware store or POS operations. If it is unrelated, politely "

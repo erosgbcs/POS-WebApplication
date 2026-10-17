@@ -503,15 +503,11 @@
             <div class="ov-ai-pane active" data-ai-pane="forecast">
                 <div class="ov-pane-meta">
                     <span class="sales-summary" id="aiForecastSubtitle">Analyzing…</span>
-                    <div class="ai-forecast-periods" role="group" aria-label="Forecast period">
-                        <button type="button" class="ai-forecast-period active" data-forecast-period="7d" aria-pressed="true">7 days</button>
-                        <button type="button" class="ai-forecast-period" data-forecast-period="30d" aria-pressed="false">Month</button>
-                        <button type="button" class="ai-forecast-period" data-forecast-period="1y" aria-pressed="false">Year</button>
-                    </div>
                     <button type="button" class="ai-refresh-btn" id="aiForecastRefresh" title="Refresh forecast">
                         <i class="fas fa-sync"></i>
                     </button>
                 </div>
+                <p class="ai-forecast-description">This chart estimates daily sales for the next 7 days using your past sales. Taller bars mean higher expected revenue; the estimate is a guide, not a guarantee.</p>
                 <div id="aiForecastContent" class="ai-card-content">
                     <div class="ai-loading"><i class="fas fa-spinner fa-spin"></i> Analyzing sales patterns…</div>
                 </div>

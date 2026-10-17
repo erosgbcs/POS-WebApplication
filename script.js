@@ -2526,14 +2526,7 @@ function refreshOverview() {
 }
 
 // ---------- AI FEATURES ----------
-const AI_FORECAST_PERIOD_KEY = 'pos_ai_forecast_period';
-
-function getAiForecastPeriod() {
-    const selected = localStorage.getItem(AI_FORECAST_PERIOD_KEY);
-    return ['7d', '30d', '1y'].includes(selected) ? selected : '7d';
-}
-
-async function refreshAiCards(period = getAiForecastPeriod()) {
+async function refreshAiCards() {
     if (!window.POS_AI) return;
 
     const forecastEl = document.getElementById('aiForecastContent');
@@ -2543,7 +2536,7 @@ async function refreshAiCards(period = getAiForecastPeriod()) {
 
     if (forecastEl) {
         try {
-            const data = await window.POS_AI.forecastSales({ period });
+            const data = await window.POS_AI.forecastSales();
             renderAiForecast(forecastEl, forecastSub, data);
         } catch (err) {
             forecastEl.innerHTML = `<div class="ai-loading" style="color:#f87171;">⚠️ ${escapeCustomerText(err.message || 'Forecast failed')}</div>`;
@@ -2563,7 +2556,7 @@ async function refreshAiCards(period = getAiForecastPeriod()) {
 }
 
 /* ============================================================
-   AI FORECAST — Chart.js line chart with area fill.
+    AI FORECAST — Chart.js 7-day bar chart.
    Chart.js is already loaded for the overview charts; we reuse
    it here. Instance is cached module-level and destroyed on
    every render so theme switches and scenario changes rebuild
@@ -2796,9 +2789,7 @@ function renderAiForecast(container, subtitleEl, data) {
 
     const list = Array.isArray(data.forecast) ? data.forecast : [];
     const raw = data._raw || {};
-    const period = data.period || getAiForecastPeriod();
-    const periodLabels = { '7d': '7 days', '30d': '30 days', '1y': '1 year' };
-    const periodLabel = periodLabels[period] || '7 days';
+    const periodLabel = '7 days';
 
     if (!list.length) {
         container.innerHTML = `<div class="ai-loading">${escapeCustomerText(data.summary || 'No forecast available yet.')}</div>`;
@@ -2854,7 +2845,7 @@ function renderAiForecast(container, subtitleEl, data) {
     if (subtitleEl) {
         const arrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
         let text = `${arrow} Expected: ${fmt(total)} over ${periodLabel}`;
-        if (vsLastPct != null && period === '7d') {
+        if (vsLastPct != null) {
             const sign = vsLastPct >= 0 ? '+' : '';
             text += ` · ${sign}${vsLastPct.toFixed(1)}% vs last 7`;
         }
@@ -2911,7 +2902,6 @@ function renderAiForecast(container, subtitleEl, data) {
 
     const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const labels = list.map((d, index) => {
-        if (period === '1y' && index % 30 !== 0 && index !== list.length - 1) return '';
         const dt = new Date(String(d.date) + 'T00:00:00');
         if (isNaN(dt.getTime())) return `<span>${escapeCustomerText(d.date)}</span>`;
         return `<span>${WEEKDAYS[dt.getDay()]} ${dt.getDate()}</span>`;
@@ -3357,30 +3347,9 @@ function setupAiFeatures() {
     document.getElementById('aiForecastRefresh')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
-        window.POS_AI.clearCache(`forecast_${getAiForecastPeriod()}`);
-        await refreshAiCards(getAiForecastPeriod());
+        window.POS_AI.clearCache('forecast_7d');
+        await refreshAiCards();
         btn.disabled = false;
-    });
-
-    const savedForecastPeriod = getAiForecastPeriod();
-    document.querySelectorAll('[data-forecast-period]').forEach(button => {
-        const active = button.dataset.forecastPeriod === savedForecastPeriod;
-        button.classList.toggle('active', active);
-        button.setAttribute('aria-pressed', String(active));
-    });
-
-    document.querySelectorAll('[data-forecast-period]').forEach(button => {
-        button.addEventListener('click', async () => {
-            const period = button.dataset.forecastPeriod;
-            if (!period) return;
-            localStorage.setItem(AI_FORECAST_PERIOD_KEY, period);
-            document.querySelectorAll('[data-forecast-period]').forEach(item => {
-                const active = item === button;
-                item.classList.toggle('active', active);
-                item.setAttribute('aria-pressed', String(active));
-            });
-            await refreshAiCards(period);
-        });
     });
 
     document.getElementById('aiRestockRefresh')?.addEventListener('click', async (e) => {
