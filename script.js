@@ -3014,7 +3014,25 @@ function loadAiThread() {
     try {
         const raw = localStorage.getItem(AI_THREAD_KEY);
         const arr = JSON.parse(raw || '[]');
-        return Array.isArray(arr) ? arr : [];
+        if (!Array.isArray(arr)) return [];
+
+        const friendlyError = 'I could not reach Kirby right now. Please check your connection and try again.';
+        let changed = false;
+        const thread = arr.map(message => {
+            const isLegacyError = message?.role === 'ai' && (
+                message.source === 'client_error' ||
+                /failed to fetch|request failed \(\d+\)|ai request failed/i.test(String(message.text || ''))
+            );
+            if (!isLegacyError) return message;
+
+            changed = true;
+            const migrated = { ...message, text: friendlyError };
+            delete migrated.source;
+            return migrated;
+        });
+
+        if (changed) saveAiThread(thread);
+        return thread;
     } catch (e) { return []; }
 }
 

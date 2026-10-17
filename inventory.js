@@ -985,6 +985,7 @@
         filterProducts();
         closeProductModal();
         window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+        window.dispatchEvent(new CustomEvent('inventory-products-changed'));
     }
 
     /* ============================================================
@@ -1003,6 +1004,7 @@
         updateInventoryStats();
         filterProducts();
         window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+        window.dispatchEvent(new CustomEvent('inventory-products-changed'));
         window.POS_APP_LOG?.('delete', 'inventory', `Product ${inventoryState.deletingProductId} deleted`, 'warning');
         showToast('Product deleted successfully', 'success');
         closeDeleteModal();
@@ -1248,6 +1250,7 @@
             updateInventoryStats();
             filterProducts();
             window.dispatchEvent(new CustomEvent('inventory-products-loaded', { detail: inventoryState.products }));
+            window.dispatchEvent(new CustomEvent('inventory-products-changed'));
             window.POS_APP_LOG?.('update', 'inventory', `Quantity updated for product ${productId}`, 'info');
             showToast('Quantity updated successfully', 'success');
         });

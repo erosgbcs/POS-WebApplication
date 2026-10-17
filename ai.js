@@ -50,6 +50,10 @@
         } catch (e) {}
     }
 
+    // Forecasts depend on orders; restock rankings depend on inventory.
+    window.addEventListener('pos-order-created', () => clearCache());
+    window.addEventListener('inventory-products-changed', () => clearCache('restock_priority'));
+
     // ------------------------------------------------------------
     // Auth token
     // ------------------------------------------------------------
