@@ -401,9 +401,9 @@
 
 <p><strong>Real-time multi-device sync.</strong> Because Firestore pushes changes to connected clients, a successfully synchronized sale can appear on another connected device shortly after it is recorded. Offline or queued sales appear after synchronization completes.</p>
 
-<p><strong>Kirby AI integration.</strong> Kirby first classifies supported requests locally and uses deterministic handlers for structured POS questions. Only POS-relevant open-ended questions are sent to Gemini, with Groq as the fallback provider; unrelated questions are redirected rather than answered as general chat.</p>
+<p><strong>Kirby AI integration.</strong> Kirby first classifies supported requests on the server and uses deterministic handlers for structured POS questions. Local handlers and LLM responses follow the user's English or Tagalog/Taglish language. Only POS-relevant open-ended questions are sent to Gemini, with Groq as the fallback provider; unrelated questions are redirected rather than answered as general chat.</p>
 
-<p><strong>Statistical sales forecasting.</strong> Rather than relying on the LLM for numeric predictions, the system uses a pure-Python forecasting engine that scores four candidate statistical models via rolling-origin cross-validation and returns a 7-day forecast with 95% prediction intervals.</p>
+<p><strong>Statistical sales forecasting.</strong> Rather than relying on the LLM for numeric predictions, the system uses a pure-Python forecasting engine that scores four candidate statistical models via rolling-origin cross-validation and returns a 7-day forecast with 95% prediction intervals. The Forecast tab presents one bar per projected day and explains that taller bars represent higher expected revenue.</p>
 
 <h2>2.3 System Requirements</h2>
 

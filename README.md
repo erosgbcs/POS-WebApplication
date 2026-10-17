@@ -64,7 +64,7 @@ A lightweight, single-store Point of Sale (POS) and Inventory Management web app
 - Floating action button (FAB) → slide-out chat panel
 - **Conversation memory** — follow-up questions resolve against prior turns
 - **Quick-prompt chips** for common questions ("What sold best today?", "What should I restock?")
-- **14-day sales forecast** with per-day confidence
+- **7-day sales forecast bar chart** with per-day confidence and a plain-language explanation
 - **Priority restock list** — ranked by urgency with days-left estimates
 - Chat answers with real numbers (PHP amounts, counts) from your data
 - 6-hour response cache to keep quota usage low
@@ -334,6 +334,7 @@ To stay comfortably inside both, the client:
 - **Caches responses for 6 hours** — `pos_ai_cache_*` in localStorage
 - **Skips AI when the Overview page is not visible** — background refreshes don't trigger AI calls
 - **Invalidates only the affected key** on manual refresh — the Forecast ↻ button doesn't wipe the Restock cache
+- **Invalidates forecast data after a new order** and restock data after inventory changes
 - **Trims the chat payload** — last 15 orders + 40 products + last 8 chat turns
 
 If you hit rate limits anyway, check:
@@ -384,7 +385,7 @@ After setup, verify:
 - [ ] Theme toggle re-colors all charts
 
 ### AI
-- [ ] Forecast tab shows 14 bars (or "not enough data" if fewer than 7 days)
+- [ ] Forecast tab shows 7 daily bars (or "not enough data" when history is insufficient)
 - [ ] Restock tab lists products by urgency
 - [ ] Chat answers a simple question with real numbers
 - [ ] Chat follow-up ("and last week?") resolves from history

@@ -1544,7 +1544,7 @@
                 localStorage.removeItem('pos_audit_logs');
                 localStorage.removeItem('pos_settings');
                 localStorage.removeItem('pos_categories');
-                localStorage.removeItem('pos_ai_cache_forecast_14d');
+                localStorage.removeItem('pos_ai_cache_forecast_7d');
                 localStorage.removeItem('pos_ai_cache_restock_priority');
                 log('Local caches cleared.', 'ok');
             } catch (e) {}
@@ -1994,7 +1994,7 @@
 
         async function clearAiCache() {
             try {
-                localStorage.removeItem('pos_ai_cache_forecast_14d');
+                localStorage.removeItem('pos_ai_cache_forecast_7d');
                 localStorage.removeItem('pos_ai_cache_restock_priority');
             } catch (e) {}
         }

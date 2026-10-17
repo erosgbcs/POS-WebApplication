@@ -611,7 +611,7 @@
 
 <p>The most architecturally complex module. It is split between client orchestration and server execution:</p>
 
-<p><strong>Client (ai.js)</strong> — Manages chat history persistence, cache TTL (6 hours), request retry semantics, and local queueing of pending questions during outages.</p>
+<p><strong>Client (ai.js)</strong> — Manages chat history persistence, 6-hour AI response caches, in-flight request deduplication, friendly error handling, and targeted cache invalidation. Chat questions are not queued offline; chat, forecasting, and restock requests require the server.</p>
 
 <p><strong>Server (_lib/ai_providers.py)</strong> — Abstracts the LLM layer with two providers:</p>
 
@@ -622,7 +622,7 @@
 
 <p><strong>Server (_lib/nlp_engine.py)</strong> — A deterministic intent classifier that runs before any LLM call. Recognizes thirteen intents (greeting, help, low_stock, out_of_stock, inventory_check, product_search, daily_sales, sales_summary, sales_history, best_seller, transaction_history, sales_forecast, restock_recommendation) using weighted keyword and phrase matching with fuzzy product-name resolution. The classifier includes English and Tagalog/Taglish vocabulary.</p>
 
-<p><strong>Server (_lib/handlers.py)</strong> — Implements each intent as a pure function over Firestore data. Handlers never invent numbers; if data is unavailable, they return an honest error. The AI system prompt (for the LLM fallback) explicitly forbids hallucinating values and instructs the model to reply with a specific refusal phrase when the provided context is insufficient.</p>
+<p><strong>Server (_lib/handlers.py)</strong> — Implements each intent as a pure function over Firestore data. Handlers never invent numbers; if data is unavailable, they return an honest error. Deterministic responses are localized to English or Tagalog/Taglish from the detected user language. The AI system prompt (for the LLM fallback) explicitly forbids hallucinating values and instructs the model to reply with a specific refusal phrase when the provided context is insufficient.</p>
 
 <p><strong>Server (_lib/forecasting.py)</strong> — Pure-Python sales forecasting. Scores four candidate models (historical mean, moving average, seasonal naive, linear regression) using rolling-origin cross-validation with a 1% one-standard-error preference toward simpler models. Returns a 7-day point forecast with 95% prediction intervals.</p>
 

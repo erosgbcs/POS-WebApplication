@@ -2,7 +2,7 @@
  *
  * Backend endpoints (Python on Vercel):
  *   POST /api/chat      { message, history } -> { success, intent, source, response, data }
- *   POST /api/forecast  { type }             -> { success, type, data }
+ *   POST /api/forecast  { type, horizon: 7 } -> { success, type, data }
  *   GET  /api/health
  *
  * Requires a Firebase ID token in the Authorization header. The token
