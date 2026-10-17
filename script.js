@@ -3144,7 +3144,7 @@ function formatAiMessage(rawText, meta) {
 }
 
 function getAiMetaLabel(source) {
-    return source === 'offline' ? 'Offline mode' : 'Answered by Kirby';
+    return 'Answered by Kirby';
 }
 
 function renderAiThread() {
@@ -3243,15 +3243,6 @@ function setupAiFeatures() {
     document.getElementById('aiPanelClose')?.addEventListener('click', closeAiPanel);
     document.getElementById('aiClearThread')?.addEventListener('click', clearAiThread);
 
-    const connectivity = document.getElementById('aiConnectivity');
-    const updateConnectivity = () => {
-        if (!connectivity) return;
-        connectivity.hidden = navigator.onLine !== false;
-    };
-    window.addEventListener('online', updateConnectivity);
-    window.addEventListener('offline', updateConnectivity);
-    updateConnectivity();
-
     // ---- Esc closes panel ----
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.getElementById('aiPanel')?.classList.contains('open')) {
@@ -3318,13 +3309,12 @@ function setupAiFeatures() {
         // Enforce the cooldown — refuse silently rather than spamming
         // the user with an error, since they just sent a message.
         const since = Date.now() - __lastChatAt;
-        const offlineMode = navigator.onLine === false;
-        if (!offlineMode && since < CHAT_COOLDOWN_MS) {
+        if (since < CHAT_COOLDOWN_MS) {
             const waitSec = Math.ceil((CHAT_COOLDOWN_MS - since) / 1000);
             appendAiBubble('ai', `Please wait ${waitSec}s between messages.`, 'error');
             return;
         }
-        if (!offlineMode) __lastChatAt = Date.now();
+        __lastChatAt = Date.now();
 
         // Capture history BEFORE appending the new bubble, so the current
         // question is not duplicated inside the prompt's history block.
