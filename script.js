@@ -3143,6 +3143,10 @@ function formatAiMessage(rawText, meta) {
     return safe;
 }
 
+function getAiMetaLabel(source) {
+    return source === 'offline' ? 'Offline mode' : 'Answered by Kirby';
+}
+
 function renderAiThread() {
     const threadEl = document.getElementById('aiThread');
     if (!threadEl) return;
@@ -3166,7 +3170,7 @@ function renderAiThread() {
             } else {
                 const body = formatAiMessage(msg.text, msg);
                 const meta = msg.source
-                    ? '<div class="ai-bubble-meta">Answered by Kirby</div>'
+                    ? `<div class="ai-bubble-meta">${getAiMetaLabel(msg.source)}</div>`
                     : '';
                 html.push(`<div class="ai-bubble ${cls}">${body}${meta}</div>`);
             }
@@ -3188,7 +3192,7 @@ function appendAiBubble(role, text, extraClass = '', meta = null) {
     } else {
         const body = formatAiMessage(text, meta);
         const metaLine = meta?.source
-            ? '<div class="ai-bubble-meta">Answered by Kirby</div>'
+            ? `<div class="ai-bubble-meta">${getAiMetaLabel(meta.source)}</div>`
             : '';
         div.innerHTML = body + metaLine;
     }
@@ -3238,6 +3242,15 @@ function setupAiFeatures() {
     document.getElementById('aiFab')?.addEventListener('click', openAiPanel);
     document.getElementById('aiPanelClose')?.addEventListener('click', closeAiPanel);
     document.getElementById('aiClearThread')?.addEventListener('click', clearAiThread);
+
+    const connectivity = document.getElementById('aiConnectivity');
+    const updateConnectivity = () => {
+        if (!connectivity) return;
+        connectivity.hidden = navigator.onLine !== false;
+    };
+    window.addEventListener('online', updateConnectivity);
+    window.addEventListener('offline', updateConnectivity);
+    updateConnectivity();
 
     // ---- Esc closes panel ----
     document.addEventListener('keydown', (e) => {

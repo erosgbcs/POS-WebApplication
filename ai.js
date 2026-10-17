@@ -54,6 +54,70 @@
     window.addEventListener('pos-order-created', () => clearCache());
     window.addEventListener('inventory-products-changed', () => clearCache('restock_priority'));
 
+    const OFFLINE_REPLY = 'I am offline right now. I can still answer basic stock and sales questions from the data saved on this device.';
+
+    function getOfflineInventory() {
+        return (window.getInventorySnapshot?.() || []).map(product => ({
+            name: String(product.name || ''),
+            quantity: Number(product.quantity ?? product.stock ?? 0),
+            minStock: Number(product.minStock ?? product.min_stock ?? 0)
+        })).filter(product => product.name);
+    }
+
+    function getOfflineOrders() {
+        try {
+            const orders = JSON.parse(localStorage.getItem('pos_orders') || '[]');
+            return Array.isArray(orders) ? orders : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function formatOfflineCurrency(value) {
+        return 'PHP ' + Number(value || 0).toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function offlineAssistantAnswer(question) {
+        const normalized = String(question || '').toLowerCase().trim();
+        const inventory = getOfflineInventory();
+
+        if (/^(hi|hello|hey|kumusta|kamusta)\b/.test(normalized)) {
+            return 'Hi! I am Kirby in offline mode. I can check saved stock and sales data on this device.';
+        }
+        if (/\b(help|what can you do|ano ang kaya mo)\b/.test(normalized)) {
+            return 'Offline Kirby can check saved stock quantities, low-stock items, out-of-stock items, and today\'s saved sales.';
+        }
+        if (/\b(low stock|restock|running low|paubos)\b/.test(normalized)) {
+            const items = inventory.filter(product => product.quantity <= product.minStock || product.quantity <= 0);
+            return items.length
+                ? `Saved low-stock items: ${items.slice(0, 8).map(product => `${product.name} (${product.quantity})`).join(', ')}.`
+                : 'No low-stock items were found in the saved inventory.';
+        }
+        if (/\b(out of stock|sold out|no stock|ubos)\b/.test(normalized)) {
+            const items = inventory.filter(product => product.quantity <= 0);
+            return items.length
+                ? `Saved out-of-stock items: ${items.slice(0, 8).map(product => product.name).join(', ')}.`
+                : 'No out-of-stock items were found in the saved inventory.';
+        }
+
+        const matchedProduct = inventory.find(product => normalized.includes(product.name.toLowerCase()));
+        if (matchedProduct && /\b(stock|left|quantity|many|ilan|natira|available)\b/.test(normalized)) {
+            return `${matchedProduct.name} has ${matchedProduct.quantity} in saved stock.`;
+        }
+
+        if (/\b(today|today's|sales|benta|revenue|kita)\b/.test(normalized)) {
+            const today = new Date().toISOString().slice(0, 10);
+            const todaysOrders = getOfflineOrders().filter(order => String(order.createdAt || '').startsWith(today));
+            const total = todaysOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+            return `Saved sales for today: ${formatOfflineCurrency(total)} across ${todaysOrders.length} order${todaysOrders.length === 1 ? '' : 's'}.`;
+        }
+
+        return OFFLINE_REPLY;
+    }
+
     // ------------------------------------------------------------
     // Auth token
     // ------------------------------------------------------------
@@ -221,6 +285,10 @@
         const trimmed = String(question || '').trim();
         if (!trimmed) return { answer: 'Please type a question.' };
 
+        if (navigator.onLine === false) {
+            return { answer: offlineAssistantAnswer(trimmed), intent: 'offline_local', source: 'offline', data: {} };
+        }
+
         const payload = {
             message: trimmed,
             history: Array.isArray(history)
@@ -241,9 +309,9 @@
             };
         } catch (err) {
             return {
-                answer: 'I could not reach Kirby right now. Please check your connection and try again.',
-                intent: 'unknown',
-                source: null,
+                answer: offlineAssistantAnswer(trimmed),
+                intent: 'offline_local',
+                source: 'offline',
                 data: {}
             };
         }

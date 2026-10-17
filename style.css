@@ -7545,6 +7545,17 @@ html:not([data-theme="light"]) .toast.success {
 
 .ai-panel-title i { font-size: 15px; }
 
+.ai-connectivity {
+    padding: 3px 7px;
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    border-radius: 999px;
+    color: #FACC15;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .ai-panel-actions {
     display: flex;
     gap: 4px;
