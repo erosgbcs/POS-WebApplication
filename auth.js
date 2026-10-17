@@ -523,21 +523,26 @@
                 <td style="font-size:13px;color:var(--text-secondary);">${esc(lastLogin)}</td>
                 <td style="text-align:right;">
                     <div class="action-buttons" style="justify-content:flex-end;">
-                        <button class="btn-icon edit" type="button" data-user-action="edit" data-user-id="${esc(u.id)}" title="Edit user">
+                        <button class="btn-icon user-action-btn edit" type="button" data-user-action="edit" data-user-id="${esc(u.id)}" title="Edit user">
                             <i class="fas fa-edit"></i>
+                            <span>Edit</span>
                         </button>
-                        <button class="btn-icon" type="button" data-user-action="reset" data-user-id="${esc(u.id)}" title="Send password reset">
+                        <button class="btn-icon user-action-btn" type="button" data-user-action="reset" data-user-id="${esc(u.id)}" title="Send password reset">
                             <i class="fas fa-key" style="color:#fbbf24;"></i>
+                            <span>Reset</span>
                         </button>
                         ${isActive
-                            ? `<button class="btn-icon" type="button" data-user-action="deactivate" data-user-id="${esc(u.id)}" title="Deactivate" ${isSelf ? 'disabled' : ''}>
+                            ? `<button class="btn-icon user-action-btn" type="button" data-user-action="deactivate" data-user-id="${esc(u.id)}" title="Deactivate" ${isSelf ? 'disabled' : ''}>
                                 <i class="fas fa-user-slash" style="color:#fb923c;"></i>
+                                <span>Disable</span>
                                </button>`
-                            : `<button class="btn-icon" type="button" data-user-action="reactivate" data-user-id="${esc(u.id)}" title="Reactivate">
+                            : `<button class="btn-icon user-action-btn" type="button" data-user-action="reactivate" data-user-id="${esc(u.id)}" title="Reactivate">
                                 <i class="fas fa-user-check" style="color:#4ade80;"></i>
+                                <span>Enable</span>
                                </button>`}
-                        <button class="btn-icon delete" type="button" data-user-action="delete" data-user-id="${esc(u.id)}" title="Delete" ${isSelf ? 'disabled' : ''}>
+                        <button class="btn-icon user-action-btn delete" type="button" data-user-action="delete" data-user-id="${esc(u.id)}" title="Delete" ${isSelf ? 'disabled' : ''}>
                             <i class="fas fa-trash"></i>
+                            <span>Delete</span>
                         </button>
                     </div>
                 </td>

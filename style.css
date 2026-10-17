@@ -10456,6 +10456,29 @@ html:not([data-theme="light"]) .payment-method i {
     line-height: 1.45;
 }
 
+.user-action-btn {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 48px;
+    min-height: 42px;
+    padding: 4px 3px;
+}
+
+.user-action-btn span {
+    display: block;
+    color: #c3baaa;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+[data-theme="light"] .user-action-btn span {
+    color: #5f5648;
+}
+
 [data-theme="light"] .ai-forecast-description {
     color: #756c5e;
 }
