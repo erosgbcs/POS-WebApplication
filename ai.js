@@ -237,9 +237,9 @@
             };
         } catch (err) {
             return {
-                answer: err.message || 'AI request failed.',
+                answer: 'I could not reach Kirby right now. Please check your connection and try again.',
                 intent: 'unknown',
-                source: 'client_error',
+                source: null,
                 data: {}
             };
         }

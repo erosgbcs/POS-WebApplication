@@ -9689,7 +9689,7 @@ html:not([data-theme="light"]) .product-image-choose:hover {
     outline-offset: 2px;
 }
 
-/* Small "via gemini" / "via python_forecast" line */
+/* Small assistant attribution line */
 .ai-bubble-meta {
     margin-top: 6px;
     font-size: 10px;

@@ -3148,7 +3148,7 @@ function renderAiThread() {
             } else {
                 const body = formatAiMessage(msg.text, msg);
                 const meta = msg.source
-                    ? `<div class="ai-bubble-meta">via ${escapeAiText(msg.source)}</div>`
+                    ? '<div class="ai-bubble-meta">Answered by Kirby</div>'
                     : '';
                 html.push(`<div class="ai-bubble ${cls}">${body}${meta}</div>`);
             }
@@ -3170,7 +3170,7 @@ function appendAiBubble(role, text, extraClass = '', meta = null) {
     } else {
         const body = formatAiMessage(text, meta);
         const metaLine = meta?.source
-            ? `<div class="ai-bubble-meta">via ${escapeAiText(meta.source)}</div>`
+            ? '<div class="ai-bubble-meta">Answered by Kirby</div>'
             : '';
         div.innerHTML = body + metaLine;
     }
@@ -3329,11 +3329,12 @@ function setupAiFeatures() {
             saveAiThread(history);
         } catch (err) {
             loadingEl.remove();
-            appendAiBubble('ai', err.message || 'AI request failed.', 'error');
+            const friendlyError = 'I could not reach Kirby right now. Please check your connection and try again.';
+            appendAiBubble('ai', friendlyError, 'error');
 
             const history = loadAiThread();
             history.push({ role: 'user', text: question, ts: Date.now() });
-            history.push({ role: 'ai', text: '⚠️ ' + (err.message || 'AI request failed.'), ts: Date.now() });
+            history.push({ role: 'ai', text: '⚠️ ' + friendlyError, ts: Date.now() });
             saveAiThread(history);
         } finally {
             input.disabled = false;
