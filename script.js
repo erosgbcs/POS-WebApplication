@@ -3021,7 +3021,8 @@ function loadAiThread() {
         const thread = arr.map(message => {
             const isLegacyError = message?.role === 'ai' && (
                 message.source === 'client_error' ||
-                /failed to fetch|request failed \(\d+\)|ai request failed/i.test(String(message.text || ''))
+                message.source === 'offline' ||
+                /failed to fetch|request failed \(\d+\)|ai request failed|offline mode|offline kirby|saved (low-stock|out-of-stock|sales)/i.test(String(message.text || ''))
             );
             if (!isLegacyError) return message;
 
