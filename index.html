@@ -503,6 +503,11 @@
             <div class="ov-ai-pane active" data-ai-pane="forecast">
                 <div class="ov-pane-meta">
                     <span class="sales-summary" id="aiForecastSubtitle">Analyzing…</span>
+                    <div class="ai-forecast-periods" role="group" aria-label="Forecast period">
+                        <button type="button" class="ai-forecast-period active" data-forecast-period="7d" aria-pressed="true">7 days</button>
+                        <button type="button" class="ai-forecast-period" data-forecast-period="30d" aria-pressed="false">Month</button>
+                        <button type="button" class="ai-forecast-period" data-forecast-period="1y" aria-pressed="false">Year</button>
+                    </div>
                     <button type="button" class="ai-refresh-btn" id="aiForecastRefresh" title="Refresh forecast">
                         <i class="fas fa-sync"></i>
                     </button>

@@ -293,14 +293,15 @@ _MODEL_REGISTRY = [
 # ----------------------------------------------------------------
 # Public API
 # ----------------------------------------------------------------
-def forecast_next_7_days(orders: list) -> dict:
+def forecast_next_7_days(orders: list, horizon: int = 7) -> dict:
     """
-    Build a 7-day revenue forecast from raw order documents.
+    Build a revenue forecast from raw order documents.
 
     Scores every model with rolling-origin CV, picks the best (with a
     small preference for simpler models on near-ties), then produces
     point estimates plus a 95% prediction interval per day.
     """
+    horizon = max(1, min(int(horizon), 365))
     daily = aggregate_daily(orders)
     series = dense_series(daily, days_back=45)
 
@@ -374,17 +375,17 @@ def forecast_next_7_days(orders: list) -> dict:
         chosen_id = min(within_1pct, key=lambda k: candidates[k]["complexity"])
         chosen = candidates[chosen_id]
 
-    # ---- Generate the 7-day forecast with intervals ----
+    # ---- Generate the forecast with intervals ----
     today = now_manila().replace(hour=0, minute=0, second=0, microsecond=0)
 
     if chosen_id == "linear_regression":
-        point, lower, upper = linear_regression_forecast_with_ci(values, horizon=7)
+        point, lower, upper = linear_regression_forecast_with_ci(values, horizon=horizon)
     else:
-        preds = chosen["predict_fn"](values, 7)
+        preds = chosen["predict_fn"](values, horizon)
         if preds is None:
             # Seasonal naive could fail here in a rare edge case
             # (short history) even though it scored in CV — fall back.
-            preds = historical_mean_forecast(values, 7)
+            preds = historical_mean_forecast(values, horizon)
             chosen_id = "historical_mean"
             chosen = scored["historical_mean"]
         point = preds
@@ -404,7 +405,7 @@ def forecast_next_7_days(orders: list) -> dict:
         })
 
     total = round(sum(point), 2)
-    avg = round(total / 7.0, 2)
+    avg = round(total / horizon, 2)
 
     chosen_mae = chosen["mae"]
     chosen_mape = chosen["mape"]
@@ -425,7 +426,7 @@ def forecast_next_7_days(orders: list) -> dict:
         "method_label": chosen["label"],
         "daily_series_last_14": daily_series_last_14,
         "message": (
-            f"Estimated sales for the next 7 days: "
+            f"Estimated sales for the next {horizon} days: "
             f"₱{total:,.2f}. This is a statistical forecast "
             f"based on historical sales, not a guaranteed result."
         ),

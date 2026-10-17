@@ -10449,6 +10449,43 @@ html:not([data-theme="light"]) .payment-method i {
     margin-bottom: 10px;
 }
 
+.ai-forecast-periods {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: auto;
+}
+
+.ai-forecast-period {
+    border: 1px solid rgba(250, 204, 21, 0.22);
+    border-radius: 5px;
+    background: transparent;
+    color: #a9a092;
+    cursor: pointer;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 7px;
+}
+
+.ai-forecast-period:hover,
+.ai-forecast-period.active {
+    background: rgba(250, 204, 21, 0.14);
+    border-color: rgba(250, 204, 21, 0.55);
+    color: #FACC15;
+}
+
+[data-theme="light"] .ai-forecast-period {
+    border-color: rgba(224, 163, 0, 0.28);
+    color: #756c5e;
+}
+
+[data-theme="light"] .ai-forecast-period:hover,
+[data-theme="light"] .ai-forecast-period.active {
+    background: rgba(224, 163, 0, 0.14);
+    border-color: rgba(224, 163, 0, 0.55);
+    color: #8a5a00;
+}
+
 .ai-pill {
     display: inline-flex;
     align-items: center;

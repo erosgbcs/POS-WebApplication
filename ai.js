@@ -124,8 +124,10 @@
     // ------------------------------------------------------------
     let __forecastInflight = null;
 
-    async function forecastSales({ forceRefresh = false } = {}) {
-        const cacheKey = 'forecast_14d';
+    async function forecastSales({ forceRefresh = false, period = '7d' } = {}) {
+        const horizons = { '7d': 7, '30d': 30, '1y': 365 };
+        const horizon = horizons[period] || horizons['7d'];
+        const cacheKey = `forecast_${period}`;
         if (!forceRefresh) {
             const cached = readCache(cacheKey);
             if (cached) return cached;
@@ -134,7 +136,7 @@
 
         __forecastInflight = (async () => {
             try {
-                const json = await postJson(FORECAST_URL, { type: 'sales' });
+                const json = await postJson(FORECAST_URL, { type: 'sales', horizon });
                 const data = json.data || {};
 
                 // Shape the Python payload into what the overview cards expect.
@@ -160,7 +162,7 @@
                     return 'stable';
                 })();
 
-                const result = { forecast: shaped, summary, trend, _raw: data };
+                const result = { forecast: shaped, summary, trend, period, horizon, _raw: data };
                 writeCache(cacheKey, result);
                 return result;
             } finally {

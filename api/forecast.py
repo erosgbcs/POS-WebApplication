@@ -1,6 +1,6 @@
 """
 POST /api/forecast
-Body: { "type": "sales" | "restock" }
+Body: { "type": "sales" | "restock", "horizon": 7 | 30 | 365 }
 Auth: Authorization: Bearer <Firebase ID token>
 """
 
@@ -49,11 +49,11 @@ def _send_json(handler, status, payload):
     handler.wfile.write(body)
 
 
-def _do_sales():
+def _do_sales(horizon=7):
     today = now_manila().replace(hour=0, minute=0, second=0, microsecond=0)
-    start = today - timedelta(days=60)
+    start = today - timedelta(days=max(60, horizon + 45))
     orders = get_orders_in_range(start, today + timedelta(days=1))
-    result = forecast_next_7_days(orders)
+    result = forecast_next_7_days(orders, horizon=horizon)
     return {"success": True, "type": "sales", "data": result}
 
 
@@ -87,7 +87,13 @@ class handler(BaseHTTPRequestHandler):
 
             kind = (body.get("type") or "sales").lower()
             if kind == "sales":
-                _send_json(self, 200, _do_sales())
+                try:
+                    horizon = int(body.get("horizon", 7))
+                except (TypeError, ValueError):
+                    raise ValidationError("`horizon` must be 7, 30, or 365.")
+                if horizon not in (7, 30, 365):
+                    raise ValidationError("`horizon` must be 7, 30, or 365.")
+                _send_json(self, 200, _do_sales(horizon))
             elif kind == "restock":
                 _send_json(self, 200, _do_restock())
             else:

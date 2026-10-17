@@ -2526,7 +2526,14 @@ function refreshOverview() {
 }
 
 // ---------- AI FEATURES ----------
-async function refreshAiCards() {
+const AI_FORECAST_PERIOD_KEY = 'pos_ai_forecast_period';
+
+function getAiForecastPeriod() {
+    const selected = localStorage.getItem(AI_FORECAST_PERIOD_KEY);
+    return ['7d', '30d', '1y'].includes(selected) ? selected : '7d';
+}
+
+async function refreshAiCards(period = getAiForecastPeriod()) {
     if (!window.POS_AI) return;
 
     const forecastEl = document.getElementById('aiForecastContent');
@@ -2536,7 +2543,7 @@ async function refreshAiCards() {
 
     if (forecastEl) {
         try {
-            const data = await window.POS_AI.forecastSales();
+            const data = await window.POS_AI.forecastSales({ period });
             renderAiForecast(forecastEl, forecastSub, data);
         } catch (err) {
             forecastEl.innerHTML = `<div class="ai-loading" style="color:#f87171;">⚠️ ${escapeCustomerText(err.message || 'Forecast failed')}</div>`;
@@ -2649,9 +2656,6 @@ function _renderAiForecastChart(canvas, payload) {
     // otherwise the band's top edge gets clipped.
     const maxVal = Math.max(...revenues, ...(hasBand ? uppers : []), 1);
 
-    const pointRadius = revenues.map((_, i) => i === revenues.length - 1 ? 8 : 4.5);
-    const pointHover  = revenues.map((_, i) => i === revenues.length - 1 ? 11 : 7);
-
     const labels = dates.map(d => [
         ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()],
         String(d.getDate())
@@ -2689,32 +2693,20 @@ function _renderAiForecastChart(canvas, payload) {
         });
     }
 
-    // --- Point-estimate line (drawn last, sits on top of the band) ---
+    // --- Point-estimate bars ---
     datasets.push({
         label: 'forecast',
         data: revenues,
         borderColor: accent,
-        borderWidth: 2.5,
-        tension: 0.35,
-        // When the band is visible, the band already fills the area.
-        // When it's not, fall back to the original gradient fill.
-        fill: hasBand ? false : true,
-        backgroundColor: hasBand ? 'transparent' : (ctx) => {
-            const { chart } = ctx;
-            const { ctx: c, chartArea } = chart;
-            if (!chartArea) return 'transparent';
-            const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-            g.addColorStop(0,   `rgba(${accentRgb}, 0.32)`);
-            g.addColorStop(0.6, `rgba(${accentRgb}, 0.10)`);
-            g.addColorStop(1,   `rgba(${accentRgb}, 0)`);
-            return g;
-        },
-        pointRadius,
-        pointHoverRadius: pointHover,
-        pointBackgroundColor: accent,
-        pointBorderColor: pointBorder,
-        pointBorderWidth: 2,
-        pointHitRadius: 18
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false,
+        backgroundColor: revenues.map((_, i) => i === revenues.length - 1
+            ? `rgba(${accentRgb}, 0.95)`
+            : `rgba(${accentRgb}, 0.58)`),
+        hoverBackgroundColor: `rgba(${accentRgb}, 0.9)`,
+        barPercentage: 0.78,
+        categoryPercentage: 0.82
     });
 
     // The point dataset is always last in the array. Pass its index
@@ -2722,10 +2714,9 @@ function _renderAiForecastChart(canvas, payload) {
     const pointDatasetIndex = datasets.length - 1;
 
     aiForecastChartInstance = new Chart(canvas, {
-        type: 'line',
+        type: 'bar',
         data: { labels, datasets },
         plugins: [
-            _aiForecastGlowPlugin(accentRgb, pointDatasetIndex),
             _aiForecastBaselinePlugin(accentRgb)
         ],
         options: {
@@ -2775,14 +2766,21 @@ function _renderAiForecastChart(canvas, payload) {
                     ticks: {
                         color: tickColor,
                         font: { size: 10, weight: '600' },
-                        padding: 8
+                        padding: 8,
+                        autoSkip: true,
+                        maxTicksLimit: dates.length > 60 ? 12 : dates.length > 14 ? 10 : 8
                     }
                 },
                 y: {
-                    display: false,
+                    display: true,
                     beginAtZero: true,
                     suggestedMax: maxVal * 1.20,
-                    grid: { color: 'transparent', drawTicks: false }
+                    grid: { color: isLight ? 'rgba(120, 95, 55, 0.12)' : 'rgba(255, 255, 255, 0.08)' },
+                    ticks: {
+                        color: tickColor,
+                        maxTicksLimit: 5,
+                        callback: value => '₱' + Number(value).toLocaleString('en-PH')
+                    }
                 }
             }
         }
@@ -2798,6 +2796,9 @@ function renderAiForecast(container, subtitleEl, data) {
 
     const list = Array.isArray(data.forecast) ? data.forecast : [];
     const raw = data._raw || {};
+    const period = data.period || getAiForecastPeriod();
+    const periodLabels = { '7d': '7 days', '30d': '30 days', '1y': '1 year' };
+    const periodLabel = periodLabels[period] || '7 days';
 
     if (!list.length) {
         container.innerHTML = `<div class="ai-loading">${escapeCustomerText(data.summary || 'No forecast available yet.')}</div>`;
@@ -2852,8 +2853,8 @@ function renderAiForecast(container, subtitleEl, data) {
 
     if (subtitleEl) {
         const arrow = trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→';
-        let text = `${arrow} Expected: ${fmt(total)} over 7 days`;
-        if (vsLastPct != null) {
+        let text = `${arrow} Expected: ${fmt(total)} over ${periodLabel}`;
+        if (vsLastPct != null && period === '7d') {
             const sign = vsLastPct >= 0 ? '+' : '';
             text += ` · ${sign}${vsLastPct.toFixed(1)}% vs last 7`;
         }
@@ -2901,29 +2902,16 @@ function renderAiForecast(container, subtitleEl, data) {
 
     const summaryText = String(data.summary || '').replace(/\bPHP\s?/gi, '₱');
 
-    // Chart region. Flat forecasts keep the CSS fallback — a
-    // horizontal line chart for 7 identical values is noise.
-    let chartHtml = '';
-    if (isFlat) {
-        chartHtml = `
-            <div class="ai-forecast-flat">
-                <div class="ai-forecast-flat-line"></div>
-                <div class="ai-forecast-flat-dot"></div>
-                <div class="ai-forecast-flat-label">${fmt(avg)} / day</div>
-            </div>
-            <div class="ai-forecast-flat-note">All ${list.length} days projected at the same value — no clear trend to show.</div>
-        `;
-    } else {
-        chartHtml = `
-            <div class="ai-forecast-canvas-wrap">
-                <canvas id="aiForecastChart" role="img"
-                        aria-label="7-day revenue forecast line chart"></canvas>
-            </div>
-        `;
-    }
+    const chartHtml = `
+        <div class="ai-forecast-canvas-wrap">
+            <canvas id="aiForecastChart" role="img"
+                    aria-label="${periodLabel} revenue forecast bar chart"></canvas>
+        </div>
+    `;
 
     const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const labels = list.map(d => {
+    const labels = list.map((d, index) => {
+        if (period === '1y' && index % 30 !== 0 && index !== list.length - 1) return '';
         const dt = new Date(String(d.date) + 'T00:00:00');
         if (isNaN(dt.getTime())) return `<span>${escapeCustomerText(d.date)}</span>`;
         return `<span>${WEEKDAYS[dt.getDay()]} ${dt.getDate()}</span>`;
@@ -2937,7 +2925,7 @@ function renderAiForecast(container, subtitleEl, data) {
         </div>
         <div class="ai-forecast-summary${lowConfidence ? ' ai-forecast-summary-warn' : ''}">${escapeCustomerText(summaryText)}</div>
         ${chartHtml}
-        ${isFlat ? `<div class="ai-forecast-xaxis">${labels}</div>` : ''}
+        <div class="ai-forecast-xaxis">${labels}</div>
         <div class="ai-forecast-totals">
             <span>Avg/day: <strong>${fmt(avg)}</strong></span>
             <span>Total: <strong>${fmt(total)}</strong></span>
@@ -2945,20 +2933,15 @@ function renderAiForecast(container, subtitleEl, data) {
     `;
 
     // Create the Chart.js instance after the canvas is in the DOM.
-    if (!isFlat) {
-        const canvas = container.querySelector('#aiForecastChart');
-        if (canvas) {
-            // Only draw the band when every day carries both bounds.
-            // Older cached responses (pre-backend-upgrade) lack these
-            // fields — the chart falls back to a line-only render.
-            const hasBand = list.every(d => d.lower != null && d.upper != null);
-            _renderAiForecastChart(canvas, {
-                dates: list.map(d => new Date(String(d.date) + 'T00:00:00')),
-                revenues,
-                lowers: hasBand ? list.map(d => Number(d.lower) || 0) : null,
-                uppers: hasBand ? list.map(d => Number(d.upper) || 0) : null
-            });
-        }
+    const canvas = container.querySelector('#aiForecastChart');
+    if (canvas) {
+        const hasBand = list.every(d => d.lower != null && d.upper != null);
+        _renderAiForecastChart(canvas, {
+            dates: list.map(d => new Date(String(d.date) + 'T00:00:00')),
+            revenues,
+            lowers: hasBand ? list.map(d => Number(d.lower) || 0) : null,
+            uppers: hasBand ? list.map(d => Number(d.upper) || 0) : null
+        });
     }
 }
 
@@ -3374,9 +3357,30 @@ function setupAiFeatures() {
     document.getElementById('aiForecastRefresh')?.addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
-        window.POS_AI.clearCache('forecast_14d');
-        await refreshAiCards();
+        window.POS_AI.clearCache(`forecast_${getAiForecastPeriod()}`);
+        await refreshAiCards(getAiForecastPeriod());
         btn.disabled = false;
+    });
+
+    const savedForecastPeriod = getAiForecastPeriod();
+    document.querySelectorAll('[data-forecast-period]').forEach(button => {
+        const active = button.dataset.forecastPeriod === savedForecastPeriod;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
+
+    document.querySelectorAll('[data-forecast-period]').forEach(button => {
+        button.addEventListener('click', async () => {
+            const period = button.dataset.forecastPeriod;
+            if (!period) return;
+            localStorage.setItem(AI_FORECAST_PERIOD_KEY, period);
+            document.querySelectorAll('[data-forecast-period]').forEach(item => {
+                const active = item === button;
+                item.classList.toggle('active', active);
+                item.setAttribute('aria-pressed', String(active));
+            });
+            await refreshAiCards(period);
+        });
     });
 
     document.getElementById('aiRestockRefresh')?.addEventListener('click', async (e) => {
