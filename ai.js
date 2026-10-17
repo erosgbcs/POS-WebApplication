@@ -105,7 +105,7 @@
             const msg = payload?.error || (
                 res.status === 401
                     ? 'Kirby needs an active signed-in session. Sign in again and retry.'
-                    : `Request failed (${res.status}). Try again in a moment.`
+                    : 'I could not reach Kirby right now. Please check your connection and try again.'
             );
             throw new Error(msg);
         }
