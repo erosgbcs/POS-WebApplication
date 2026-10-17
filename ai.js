@@ -80,6 +80,40 @@
         });
     }
 
+    function offlineOrderDate(order) {
+        const date = new Date(order.createdAt || '');
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function offlineOrdersForQuestion(question) {
+        const orders = getOfflineOrders().filter(order => {
+            const status = String(order.status || '').toLowerCase();
+            return !['cancelled', 'canceled', 'void', 'voided'].includes(status);
+        });
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let start = today;
+        if (/\b(this week|weekly|linggo)\b/.test(question)) {
+            start = new Date(today);
+            start.setDate(today.getDate() - today.getDay() + 1);
+        } else if (/\b(this month|monthly|buwan)\b/.test(question)) {
+            start = new Date(today.getFullYear(), today.getMonth(), 1);
+        } else if (/\b(last 30 days|30 days)\b/.test(question)) {
+            start = new Date(today);
+            start.setDate(today.getDate() - 29);
+        } else if (/\b(yesterday|kahapon)\b/.test(question)) {
+            start = new Date(today);
+            start.setDate(today.getDate() - 1);
+        }
+        const end = new Date(start);
+        if (/\b(yesterday|kahapon)\b/.test(question)) end.setDate(end.getDate() + 1);
+        else end.setDate(today.getDate() + 1);
+        return orders.filter(order => {
+            const date = offlineOrderDate(order);
+            return date && date >= start && date < end;
+        });
+    }
+
     function offlineAssistantAnswer(question) {
         const normalized = String(question || '').toLowerCase().trim();
         const inventory = getOfflineInventory();
@@ -103,16 +137,51 @@
                 : 'No out-of-stock items were found in the saved inventory.';
         }
 
+        if (/\b(best|top|most sold|popular|mabenta)\b/.test(normalized)) {
+            const counts = new Map();
+            offlineOrdersForQuestion(normalized).forEach(order => {
+                (Array.isArray(order.items) ? order.items : []).forEach(item => {
+                    const name = String(item.name || 'Unknown item');
+                    counts.set(name, (counts.get(name) || 0) + (Number(item.quantity) || 0));
+                });
+            });
+            const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+            return top.length
+                ? `Top saved sellers: ${top.map(([name, quantity]) => `${name} (${quantity})`).join(', ')}.`
+                : 'There are no saved sales for that period.';
+        }
+
+        if (/\b(recent|latest|transaction|order|resibo|transaksyon)\b/.test(normalized)) {
+            const recent = getOfflineOrders().filter(order => !['cancelled', 'canceled', 'void', 'voided'].includes(String(order.status || '').toLowerCase())).slice(0, 5);
+            return recent.length
+                ? `Recent saved orders: ${recent.map(order => `${order.id || 'order'} (${formatOfflineCurrency(order.total)})`).join(', ')}.`
+                : 'There are no saved orders on this device.';
+        }
+
+        if (/\b(top customers|best customers|customers|customer|suki)\b/.test(normalized)) {
+            try {
+                const customers = JSON.parse(localStorage.getItem('pos_customers') || '[]');
+                const top = (Array.isArray(customers) ? customers : [])
+                    .sort((a, b) => (Number(b.totalSpent) || 0) - (Number(a.totalSpent) || 0))
+                    .slice(0, 5);
+                return top.length
+                    ? `Top saved customers: ${top.map(customer => `${customer.name} (${formatOfflineCurrency(customer.totalSpent)})`).join(', ')}.`
+                    : 'There are no saved customer records on this device.';
+            } catch (e) {
+                return 'There are no saved customer records on this device.';
+            }
+        }
+
         const matchedProduct = inventory.find(product => normalized.includes(product.name.toLowerCase()));
         if (matchedProduct && /\b(stock|left|quantity|many|ilan|natira|available)\b/.test(normalized)) {
             return `${matchedProduct.name} has ${matchedProduct.quantity} in saved stock.`;
         }
 
-        if (/\b(today|today's|sales|benta|revenue|kita)\b/.test(normalized)) {
-            const today = new Date().toISOString().slice(0, 10);
-            const todaysOrders = getOfflineOrders().filter(order => String(order.createdAt || '').startsWith(today));
-            const total = todaysOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
-            return `Saved sales for today: ${formatOfflineCurrency(total)} across ${todaysOrders.length} order${todaysOrders.length === 1 ? '' : 's'}.`;
+        if (/\b(today|today's|yesterday|this week|this month|last 30 days|sales|benta|revenue|kita)\b/.test(normalized)) {
+            const periodOrders = offlineOrdersForQuestion(normalized);
+            const total = periodOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+            const label = /\byesterday\b/.test(normalized) ? 'yesterday' : /\b(this week|linggo)\b/.test(normalized) ? 'this week' : /\b(this month|buwan)\b/.test(normalized) ? 'this month' : 'today';
+            return `Saved sales for ${label}: ${formatOfflineCurrency(total)} across ${periodOrders.length} order${periodOrders.length === 1 ? '' : 's'}.`;
         }
 
         return OFFLINE_REPLY;
