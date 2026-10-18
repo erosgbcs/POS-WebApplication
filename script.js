@@ -4724,3 +4724,28 @@ window.addEventListener('inventory-products-loaded', () => {
 
     init();
     })();
+/* ============================================
+   DYNAMIC DASHBOARD HEADER
+   ============================================ */
+function updateDashboardHeader() {
+    // 1. Update Greeting
+    const greetingEl = document.getElementById('dynamicGreeting');
+    if (greetingEl) {
+        const hour = new Date().getHours();
+        let greeting = 'Welcome back';
+        if (hour < 12) greeting = 'Good morning';
+        else if (hour < 18) greeting = 'Good afternoon';
+        else greeting = 'Good evening';
+        greetingEl.textContent = greeting;
+    }
+
+    // 2. Update Date
+    const dateEl = document.getElementById('dashboardDate');
+    if (dateEl) {
+        const options = { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' };
+        dateEl.textContent = new Date().toLocaleDateString('en-PH', options);
+    }
+}
+
+// Run the update when the script loads
+updateDashboardHeader();

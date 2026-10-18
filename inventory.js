@@ -424,6 +424,12 @@
             if (el) el.textContent = value;
         };
         setText('totalProducts', inventoryState.products.length);
+        
+        // Update the header pill
+        const pill = document.getElementById('inventoryTotalPill');
+        if (pill) {
+            pill.textContent = `${inventoryState.products.length} Item${inventoryState.products.length === 1 ? '' : 's'}`;
+        }
         setText('overStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'over_stock').length);
         setText('lowStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'low_stock').length);
         setText('outOfStockProducts', inventoryState.products.filter(p => getProductStockStatus(p) === 'out_of_stock').length);

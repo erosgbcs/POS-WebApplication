@@ -309,7 +309,7 @@ body {
 
 .client-company-name {
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 800;
     color: #f1f5f9;
     letter-spacing: 0.5px;
 }
@@ -724,7 +724,7 @@ body {
     align-items: center;
     gap: 12px;
     color: #f1f5f9;
-    font-weight: 700;
+    font-weight: 800;
     font-size: 18px;
 }
 
@@ -975,7 +975,7 @@ body {
 
 .page-header h1 {
     font-size: 28px;
-    font-weight: 700;
+    font-weight: 800;
     color: #f1f5f9;
 }
 
@@ -1294,7 +1294,7 @@ body {
 
 .inventory-header h1 {
     font-size: 28px;
-    font-weight: 700;
+    font-weight: 800;
     color: #f1f5f9;
     margin-bottom: 0.25rem;
 }
@@ -3184,7 +3184,15 @@ body {
     background: transparent;
 }
 
-.dashboard-nav,
+/* Keep glass only on the top navigation (floating element) */
+.dashboard-nav {
+    background: var(--glass-surface);
+    border-color: var(--glass-border);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+/* PERFORMANCE FIX: Solid backgrounds for heavy data surfaces */
 .stat-card,
 .recent-activity,
 .quick-actions,
@@ -3195,10 +3203,22 @@ body {
 .orders-table-container,
 .customers-table-container,
 .audit-table-container {
-    background: var(--glass-surface);
+    background: #1e293b; /* Solid slate — replaces dark mode glass */
     border-color: var(--glass-border);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+}
+
+/* Light mode solid overrides */
+[data-theme="light"] .stat-card,
+[data-theme="light"] .recent-activity,
+[data-theme="light"] .quick-actions,
+[data-theme="light"] .settings-section,
+[data-theme="light"] .report-card,
+[data-theme="light"] .product-catalog,
+[data-theme="light"] .cart-section,
+[data-theme="light"] .orders-table-container,
+[data-theme="light"] .customers-table-container,
+[data-theme="light"] .audit-table-container {
+    background: #ffffff; /* Solid white — replaces light mode glass */
 }
 
 .sidebar {
@@ -7730,7 +7750,7 @@ body.ai-panel-open .ai-fab {
 
 .ov-header h1 {
     font-size: 28px;
-    font-weight: 700;
+    font-weight: 800;
     color: var(--text-primary);
     letter-spacing: -0.01em;
 }
@@ -12076,4 +12096,211 @@ html.theme-fading *::after {
         border-color     400ms cubic-bezier(0.4, 0, 0.2, 1),
         fill             400ms cubic-bezier(0.4, 0, 0.2, 1),
         stroke           400ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+/* ============================================
+   POS HEADER INTEGRATION (Icon + Text)
+   ============================================ */
+.pos-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.pos-header-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    background: var(--fill-3, rgba(148, 163, 184, 0.15)); /* Matches your translucent surface */
+    color: var(--text-primary, #f1f5f9);
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.pos-header-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.pos-header-text h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.2;
+    margin: 0;
+}
+
+.pos-header-text p {
+    font-size: 14px;
+    color: var(--text-secondary, #94a3b8);
+    margin-top: 2px;
+}
+
+/* Responsive adjustment for smaller phones */
+@media (max-width: 640px) {
+    .pos-header-icon {
+        width: 46px;
+        height: 46px;
+        font-size: 20px;
+        border-radius: 12px;
+    }
+    .pos-header-text h1 {
+        font-size: 22px;
+    }
+    .pos-header-text p {
+        font-size: 12.5px;
+    }
+}
+/* ============================================
+   DASHBOARD HEADER UPGRADE
+   ============================================ */
+.ov-header-title-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.ov-header-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    background: var(--fill-3, rgba(148, 163, 184, 0.15));
+    color: var(--text-primary, #f1f5f9);
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.ov-header-text h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.ov-date-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--glass-surface, rgba(255, 255, 255, 0.5));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-right: 12px;
+}
+
+/* Light mode adjustments */
+[data-theme="light"] .ov-date-display {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: rgba(120, 95, 55, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ov-header-title-group {
+        gap: 12px;
+    }
+    .ov-header-icon {
+        width: 46px;
+        height: 46px;
+        font-size: 20px;
+        border-radius: 12px;
+    }
+    .ov-header-text h1 {
+        font-size: 22px;
+    }
+    .ov-date-display {
+        display: none; /* Hide date on mobile to save space */
+    }
+}
+/* ============================================
+   INVENTORY HEADER UPGRADE
+   ============================================ */
+.inventory-header-title-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.inventory-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.inventory-title-row h1 {
+    margin: 0; /* Remove default margin to align with pill */
+}
+
+.metric-pill {
+    background: var(--fill-3, rgba(148, 163, 184, 0.15));
+    color: var(--text-secondary, #57534e);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.inventory-header-search {
+    min-width: 240px;
+    height: 42px; /* Match button height */
+    background: var(--glass-surface);
+}
+
+.inventory-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .inventory-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+    
+    .inventory-actions {
+        width: 100%;
+    }
+    
+    .inventory-header-search {
+        width: 100%;
+        max-width: none;
+        order: -1; /* Move search to the top on mobile */
+    }
+    
+    .inventory-actions .submit-btn,
+    .inventory-actions .secondary-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .inventory-header-title-group {
+        gap: 12px;
+    }
+    
+    .inventory-title-row {
+        gap: 8px;
+    }
+    
+    .inventory-title-row h1 {
+        font-size: 22px;
+    }
 }

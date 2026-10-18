@@ -329,11 +329,20 @@
 
     <!-- ===== HEADER + QUICK ACTIONS (moved up) ===== -->
     <div class="ov-header">
-        <div>
-            <h1>Dashboard Overview</h1>
-            <p class="ov-header-sub">Welcome back, <span id="dashboardUserName">User</span>!</p>
+        <div class="ov-header-title-group">
+            <div class="ov-header-icon">
+                <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="ov-header-text">
+                <h1>Dashboard Overview</h1>
+                <p class="ov-header-sub"><span id="dynamicGreeting">Welcome back</span>, <span id="dashboardUserName">User</span>!</p>
+            </div>
         </div>
         <div class="ov-header-actions">
+            <div class="ov-date-display">
+                <i class="far fa-calendar-alt"></i>
+                <span id="dashboardDate">Loading date...</span>
+            </div>
             <button class="ov-action-btn primary" type="button" onclick="navigateToPage('pos')">
                 <i class="fas fa-plus-circle"></i> <span class="hide-sm">New Order</span>
             </button>
@@ -557,9 +566,14 @@
 
                       <!-- POS Page Content -->
 <div class="page-content" id="page-pos">
-    <div class="page-header">
-        <h1>Point of Sale</h1>
-        <p>Process transactions quickly and efficiently</p>
+    <div class="page-header pos-header">
+        <div class="pos-header-icon">
+            <i class="fas fa-cash-register"></i>
+        </div>
+        <div class="pos-header-text">
+            <h1>Point of Sale</h1>
+            <p>Process transactions quickly and efficiently</p>
+        </div>
     </div>
     <div class="pos-layout">
         <!-- Product Catalog -->
@@ -620,11 +634,23 @@
                 <!-- Inventory Management Page -->
                 <div class="page-content" id="page-inventory">
                     <div class="inventory-header">
-                        <div>
-                            <h1>Inventory Management</h1>
-                            <p>Manage your products and stock levels</p>
+                        <div class="inventory-header-title-group">
+                            <div class="ov-header-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="ov-header-text">
+                                <div class="inventory-title-row">
+                                    <h1>Inventory Management</h1>
+                                    <span class="metric-pill" id="inventoryTotalPill">0 Items</span>
+                                </div>
+                                <p>Manage your products and stock levels</p>
+                            </div>
                         </div>
                         <div class="inventory-actions">
+                            <div class="nav-search inventory-header-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="inventorySearch" placeholder="Search products...">
+                            </div>
                             <button class="submit-btn" id="addProductBtn">
                                 <i class="fas fa-plus"></i> Add Product
                             </button>
@@ -665,11 +691,7 @@
         </div>
     </div>
 </div>                  <!-- Inventory Tools -->
-<div class="inventory-tools">
-    <div class="nav-search" style="max-width: 300px; flex: 1;">
-        <i class="fas fa-search"></i>
-        <input type="text" id="inventorySearch" placeholder="Search products...">
-    </div>
+<div class="inventory-tools" style="justify-content: flex-end;">
     <div class="inventory-filters">
         <select class="filter-select" id="categoryFilter">
             <option value="">All Categories</option>
