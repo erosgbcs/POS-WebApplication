@@ -647,10 +647,6 @@
                             </div>
                         </div>
                         <div class="inventory-actions">
-                            <div class="nav-search inventory-header-search">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="inventorySearch" placeholder="Search products...">
-                            </div>
                             <button class="submit-btn" id="addProductBtn">
                                 <i class="fas fa-plus"></i> Add Product
                             </button>
@@ -691,7 +687,11 @@
         </div>
     </div>
 </div>                  <!-- Inventory Tools -->
-<div class="inventory-tools" style="justify-content: flex-end;">
+<div class="inventory-tools">
+    <div class="nav-search" style="max-width: 300px; flex: 1;">
+        <i class="fas fa-search"></i>
+        <input type="text" id="inventorySearch" placeholder="Search products...">
+    </div>
     <div class="inventory-filters">
         <select class="filter-select" id="categoryFilter">
             <option value="">All Categories</option>

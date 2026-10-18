@@ -1570,6 +1570,18 @@ function renderSalesByCategoryChart() {
                 legend: {
                     position: 'right',
                     align: 'center',
+                    onClick: (e, legendItem, legend) => {
+                        // Toggle the visibility of the specific slice
+                        const index = legendItem.index;
+                        const ci = legend.chart;
+                        const meta = ci.getDatasetMeta(0);
+                        meta.data[index].hidden = !meta.data[index].hidden;
+                        ci.update();
+                    },
+                    onHover: (event, legendItem, legend) => {
+                        // Change cursor to pointer when hovering over a legend item
+                        event.native.target.style.cursor = legendItem ? 'pointer' : 'default';
+                    },
                     labels: {
                         color: legendColor,
                         boxWidth: 12,
@@ -1579,19 +1591,24 @@ function renderSalesByCategoryChart() {
                         generateLabels: (chart) => {
                             const ds = chart.data?.datasets?.[0];
                             if (!ds) return [];
+                            const meta = chart.getDatasetMeta(0);
                             const vals = ds.data || [];
                             const sum = vals.reduce((s, v) => s + (Number(v) || 0), 0);
+                            
                             return (chart.data.labels || []).map((label, i) => {
                                 const v = Number(vals[i]) || 0;
                                 const pct = sum > 0 ? ((v / sum) * 100).toFixed(1) : '0.0';
+                                const isHidden = meta.data[i]?.hidden || false;
+                                
                                 return {
                                     text: `${label}  ${pct}%`,
                                     fillStyle: ds.backgroundColor[i],
                                     strokeStyle: ds.backgroundColor[i],
                                     lineWidth: 0,
-                                    hidden: false,
+                                    hidden: isHidden, // Now syncs with actual visibility
                                     index: i,
-                                    fontColor: legendColor
+                                    // Dim the text if hidden
+                                    fontColor: isHidden ? 'rgba(148, 163, 184, 0.4)' : legendColor 
                                 };
                             });
                         }
