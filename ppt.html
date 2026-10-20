@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Defense Presentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        /* BASE COLORS & VARIABLES */
+        :root {
+            --navy: #0B1121;
+            --navy-light: #1E293B;
+            --blue: #3B82F6; 
+            --blue-glow: rgba(59, 130, 246, 0.4);
+            --yellow: #FACC15; 
+            --yellow-glow: rgba(250, 204, 21, 0.3);
+            --white: #F8FAFC;
+            --text-muted: #94A3B8;
+            --glass: rgba(30, 41, 59, 0.7);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+        body {
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            gap: 30px;
+        }
+
+        /* ANIMATIONS */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* TOOLBAR & BUTTONS */
+        .toolbar { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            z-index: 1000; 
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px;
+            font-size: 16px; font-weight: 800; border: none; border-radius: 8px; 
+            cursor: pointer; transition: transform 0.2s;
+        }
+
+        .dl-btn {
+            color: #000; background-color: var(--yellow); box-shadow: 0 8px 24px var(--yellow-glow);
+        }
+        .dl-btn:hover { background-color: #EAB308; transform: translateY(-2px); }
+
+        .script-btn {
+            color: var(--white); background-color: var(--blue); box-shadow: 0 8px 24px var(--blue-glow);
+        }
+        .script-btn:hover { background-color: #2563EB; transform: translateY(-2px); }
+
+        /* SCRIPT MODAL (HIDDEN BY DEFAULT) */
+        .script-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.9); z-index: 9999; padding: 40px;
+            overflow-y: auto; backdrop-filter: blur(5px);
+        }
+        .script-content {
+            max-width: 900px; margin: 0 auto; background: var(--navy);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 50px;
+            color: var(--white); box-shadow: 0 20px 50px rgba(0,0,0,0.8); position: relative;
+        }
+        .close-btn {
+            position: absolute; top: 20px; right: 20px; background: transparent;
+            color: var(--text-muted); border: none; font-size: 30px; cursor: pointer;
+        }
+        .close-btn:hover { color: var(--white); }
+        
+        /* SCRIPT TYPOGRAPHY */
+        .script-content h2 { color: var(--yellow); font-size: 28px; margin-bottom: 10px; }
+        .script-content h3 { color: var(--blue); font-size: 20px; margin: 30px 0 15px 0; border-bottom: 1px solid var(--navy-light); padding-bottom: 5px; }
+        .script-content p { font-size: 16px; line-height: 1.6; margin-bottom: 15px; color: var(--text-muted); }
+        
+        .speaker {
+            display: inline-block; padding: 3px 10px; border-radius: 4px;
+            font-weight: 800; font-size: 12px; margin-right: 10px; text-transform: uppercase;
+        }
+        .p1 { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+        .p2 { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid #3b82f6; }
+        .p3 { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; }
+        .p4 { background: rgba(250, 204, 21, 0.2); color: #facc15; border: 1px solid #facc15; }
+        
+        .action-box {
+            background: rgba(255,255,255,0.05); border-left: 4px solid var(--text-muted);
+            padding: 15px; font-style: italic; margin-bottom: 15px; font-size: 15px; color: var(--text-muted);
+        }
+
+        /* SLIDE BASE */
+        .slide {
+            width: 1280px; height: 720px; background-color: var(--navy); color: var(--white);
+            border-radius: 16px; padding: 50px 70px; display: flex; flex-direction: column;
+            position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* TECH GRID BACKGROUND */
+        .slide::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px; pointer-events: none; z-index: 0;
+        }
+
+        .slide::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 6px;
+            background: linear-gradient(90deg, var(--yellow) 0%, var(--blue) 100%); z-index: 2;
+        }
+
+        /* SLIDE FOOTER */
+        .slide-footer {
+            position: absolute; bottom: 25px; left: 70px; right: 70px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 14px; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 15px; z-index: 1;
+        }
+
+        .slide-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 15px;
+            margin-bottom: 25px; position: relative; z-index: 1; animation: fadeUp 0.6s ease-out;
+        }
+
+        .slide-header h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+        .slide-header h2 span { color: var(--yellow); }
+
+        .logo-group img {
+            height: 50px; width: 50px; object-fit: contain; border-radius: 50%;
+            background: #fff; padding: 3px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .content {
+            flex: 1; position: relative; z-index: 1; display: flex; flex-direction: column;
+            justify-content: center; animation: fadeUp 0.8s ease-out; padding-bottom: 20px;
+        }
+
+        /* TITLE SLIDE */
+        .title-slide { align-items: center; justify-content: center; text-align: center; background: radial-gradient(circle at center, #1E293B 0%, #0B1121 70%); }
+        .title-slide::before { background-image: radial-gradient(var(--blue) 1px, transparent 1px); background-size: 30px 30px; opacity: 0.2; }
+        .title-slide .logos-large { display: flex; gap: 40px; margin-bottom: 30px; position: relative; }
+        .title-slide .logos-large::before {
+            content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 300px; height: 150px; background: var(--yellow); filter: blur(100px); opacity: 0.2; z-index: -1;
+        }
+        .title-slide .logos-large img {
+            height: 140px; width: 140px; object-fit: contain; border-radius: 50%;
+            background: #fff; padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 4px solid var(--navy-light);
+        }
+        .title-slide h1 { font-size: 44px; font-weight: 800; line-height: 1.2; margin-bottom: 15px; max-width: 1000px; }
+        .title-slide h1 span { background: linear-gradient(90deg, var(--yellow), #FFD700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .title-slide .subtitle { font-size: 20px; color: var(--text-muted); margin-bottom: 30px; max-width: 800px; }
+        .course-badge {
+            font-size: 18px; font-weight: 800; color: var(--yellow); background: rgba(250, 204, 21, 0.1);
+            padding: 12px 35px; border-radius: 30px; border: 2px solid var(--yellow);
+            letter-spacing: 2px; box-shadow: 0 0 20px var(--yellow-glow);
+        }
+
+        /* BULLET LISTS */
+        ul.bullet-list { list-style: none; display: flex; flex-direction: column; gap: 15px; }
+        ul.bullet-list li { font-size: 18px; line-height: 1.4; position: relative; padding-left: 40px; color: var(--text-muted); }
+        ul.bullet-list li strong { color: var(--white); display: block; font-size: 20px; margin-bottom: 2px; }
+        ul.bullet-list li::before {
+            content: '✓'; position: absolute; left: 0; top: 2px; color: var(--blue); font-size: 16px; font-weight: bold;
+            background: rgba(59, 130, 246, 0.1); width: 26px; height: 26px; display: flex;
+            align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--blue);
+        }
+
+        /* GRID CARDS */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+        .card {
+            background: var(--glass); backdrop-filter: blur(10px); padding: 25px;
+            border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);
+            border-left: 4px solid var(--yellow); position: relative; overflow: hidden;
+        }
+        .card h3 { font-size: 20px; color: var(--white); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; font-weight: 800; }
+        .card h3 svg { color: var(--yellow); width: 22px; height: 22px; }
+        .card p { font-size: 15px; color: var(--text-muted); line-height: 1.4; position: relative; z-index: 1; }
+
+        /* ARCHITECTURE DIAGRAM */
+        .arch-container { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .arch-layer {
+            width: 75%; background: var(--navy-light); border: 1px solid var(--blue); border-radius: 10px;
+            padding: 15px; text-align: center; position: relative; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.1);
+        }
+        .arch-layer.highlight { border-color: var(--yellow); box-shadow: 0 4px 15px var(--yellow-glow); }
+        .arch-layer h4 { color: var(--white); font-size: 18px; margin-bottom: 4px; }
+        .arch-layer p { font-size: 14px; color: var(--text-muted); }
+        .arch-arrow { color: var(--blue); font-size: 20px; }
+
+        /* UI MOCKUP */
+        .browser-mockup {
+            width: 100%; height: 220px; background: var(--navy-light); border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .browser-header { height: 30px; background: #334155; display: flex; align-items: center; padding: 0 15px; gap: 8px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .dot.red { background: #ef4444; } .dot.yellow { background: #facc15; } .dot.green { background: #22c55e; }
+        .browser-content {
+            flex: 1; display: flex; align-items: center; justify-content: center; color: var(--blue);
+            font-weight: 600; font-size: 16px;
+            background: repeating-linear-gradient(45deg, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.05) 10px, transparent 10px, transparent 20px);
+            border: 2px dashed rgba(59, 130, 246, 0.3); margin: 10px; border-radius: 4px;
+        }
+
+        /* DB VISUAL */
+        .db-collections { display: flex; gap: 15px; justify-content: space-between; margin-top: 15px; }
+        .db-box { flex: 1; background: rgba(59, 130, 246, 0.1); border: 1px solid var(--blue); border-radius: 8px; padding: 15px; text-align: center; }
+        .db-box h5 { color: var(--yellow); font-size: 16px; margin-bottom: 5px; }
+        .db-box p { font-size: 13px; color: var(--text-muted); }
+
+        /* PRINT STYLES */
+        @page { size: 1280px 720px; margin: 0; }
+        @media print {
+            body { background: none; padding: 0; gap: 0; display: block; }
+            .toolbar, .script-modal { display: none !important; }
+            .slide { page-break-after: always; border-radius: 0; border: none; box-shadow: none; margin: 0; animation: none; }
+        }
+
+        /* RESPONSIVE SCALING */
+        @media screen and (max-width: 1320px) {
+            body { padding: 10px; } .slide { transform: scale(0.9); transform-origin: top center; margin-bottom: -70px; }
+        }
+        @media screen and (max-width: 1000px) {
+            .slide { transform: scale(0.7); margin-bottom: -200px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+        <button class="btn script-btn" onclick="document.getElementById('scriptModal').style.display='block'">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            View Presentation Script
+        </button>
+        <button class="btn dl-btn" onclick="window.print()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download PDF Presentation
+        </button>
+    </div>
+
+    <!-- SCRIPT MODAL -->
+    <div id="scriptModal" class="script-modal">
+        <div class="script-content">
+            <button class="close-btn" onclick="document.getElementById('scriptModal').style.display='none'">&times;</button>
+            <h2>Defense Presentation Script (4 Presenters)</h2>
+            <p><strong>Roles:</strong> <span class="speaker p1">Presenter 1</span> Intro & Problem <span class="speaker p2">Presenter 2</span> UI & Functionality <span class="speaker p3">Presenter 3</span> Innovation & Tech <span class="speaker p4">Presenter 4</span> Database & Demo</p>
+            
+            <h3>Slide 1: Title</h3>
+            <p><span class="speaker p1">Presenter 1</span> "Good morning, panelists. We are Group [Name], and today we present Kirby's Hardware POS and Inventory Management System. This is a browser-based, offline-capable, and AI-assisted platform designed specifically for small retail enterprises."</p>
+            
+            <h3>Slide 2: The Problem</h3>
+            <p><span class="speaker p1">Presenter 1</span> "Currently, hardware stores rely on handwritten ledgers. This leads to data loss, inventory drift, and a lack of business intelligence. Commercial POS systems are too expensive, and stable internet is not always guaranteed."</p>
+
+            <h3>Slide 3 & 4: Functionality & Design</h3>
+            <p><span class="speaker p2">Presenter 2</span> "To solve this, we developed a system with core functionalities: a Point of Sale, Inventory Management, Reports, and strict Audit Trails. For the design, we prioritized a responsive UI that works on any device. As you can see, we have a clean two-column POS layout and a dashboard with real-time Chart.js visuals and a dark/light mode toggle."</p>
+
+            <h3>Slide 5 & 6: Innovation & Tech Stack</h3>
+            <p><span class="speaker p3">Presenter 3</span> "What makes our system innovative is the integration of 'Kirby', an AI Assistant powered by Gemini and Groq, and a statistical forecasting engine. Technically, we used Vanilla JS for the client, a Serverless Python API on Vercel, and Google Cloud Firestore. This ensures zero hardware costs and a highly scalable architecture."</p>
+
+            <h3>Slide 7: Database</h3>
+            <p><span class="speaker p4">Presenter 4</span> "Our database uses Firestore NoSQL. To prevent inventory drift, we use `runTransaction()` to guarantee that stock is decremented if and only if a sale is recorded. Security is enforced via Firebase Auth with strict Role-Based Access Control rules."</p>
+
+            <h3>Slide 8: LIVE DEMONSTRATION (Realistic Scenario)</h3>
+            <div class="action-box">
+                <strong>Setup:</strong> Presenter 4 is the <strong>Admin/Owner</strong>. Presenter 2 is the <strong>Cashier</strong>. Presenter 1 is a <strong>Contractor (Customer)</strong>. Presenter 3 is <strong>Narrating</strong>.
+            </div>
+            <p><span class="speaker p3">Presenter 3 (Narrator)</span> "For our live demo, we will simulate a real transaction. A contractor walks into the store to buy PVC pipes."</p>
+            <p><span class="speaker p1">Presenter 1 (Customer)</span> "Hi, I need to buy 5 pieces of the 2-inch PVC pipe."</p>
+            <p><span class="speaker p2">Presenter 2 (Cashier)</span> "Sure. I'll log in as the Cashier. I'll search for 'PVC' and since it has variants, I'll select the 2-inch option. I'll add a quantity of 5 to the cart. The system automatically calculates the 8% tax."</p>
+            <p><span class="speaker p3">Presenter 3 (Narrator)</span> "Notice that the Cashier does not have access to the Inventory or Audit pages, showing Role-Based Access."</p>
+            <p><span class="speaker p1">Presenter 1 (Customer)</span> "I'll pay using GCash."</p>
+            <p><span class="speaker p2">Presenter 2 (Cashier)</span> "I'll select GCash, input the 13-digit reference number, and confirm the payment. The system generates a receipt, and the Firestore transaction runs in the background."</p>
+            <p><span class="speaker p3">Presenter 3 (Narrator)</span> "Now, let's look at the Owner's view. Admin, what do you see?"</p>
+            <p><span class="speaker p4">Presenter 4 (Admin)</span> "I am logged in as the Admin. On my dashboard, the revenue updated instantly. If I go to Inventory, the stock for the 2-inch PVC dropped by 5. Because it hit the threshold, a low-stock alert appeared."</p>
+            <p><span class="speaker p4">Presenter 4 (Admin)</span> "I can also ask the AI assistant: 'What should I restock?' ... Kirby correctly identifies the PVC pipe based on the 30-day velocity."</p>
+            <p><span class="speaker p3">Presenter 3 (Narrator)</span> "Finally, let's test the offline capability. Cashier, disconnect the Wi-Fi."</p>
+            <p><span class="speaker p2">Presenter 2 (Cashier)</span> "Wi-Fi is off. I'll process another sale... and the receipt still generates. The system queued the sale locally."</p>
+            <p><span class="speaker p3">Presenter 3 (Narrator)</span> "When the connection returns, the background flush syncs the data automatically without duplicating the transaction. That concludes our demonstration."</p>
+
+            <h3>Slide 9: Conclusion & Q&A</h3>
+            <p><span class="speaker p1">Presenter 1</span> "To conclude, this system transforms manual retail into a fully digital, AI-assisted workflow. It guarantees business continuity offline and eliminates the need for expensive hardware. Thank you, we are ready for your questions."</p>
+        </div>
+    </div>
+
+    <!-- SLIDE 1: TITLE SLIDE -->
+    <div class="slide title-slide">
+        <div class="logos-large">
+            <img src="kirbys_logo.png" alt="Logo" onerror="this.src='https://via.placeholder.com/150?text=Logo'">
+            <img src="techbuilders_logo.png" alt="Logo" onerror="this.src='https://via.placeholder.com/150?text=Logo'">
+        </div>
+        <h1>Kirby's Hardware <span>POS and Inventory Management System</span></h1>
+        <p class="subtitle">A Browser-Based, Offline-Capable, AI-Assisted Platform for Small Retail Enterprises</p>
+        <div class="course-badge">BSCS 2-A &nbsp;|&nbsp; COMPUTER SCIENCE</div>
+    </div>
+
+    <!-- SLIDE 2: PROBLEM STATEMENT -->
+    <div class="slide">
+        <div class="slide-header">
+            <h2>Current Operational <span>Challenges</span></h2>
+            <div class="logo-group"><img src="kirbys_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+        </div>
+        <div class="content">
+            <ul class="bullet-list">
+                <li><strong>Manual Processes</strong>Handwritten ledgers and mental arithmetic lead to data loss and human error.</li>
+                <li><strong>Inventory Drift</strong>Without real-time tracking or low-stock alerts, restocking is inefficient.</li>
+                <li><strong>Variant Complexity</strong>Products with multiple sizes, weights, and brands are difficult to track manually.</li>
+                <li><strong>Business Blind Spots</strong>No customer tracking, sales trends, or forecasting capabilities.</li>
+                <li><strong>Technology Barriers</strong>Commercial POS systems are too expensive and depend on stable internet.</li>
+            </ul>
+        </div>
+        <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>02</span></div>
+    </div>
+
+    <!-- SLIDE 3: SYSTEM FUNCTIONALITY -->
+    <div class="slide">
+        <div class="slide-header">
+            <h2>System <span>Functionality</span></h2>
+            <div class="logo-group"><img src="kirbys_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+        </div>
+        <div class="content grid-2">
+            <div class="card" style="border-left-color: var(--blue);">
+                <h3>🛒 Point of Sale (POS)</h3>
+                <p>Interactive cart, cash & GCash payments, receipt generation, and variant selection at checkout.</p>
+            </div>
+            <div class="card" style="border-left-color: var(--yellow);">
+                <h3>📦 Inventory Management</h3>
+                <p>Product CRUD, matrix variants (Size/Brand), automated low-stock alerts, and CSV exports.</p>
+            </div>
+            <div class="card" style="border-left-color: var(--yellow);">
+                <h3>📊 Reports & Analytics</h3>
+                <p>Live KPI dashboards, revenue trends, top-selling products, and financial report exporting.</p>
+            </div>
+            <div class="card" style="border-left-color: var(--blue);">
+                <h3>🛡️ Audit & User Management</h3>
+                <p>Activity trails for staff accountability, secure password resets, and strict admin controls.</p>
+            </div>
+        </div>
+        <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>03</span></div>
+    </div>
+
+    <!-- SLIDE 4: WEBSITE DESIGN & UI -->
+    <div class="slide">
+        <div class="slide-header">
+            <h2>Website Design & <span>User Interface</span></h2>
+            <div class="logo-group"><img src="techbuilders_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+        </div>
+        <div class="content">
+            <div style="display: flex; gap: 30px; height: 100%; align-items: center;">
+                <div style="flex: 1;">
+                    <ul class="bullet-list">
+                        <li><strong>Responsive Layout</strong>Fully functional across desktop, tablet, and mobile browsers.</li>
+                        <li><strong>Dual Theme Support</strong>Dark and Light mode toggle to reduce eye strain in-store.</li>
+                        <li><strong>Intuitive POS Layout</strong>Two-column design with searchable catalog and dynamic cart.</li>
+                        <li><strong>Interactive Dashboards</strong>Live KPI cards and Chart.js visualizations.</li>
+                    </ul>
+                </div>
+                <div style="flex: 1;">
+                    <div class="browser-mockup">
+                        <div class="browser-header">
+                            <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+                            <div style="color: #94A3B8; font-size: 11px; margin-left: 10px;">kirbys-pos.vercel.app/dashboard</div>
+                        </div>
+                        <div class="browser-content">
+                            [ Insert Dashboard UI Screenshot Here ]
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>04</span></div>
+    </div>
+
+    <!-- SLIDE 5: FEATURES & INNOVATION -->
+    <div class="slide">
+        <div class="slide-header">
+            <h2>Features & <span>Innovation</span></h2>
+            <div class="logo-group"><img src="kirbys_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+        </div>
+        <div class="content grid-2">
+            <div class="card" style="border-left-color: var(--yellow);">
+                <h3>🤖 Kirby AI Assistant</h3>
+                <p>Natural language processing via Gemini/Groq. Answers <em>"What should I restock?"</em> in Tagalog/Taglish.</p>
+            </div>
+            <div class="card" style="border-left-color: var(--blue);">
+                <h3>📈 Statistical Forecasting</h3>
+                <p>Pure-Python engine generating 7-day revenue projections with 95% prediction intervals.</p>
+            </div>
+            <div class="card" style="border-left-color: var(--blue);">
+                <h3>📶 Offline-First Architecture</h3>
+                <p>Firestore caching and local queues allow sales to continue during internet outages.</p>
+            </div>
+            <div class="card" style="border-left-color: var(--yellow);">
+                <h3>☁️ Zero-Infrastructure Cost</h3>
+                <p>Serverless deployment (Vercel) ensures zero recurring software costs and no hardware purchase.</p>
+            </div>
+        </div>
+        <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>05</span></div>
+    </div>
+
+    <!-- SLIDE 6: TECHNICAL IMPLEMENTATION -->
+    <div class="slide">
+        <div class="slide-header">
+            <h2>Technical <span>Implementation</span></h2>
+            <div class="logo-group"><img src="techbuilders_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+        </div>
+        <div class="content">
+            <div class="arch-container">
+                <div class="arch-layer">
+                    <h4>Presentation Layer (Client)</h4>
+                    <p>Vanilla JavaScript (ES2022), HTML5, Tailwind CSS, Service Worker (PWA)</p>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer highlight">
+                    <h4>Application Layer (Serverless API)</h4>
+                    <p>Python 3.11 (Vercel), NLP Engine, Statistical Forecasting Algorithms</p>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer">
+                    <h4>Data Layer (Cloud)</h4>
+                    <p>Google Cloud Firestore (NoSQL), Firebase Authentication</p>
+                </div>
+            </div>
+            <div style="margin-top: 25px;">
+                <ul class="bullet-list" style="gap: 10px;">
+                    <li style="font-size: 16px; padding-left: 35px;"><strong>Security:</strong> Role-Based Access Control (Admin vs. Cashier) and Firebase ID-Token verification on every request.</li>
+                    <li style="font-size: 16px; padding-left: 35px;"><strong>AI Integration:</strong> Gemini (Primary) and Groq (Fallback) LLMs, isolated via backend to protect API keys.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>06</span></div>
+    </div>
+
+    <!-- SLIDE 7: DATABASE & DATA MANAGEMENT -->
+    <div class="slide">
+        <div class="slide-header">
+            <h2>Database & <span>Data Management</span></h2>
+            <div class="logo-group"><img src="techbuilders_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+        </div>
+        <div class="content">
+            <div class="db-collections">
+                <div class="db-box">
+                    <h5>inventory</h5>
+                    <p>Products, Variants, Stock Levels</p>
+                </div>
+                <div class="db-box">
+                    <h5>orders</h5>
+                    <p>Receipts, Payments, Line Items</p>
+                </div>
+                <div class="db-box">
+                    <h5>customers</h5>
+                    <p>Profiles, Spend, Order Count</p>
+                </div>
+                <div class="db-box">
+                    <h5>audit_logs</h5>
+                    <p>User Actions, Timestamps</p>
+                </div>
+            </div>
+            <div style="margin-top: 30px; background: rgba(59, 130, 246, 0.1); padding: 20px; border-radius: 8px; border-left: 4px solid var(--blue);">
+                <ul class="bullet-list" style="gap: 10px;">
+                    <li style="font-size: 16px; color: var(--white);">
+                        <strong style="color: var(--yellow);">Data Integrity:</strong> POS sales use <code>runTransaction()</code> to guarantee that stock is decremented if and only if an order is successfully recorded.
+                    </li>
+                    <li style="font-size: 16px; color: var(--white);">
+                        <strong style="color: var(--yellow);">Security Rules:</strong> All collections require <code>request.auth != null</code>. Admin-only mutations are strictly enforced at the database layer.
+                    </li>
+                    <li style="font-size: 16px; color: var(--white);">
+                        <strong style="color: var(--yellow);">Offline Sync:</strong> Firestore persistence queues supported writes in IndexedDB and replays them automatically on reconnect.
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>07</span></div>
+    </div>
+
+    <!-- SLIDE 8: LIVE DEMONSTRATION -->
+    <div class="slide">
+        <div class="slide-header">
+            <h2>System <span>Demonstration</span></h2>
+            <div class="logo-group"><img src="kirbys_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
+        </div>
+        <div class="content">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h3 style="color: var(--yellow); font-size: 24px; margin-bottom: 10px;">Live Walkthrough</h3>
+                <p style="color: var(--text-muted); font-size: 18px;">The following functions will now be demonstrated:</p>
+            </div>
+            <div class="grid-3">
+                <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--blue);">
+                    <h3 style="justify-content: center;">POS Checkout</h3>
+                    <p>Processing a sale, GCash reference validation, and receipt generation.</p>
+                </div>
+                <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--yellow);">
+                    <h3 style="justify-content: center;">Inventory Alerts</h3>
+                    <p>Variant matrix tracking and the automated low-stock dashboard notifications.</p>
+                </div>
+                <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--blue);">
+                    <h3 style="justify-content: center;">Kirby AI</h3>
+                    <p>Asking the assistant for a sales summary and restock recommendation.</p>
+                </div>
+            </div>
+        </div>
+        <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>08</span></div>
+    </div>
+
+    <!-- SLIDE 9: CONCLUSION & Q&A -->
+    <div class="slide title-slide" style="background: var(--navy);">
+        <div class="logos-large">
+            <img src="kirbys_logo.png" alt="Logo" onerror="this.style.display='none'">
+            <img src="techbuilders_logo.png" alt="Logo" onerror="this.style.display='none'">
+        </div>
+        <h1 style="font-size: 46px; margin-bottom: 10px;">Thank You!</h1>
+        <p class="subtitle" style="margin-bottom: 20px; max-width: 900px; font-size: 22px; color: var(--yellow); font-weight: 600;">
+            Questions & Answers
+        </p>
+        <p class="subtitle" style="margin-bottom: 40px; max-width: 900px; font-size: 18px;">
+            This system successfully transforms manual, error-prone hardware retail operations into a fully digital, AI-assisted workflow. It eliminates the need for expensive hardware and ensures business continuity even during internet outages.
+        </p>
+        <div class="course-badge" style="color: var(--blue); border-color: var(--blue); background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 20px var(--blue-glow);">
+            BSCS 2-A &nbsp;|&nbsp; COMPUTER SCIENCE
+        </div>
+        <div class="slide-footer" style="justify-content: center; border: none; margin-top: 30px;">
+            <span>Presented by Group [Name]</span>
+        </div>
+    </div>
+
+</body>
+</html>
