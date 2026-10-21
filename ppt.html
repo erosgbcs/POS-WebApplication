@@ -264,10 +264,78 @@
             align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--blue);
         }
 
-        /* GRID CARDS */
+        /* ============ REDESIGNED FEATURE CARDS (SLIDE 3) ============ */
+        .grid-2-features { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 25px; 
+            height: 100%;
+            align-content: center;
+        }
+
+        .feature-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        /* Thick glowing accent border on the left */
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 6px; height: 100%;
+            border-radius: 16px 0 0 16px;
+        }
+        .feature-card.blue-accent::before { background: var(--blue); box-shadow: 2px 0 15px var(--blue-glow); }
+        .feature-card.yellow-accent::before { background: var(--yellow); box-shadow: 2px 0 15px var(--yellow-glow); }
+
+        /* Icon Container */
+        .icon-box {
+            width: 54px; height: 54px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 5px;
+        }
+        .icon-box.blue-bg { background: rgba(59, 130, 246, 0.15); color: var(--blue); border: 1px solid rgba(59, 130, 246, 0.3); }
+        .icon-box.yellow-bg { background: rgba(250, 204, 21, 0.15); color: var(--yellow); border: 1px solid rgba(250, 204, 21, 0.3); }
+
+        .icon-box svg { width: 28px; height: 28px; stroke-width: 2; }
+
+        /* Text inside feature cards */
+        .feature-card h3 {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--white);
+            margin: 0;
+            display: block; /* Override flex from standard card */
+        }
+        
+        .feature-card p {
+            font-size: 16px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* OTHER GRIDS */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
 
+        /* STANDARD CARDS (For other slides) */
         .card {
             background: var(--glass); backdrop-filter: blur(10px); padding: 25px;
             border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);
@@ -428,34 +496,71 @@
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>02</span></div>
         </div>
 
-        <!-- SLIDE 3: SYSTEM FUNCTIONALITY -->
+        <!-- SLIDE 3: SYSTEM FUNCTIONALITY (REDESIGNED) -->
         <div class="slide">
             <div class="slide-header">
                 <h2>System <span>Functionality</span></h2>
                 <div class="logo-group"><img src="kirbys_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
             </div>
-            <div class="content grid-2">
-                <div class="card" style="border-left-color: var(--blue);">
-                    <h3>🛒 Point of Sale (POS)</h3>
-                    <p>Interactive cart, cash & GCash payments, receipt generation, and variant selection at checkout.</p>
-                </div>
-                <div class="card" style="border-left-color: var(--yellow);">
-                    <h3>📦 Inventory Management</h3>
-                    <p>Product CRUD, matrix variants (Size/Brand), automated low-stock alerts, and CSV exports.</p>
-                </div>
-                <div class="card" style="border-left-color: var(--yellow);">
-                    <h3>📊 Reports & Analytics</h3>
-                    <p>Live KPI dashboards, revenue trends, top-selling products, and financial report exporting.</p>
-                </div>
-                <div class="card" style="border-left-color: var(--blue);">
-                    <h3>🛡️ Audit & User Management</h3>
-                    <p>Activity trails for staff accountability, secure password resets, and strict admin controls.</p>
+            <div class="content">
+                <div class="grid-2-features">
+                    
+                    <!-- Feature 1: POS -->
+                    <div class="feature-card blue-accent">
+                        <div class="icon-box blue-bg">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                        </div>
+                        <h3>Point of Sale (POS)</h3>
+                        <p>Interactive cart, cash & GCash payments, receipt generation, and variant selection at checkout.</p>
+                    </div>
+
+                    <!-- Feature 2: Inventory -->
+                    <div class="feature-card yellow-accent">
+                        <div class="icon-box yellow-bg">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                            </svg>
+                        </div>
+                        <h3>Inventory Management</h3>
+                        <p>Product CRUD, matrix variants (Size/Brand), automated low-stock alerts, and CSV exports.</p>
+                    </div>
+
+                    <!-- Feature 3: Reports -->
+                    <div class="feature-card yellow-accent">
+                        <div class="icon-box yellow-bg">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                        </div>
+                        <h3>Reports & Analytics</h3>
+                        <p>Live KPI dashboards, revenue trends, top-selling products, and financial report exporting.</p>
+                    </div>
+
+                    <!-- Feature 4: Audit -->
+                    <div class="feature-card blue-accent">
+                        <div class="icon-box blue-bg">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                        </div>
+                        <h3>Audit & User Management</h3>
+                        <p>Activity trails for staff accountability, secure password resets, and strict admin controls.</p>
+                    </div>
+
                 </div>
             </div>
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>03</span></div>
         </div>
 
-        <!-- SLIDE 4: WEBSITE DESIGN & UI (UPDATED WITH LARGER IMAGE PLACEHOLDERS) -->
+        <!-- SLIDE 4: WEBSITE DESIGN & UI -->
         <div class="slide">
             <div class="slide-header">
                 <h2>Website Design & <span>User Interface</span></h2>
