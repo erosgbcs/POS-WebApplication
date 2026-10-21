@@ -643,56 +643,57 @@
         <div class="script-content">
             <h2>Defense Presentation Script (4 Presenters)</h2>
             <p><strong>Roles:</strong>
-                <span class="speaker p1">Presenter 1</span> Intro &amp; Problem
-                <span class="speaker p2">Presenter 2</span> UI &amp; Functionality
-                <span class="speaker p3">Presenter 3</span> Innovation &amp; Tech
-                <span class="speaker p4">Presenter 4</span> Database &amp; Demo
+                <span class="speaker p1">Lilian Lorenzo</span> Intro &amp; Problem
+                <span class="speaker p2">Lance Luntaga</span> UI &amp; Functionality (Cashier)
+                <span class="speaker p3">Lianne Gallart</span> Innovation &amp; Tech
+                <span class="speaker p4">Christian Clamor</span> Database &amp; Demo (Admin)
             </p>
 
             <!-- SPEAKER TABS -->
             <div class="script-tabs">
                 <button class="script-tab active" data-speaker="all" onclick="filterSpeaker('all')">All Presenters</button>
-                <button class="script-tab" data-speaker="p1" onclick="filterSpeaker('p1')">Presenter 1</button>
-                <button class="script-tab" data-speaker="p2" onclick="filterSpeaker('p2')">Presenter 2</button>
-                <button class="script-tab" data-speaker="p3" onclick="filterSpeaker('p3')">Presenter 3</button>
-                <button class="script-tab" data-speaker="p4" onclick="filterSpeaker('p4')">Presenter 4</button>
+                <button class="script-tab" data-speaker="p1" onclick="filterSpeaker('p1')">Lilian Lorenzo</button>
+                <button class="script-tab" data-speaker="p2" onclick="filterSpeaker('p2')">Lance Luntaga</button>
+                <button class="script-tab" data-speaker="p3" onclick="filterSpeaker('p3')">Lianne Gallart</button>
+                <button class="script-tab" data-speaker="p4" onclick="filterSpeaker('p4')">Christian Clamor</button>
             </div>
 
             <div id="scriptBody">
                 <h3>Slide 1: Title</h3>
-                <p data-speaker="p1"><span class="speaker p1">Presenter 1</span> "Good morning, panelists. We are Group [Name], and today we present Kirby's Hardware POS and Inventory Management System. This is a browser-based, offline-capable, and AI-assisted platform designed specifically for small retail enterprises."</p>
+                <p data-speaker="p1"><span class="speaker p1">Lilian Lorenzo</span> "Good morning, panelists. We are Group [Name], and today we present Kirby's Hardware POS and Inventory Management System. This is a browser-based, offline-capable, and AI-assisted platform designed specifically for small retail enterprises."</p>
 
                 <h3>Slide 2: The Problem</h3>
-                <p data-speaker="p1"><span class="speaker p1">Presenter 1</span> "Currently, hardware stores rely on handwritten ledgers. This leads to data loss, inventory drift, and a lack of business intelligence. Commercial POS systems are too expensive, and stable internet is not always guaranteed."</p>
+                <p data-speaker="p1"><span class="speaker p1">Lilian Lorenzo</span> "Currently, hardware stores rely on handwritten ledgers. This leads to data loss, inventory drift, and a lack of business intelligence. Commercial POS systems are too expensive, and stable internet is not always guaranteed."</p>
 
                 <h3>Slide 3 &amp; 4: Functionality &amp; Design</h3>
-                <p data-speaker="p2"><span class="speaker p2">Presenter 2</span> "To solve this, we developed a system with core functionalities: a Point of Sale, Inventory Management, Reports, and strict Audit Trails. For the design, we prioritized a responsive UI that works on any device. As you can see, we have a clean two-column POS layout and a dashboard with real-time Chart.js visuals and a dark/light mode toggle."</p>
+                <p data-speaker="p2"><span class="speaker p2">Lance Luntaga</span> "To solve this, we developed a system with core functionalities: a Point of Sale, Inventory Management, Reports, and strict Audit Trails. For the design, we prioritized a responsive UI that works on any device. As you can see, we have a clean two-column POS layout and a dashboard with real-time Chart.js visuals and a dark/light mode toggle."</p>
 
                 <h3>Slide 5 &amp; 6: Innovation &amp; Tech Stack</h3>
-                <p data-speaker="p3"><span class="speaker p3">Presenter 3</span> "What makes our system innovative is the integration of 'Kirby', an AI Assistant powered by Gemini and Groq, and a statistical forecasting engine. Technically, we used Vanilla JS for the client, a Serverless Python API on Vercel, and Google Cloud Firestore. This ensures zero hardware costs and a highly scalable architecture."</p>
+                <p data-speaker="p3"><span class="speaker p3">Lianne Gallart</span> "What makes our system innovative is the integration of 'Kirby', an AI Assistant powered by Gemini and Groq, and a statistical forecasting engine. Technically, we used Vanilla JS for the client, a Serverless Python API on Vercel, and Google Cloud Firestore. This ensures zero hardware costs and a highly scalable architecture."</p>
 
                 <h3>Slide 7: Database</h3>
-                <p data-speaker="p4"><span class="speaker p4">Presenter 4</span> "Our database uses Firestore NoSQL. To prevent inventory drift, we use <code>runTransaction()</code> to guarantee that stock is decremented if and only if a sale is recorded. Security is enforced via Firebase Auth with strict Role-Based Access Control rules."</p>
+                <p data-speaker="p4"><span class="speaker p4">Christian Clamor</span> "Ang database natin ay gumagamit ng Firestore NoSQL. Para maiwasan ang inventory drift, ginagamit natin ang <code>runTransaction()</code> para masiguro na nababawasan ang stock kung at dapat lang na may na-record na sale. Ang security ay naka-enforce gamit ang Firebase Auth na may mahigpit na Role-Based Access Control rules."</p>
 
-                <h3>Slide 8: LIVE DEMONSTRATION (Realistic Scenario)</h3>
+                <h3>Slide 8: LIVE DEMONSTRATION (1 PC Simulation)</h3>
                 <div class="action-box">
-                    <strong>Setup:</strong> Presenter 4 is the <strong>Admin/Owner</strong>. Presenter 2 is the <strong>Cashier</strong>. Presenter 1 is a <strong>Contractor (Customer)</strong>. Presenter 3 is <strong>Narrating</strong>.
+                    <strong>Setup:</strong> The whole simulation will be done on <strong>1 PC</strong> connected to the projector. The presenters will take turns controlling the mouse and keyboard.<br>
+                    <strong>Roles:</strong> Christian Clamor (Admin), Lance Luntaga (Cashier), Lilian Lorenzo (Customer), Lianne Gallart (Narrator).
                 </div>
-                <p data-speaker="p3"><span class="speaker p3">Presenter 3 (Narrator)</span> "For our live demo, we will simulate a real transaction. A contractor walks into the store to buy PVC pipes."</p>
-                <p data-speaker="p1"><span class="speaker p1">Presenter 1 (Customer)</span> "Hi, I need to buy 5 pieces of the 2-inch PVC pipe."</p>
-                <p data-speaker="p2"><span class="speaker p2">Presenter 2 (Cashier)</span> "Sure. I'll log in as the Cashier. I'll search for 'PVC' and since it has variants, I'll select the 2-inch option. I'll add a quantity of 5 to the cart. The system automatically calculates the 8% tax."</p>
-                <p data-speaker="p3"><span class="speaker p3">Presenter 3 (Narrator)</span> "Notice that the Cashier does not have access to the Inventory or Audit pages, showing Role-Based Access."</p>
-                <p data-speaker="p1"><span class="speaker p1">Presenter 1 (Customer)</span> "I'll pay using GCash."</p>
-                <p data-speaker="p2"><span class="speaker p2">Presenter 2 (Cashier)</span> "I'll select GCash, input the 13-digit reference number, and confirm the payment. The system generates a receipt, and the Firestore transaction runs in the background."</p>
-                <p data-speaker="p3"><span class="speaker p3">Presenter 3 (Narrator)</span> "Now, let's look at the Owner's view. Admin, what do you see?"</p>
-                <p data-speaker="p4"><span class="speaker p4">Presenter 4 (Admin)</span> "I am logged in as the Admin. On my dashboard, the revenue updated instantly. If I go to Inventory, the stock for the 2-inch PVC dropped by 5. Because it hit the threshold, a low-stock alert appeared."</p>
-                <p data-speaker="p4"><span class="speaker p4">Presenter 4 (Admin)</span> "I can also ask the AI assistant: 'What should I restock?' ... Kirby correctly identifies the PVC pipe based on the 30-day velocity."</p>
-                <p data-speaker="p3"><span class="speaker p3">Presenter 3 (Narrator)</span> "Finally, let's test the offline capability. Cashier, disconnect the Wi-Fi."</p>
-                <p data-speaker="p2"><span class="speaker p2">Presenter 2 (Cashier)</span> "Wi-Fi is off. I'll process another sale... and the receipt still generates. The system queued the sale locally."</p>
-                <p data-speaker="p3"><span class="speaker p3">Presenter 3 (Narrator)</span> "When the connection returns, the background flush syncs the data automatically without duplicating the transaction. That concludes our demonstration."</p>
+                <p data-speaker="p3"><span class="speaker p3">Lianne Gallart (Narrator)</span> "Para sa ating live demo, gagamitin natin ang iisang PC na ito upang i-simulate ang buong transaction. May isang contractor na papasok sa store para bumili ng PVC pipes."</p>
+                <p data-speaker="p1"><span class="speaker p1">Lilian Lorenzo (Customer)</span> "Hi, bibili sana ako ng 5 pieces ng 2-inch PVC pipe."</p>
+                <p data-speaker="p2"><span class="speaker p2">Lance Luntaga (Cashier)</span> "Sige po. Dito sa system, maglo-log in ako bilang Cashier. Hahanapin ko ang 'PVC' at dahil may variants ito, pipiliin ko ang 2-inch option. Magdadagdag ako ng quantity na 5 sa cart. Automatic nang kinocompute ng system ang 8% tax."</p>
+                <p data-speaker="p3"><span class="speaker p3">Lianne Gallart (Narrator)</span> "Mapapansin niyo na walang access ang Cashier sa Inventory o Audit pages, na nagpapakita ng Role-Based Access."</p>
+                <p data-speaker="p1"><span class="speaker p1">Lilian Lorenzo (Customer)</span> "Magbabayad ako gamit ang GCash."</p>
+                <p data-speaker="p2"><span class="speaker p2">Lance Luntaga (Cashier)</span> "Pipiliin ko ang GCash, ilalagay ang 13-digit reference number, at iko-confirm ang payment. Gagenerate ng receipt ang system, at tatakbo ang Firestore transaction sa background."</p>
+                <p data-speaker="p3"><span class="speaker p3">Lianne Gallart (Narrator)</span> "Ngayon, maglo-log out muna tayo bilang Cashier at mag-log in bilang Admin para makita ang view ng Owner sa parehong PC."</p>
+                <p data-speaker="p4"><span class="speaker p4">Christian Clamor (Admin)</span> "Dahil naka-log in na ako bilang Admin dito sa PC, makikita niyo sa dashboard na nag-update agad ang revenue. Kung pupunta ako sa Inventory, bumaba ng 5 ang stock ng 2-inch PVC. Dahil umabot na siya sa threshold, may lumabas na low-stock alert."</p>
+                <p data-speaker="p4"><span class="speaker p4">Christian Clamor (Admin)</span> "Pwede rin akong magtanong sa AI assistant: 'Ano ang dapat i-restock?' ... Tama ang naging identification ni Kirby sa PVC pipe base sa 30-day velocity."</p>
+                <p data-speaker="p3"><span class="speaker p3">Lianne Gallart (Narrator)</span> "Panghuli, i-test natin ang offline capability. Lance, i-disconnect mo ang Wi-Fi ng PC na ito."</p>
+                <p data-speaker="p2"><span class="speaker p2">Lance Luntaga (Cashier)</span> "I-disconnect ko na ang Wi-Fi... Mag-process ako ng panibagong sale... at nag-generate pa rin ng receipt. Nag-queue ang system ng sale locally."</p>
+                <p data-speaker="p3"><span class="speaker p3">Lianne Gallart (Narrator)</span> "Kapag bumalik ang connection, automatic na magsi-sync ang background flush ng data nang walang duplicate na transaction. Dito nagtatapos ang aming demonstration."</p>
 
                 <h3>Slide 9: Conclusion &amp; Q&amp;A</h3>
-                <p data-speaker="p1"><span class="speaker p1">Presenter 1</span> "To conclude, this system transforms manual retail into a fully digital, AI-assisted workflow. It guarantees business continuity offline and eliminates the need for expensive hardware. Thank you, we are ready for your questions."</p>
+                <p data-speaker="p1"><span class="speaker p1">Lilian Lorenzo</span> "To conclude, this system transforms manual retail into a fully digital, AI-assisted workflow. It guarantees business continuity offline and eliminates the need for expensive hardware. Thank you, we are ready for your questions."</p>
             </div>
         </div>
     </div><!-- /#scriptView -->

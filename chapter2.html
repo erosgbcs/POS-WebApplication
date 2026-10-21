@@ -215,6 +215,64 @@
             stroke: none;
         }
 
+        /* ---------- DIAGRAM DOWNLOAD BUTTON ---------- */
+        .diagram-wrap {
+            position: relative;
+        }
+
+        .dl-diagram-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1;
+            color: #1a1a1a;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #c9c9c9;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            opacity: 0.8;
+            transition: opacity 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+            z-index: 10;
+        }
+
+        .dl-diagram-btn:hover {
+            opacity: 1;
+            background: #ffffff;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+        }
+
+        .dl-diagram-btn:active {
+            transform: translateY(1px);
+        }
+
+        .dl-diagram-btn svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        .dl-diagram-btn .dl-label {
+            white-space: nowrap;
+        }
+
+        @media print {
+            .dl-diagram-btn { display: none !important; }
+        }
+
+        @media (max-width: 720px) {
+            .dl-diagram-btn { font-size: 10px; padding: 4px 8px; top: 6px; right: 6px; }
+            .dl-diagram-btn .dl-label { display: none; }
+        }
+
         .caption {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 10pt;
@@ -1884,6 +1942,154 @@ service cloud.firestore {
 </ul>
 
 </article>
+
+<script>
+(function () {
+    'use strict';
+
+    // Styles that must be inlined into the exported SVG, since the page's
+    // scoped CSS rules (.diagram-wrap svg …) do not travel with the file.
+    var DIAGRAM_CSS = [
+        "text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #1a1a1a; font-size: 11px; }",
+        ".big   { font-size: 13px; font-weight: 700; }",
+        ".small { font-size: 10px; fill: #555; }",
+        ".lbl   { font-size: 10px; fill: #333; }",
+        ".ctr   { text-anchor: middle; dominant-baseline: middle; }",
+        ".start { text-anchor: start;  dominant-baseline: middle; }",
+        ".box         { fill: #ffffff; stroke: #1a1a1a; stroke-width: 1.5; }",
+        ".oval        { fill: #f5f5f5; stroke: #1a1a1a; stroke-width: 1.5; }",
+        ".diamond     { fill: #ffffff; stroke: #1a1a1a; stroke-width: 1.5; }",
+        ".para        { fill: #f0f4f8; stroke: #1a1a1a; stroke-width: 1.5; }",
+        ".proc-circle { fill: #fff8e6; stroke: #1a1a1a; stroke-width: 1.5; }",
+        ".store       { fill: #eef6ff; stroke: #1a1a1a; stroke-width: 1.5; }",
+        ".entity      { fill: #f5f5f5; stroke: #1a1a1a; stroke-width: 1.5; }",
+        ".boundary    { fill: #ffffff; stroke: #1a1a1a; stroke-width: 1.5; stroke-dasharray: 0; }",
+        ".line        { fill: none; stroke: #1a1a1a; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }",
+        ".line-dash   { fill: none; stroke: #666; stroke-width: 1; stroke-dasharray: 4 3; }",
+        ".arrow       { fill: #1a1a1a; stroke: none; }"
+    ].join("\n");
+
+    // Build a filename-safe slug from the figure caption, e.g.
+    // "Figure 2.1 — Use Case Diagram of the Proposed System"
+    //   -> "figure-2-1-use-case-diagram-of-the-proposed-system"
+    function deriveName(wrap, index) {
+        var caption = wrap.nextElementSibling;
+        if (caption && caption.classList && caption.classList.contains("caption")) {
+            var m = caption.textContent.trim().match(/Figure\s+([\d.]+)\s*[—–-]\s*(.+)/);
+            if (m) {
+                var slug = m[2].trim().toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "")
+                    .slice(0, 60);
+                return "figure-" + m[1].replace(/\./g, "-") + "-" + slug;
+            }
+        }
+        return "diagram-" + (index + 1);
+    }
+
+    function triggerDownload(href, filename, revoke) {
+        var a = document.createElement("a");
+        a.href = href;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (revoke) {
+            setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
+        }
+    }
+
+    function downloadDiagram(svgEl, baseName) {
+        // 1. Clone the SVG and make it standalone.
+        var clone = svgEl.cloneNode(true);
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+        // 2. Determine intrinsic dimensions from viewBox.
+        var vb = (clone.getAttribute("viewBox") || "0 0 900 600")
+            .trim().split(/\s+/).map(Number);
+        var vbW = vb[2] || 900;
+        var vbH = vb[3] || 600;
+        clone.setAttribute("width", String(vbW));
+        clone.setAttribute("height", String(vbH));
+
+        // 3. Inline the diagram CSS (page styles won't travel with the file).
+        var styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
+        styleEl.textContent = DIAGRAM_CSS;
+        clone.insertBefore(styleEl, clone.firstChild);
+
+        // 4. Paint a solid white background — PNG transparency is usually
+        //    unwanted when the diagram is dropped into a document.
+        var bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bg.setAttribute("x", "0");
+        bg.setAttribute("y", "0");
+        bg.setAttribute("width", String(vbW));
+        bg.setAttribute("height", String(vbH));
+        bg.setAttribute("fill", "#ffffff");
+        // Insert after <style>, before the rest of the drawing.
+        clone.insertBefore(bg, styleEl.nextSibling);
+
+        // 5. Serialize and render.
+        var svgString = new XMLSerializer().serializeToString(clone);
+        var svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        var svgUrl = URL.createObjectURL(svgBlob);
+
+        var img = new Image();
+        img.onload = function () {
+            var SCALE = 2; // 2× for crisp output on retina displays / print
+            var canvas = document.createElement("canvas");
+            canvas.width = vbW * SCALE;
+            canvas.height = vbH * SCALE;
+            var ctx = canvas.getContext("2d");
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(svgUrl);
+
+            canvas.toBlob(function (blob) {
+                if (!blob) {
+                    // PNG export failed; fall back to raw SVG.
+                    triggerDownload(URL.createObjectURL(svgBlob), baseName + ".svg", true);
+                    return;
+                }
+                triggerDownload(URL.createObjectURL(blob), baseName + ".png", true);
+            }, "image/png");
+        };
+        img.onerror = function () {
+            URL.revokeObjectURL(svgUrl);
+            // Browser refused to rasterize; give the user the vector file.
+            triggerDownload(URL.createObjectURL(svgBlob), baseName + ".svg", true);
+        };
+        img.src = svgUrl;
+    }
+
+    // 6. Attach a button to every diagram on the page.
+    document.addEventListener("DOMContentLoaded", function () {
+        var wraps = document.querySelectorAll(".diagram-wrap");
+        wraps.forEach(function (wrap, index) {
+            var svg = wrap.querySelector("svg");
+            if (!svg) return;
+
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "dl-diagram-btn";
+            btn.title = "Download this diagram as PNG";
+            btn.setAttribute("aria-label", "Download diagram as PNG");
+            btn.innerHTML =
+                '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+                    '<path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/>' +
+                '</svg>' +
+                '<span class="dl-label">PNG</span>';
+
+            btn.addEventListener("click", function () {
+                downloadDiagram(svg, deriveName(wrap, index));
+            });
+
+            wrap.appendChild(btn);
+        });
+    });
+})();
+</script>
 
 </body>
 </html>
