@@ -356,14 +356,11 @@
         .arch-layer p { font-size: 14px; color: var(--text-muted); }
         .arch-arrow { color: var(--blue); font-size: 20px; }
 
-        /* UI MOCKUP */
+        /* UI MOCKUP (Simplified for images) */
         .browser-mockup {
             width: 100%; background: var(--navy-light); border: 2px solid rgba(255,255,255,0.1);
             border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .browser-header { height: 30px; background: #334155; display: flex; align-items: center; padding: 0 15px; gap: 8px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .dot.red { background: #ef4444; } .dot.yellow { background: #facc15; } .dot.green { background: #22c55e; }
         
         /* UPDATED BROWSER CONTENT FOR IMAGES */
         .browser-content {
@@ -496,7 +493,7 @@
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>02</span></div>
         </div>
 
-        <!-- SLIDE 3: SYSTEM FUNCTIONALITY (REDESIGNED) -->
+        <!-- SLIDE 3: SYSTEM FUNCTIONALITY -->
         <div class="slide">
             <div class="slide-header">
                 <h2>System <span>Functionality</span></h2>
@@ -560,7 +557,7 @@
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>03</span></div>
         </div>
 
-        <!-- SLIDE 4: WEBSITE DESIGN & UI -->
+        <!-- SLIDE 4: WEBSITE DESIGN & UI (HEADERS REMOVED) -->
         <div class="slide">
             <div class="slide-header">
                 <h2>Website Design & <span>User Interface</span></h2>
@@ -580,34 +577,22 @@
                     <!-- Right Side: Two Larger Mockups Stacked -->
                     <div style="flex: 1.3; display: flex; flex-direction: column; gap: 15px;">
                         
-                        <!-- Dark Mode Placeholder -->
+                        <!-- Dark Mode Placeholder (No header) -->
                         <div>
                             <div style="font-size: 11px; color: var(--text-muted); font-weight: 800; margin-bottom: 5px; letter-spacing: 1px;">DARK MODE</div>
                             <div class="browser-mockup" style="height: 220px;">
-                                <div class="browser-header" style="height: 28px; background: #1E293B;">
-                                    <div class="dot red" style="width:9px;height:9px;"></div>
-                                    <div class="dot yellow" style="width:9px;height:9px;"></div>
-                                    <div class="dot green" style="width:9px;height:9px;"></div>
-                                    <div style="color: #94A3B8; font-size: 11px; margin-left: 8px;">kirbys-pos.vercel.app/dashboard</div>
-                                </div>
-                                <!-- Image goes here -->
+                                <!-- Removed Browser Header -->
                                 <div class="browser-content" style="background: #0B1121; border: 2px dashed #3B82F6;">
                                     <img src="dark.png" alt="Dark Mode Dashboard" onerror="this.style.display='none'">
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Light Mode Placeholder -->
+                        <!-- Light Mode Placeholder (No header) -->
                         <div>
                             <div style="font-size: 11px; color: var(--text-muted); font-weight: 800; margin-bottom: 5px; letter-spacing: 1px;">LIGHT MODE</div>
                             <div class="browser-mockup" style="height: 220px; background: #F8FAFC; border-color: #CBD5E1;">
-                                <div class="browser-header" style="height: 28px; background: #E2E8F0;">
-                                    <div class="dot red" style="width:9px;height:9px;"></div>
-                                    <div class="dot yellow" style="width:9px;height:9px;"></div>
-                                    <div class="dot green" style="width:9px;height:9px;"></div>
-                                    <div style="color: #64748B; font-size: 11px; margin-left: 8px;">kirbys-pos.vercel.app/dashboard</div>
-                                </div>
-                                <!-- Image goes here -->
+                                <!-- Removed Browser Header -->
                                 <div class="browser-content" style="background: #F8FAFC; border: 2px dashed #93C5FD;">
                                     <img src="light.png" alt="Light Mode Dashboard" onerror="this.style.display='none'">
                                 </div>
