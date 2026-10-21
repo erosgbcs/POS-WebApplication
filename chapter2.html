@@ -1547,115 +1547,114 @@
 <h3>2.8.2 Entity-Relationship Diagram</h3>
 
 <div class="diagram-wrap">
-<svg viewBox="0 0 900 720" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-        <marker id="arrowERD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a1a1a"/>
-        </marker>
-    </defs>
+<svg viewBox="0 0 900 820" xmlns="http://www.w3.org/2000/svg">
 
     <!-- profiles -->
     <g>
-        <rect class="box" x="40" y="40" width="200" height="180" rx="4"/>
-        <rect class="box" x="40" y="40" width="200" height="30" rx="4" fill="#efefef"/>
-        <text class="big ctr" x="140" y="58">profiles</text>
-        <line class="line" x1="40" y1="70" x2="240" y2="70"/>
-        <text class="start" x="50" y="90">id (uid) [PK]</text>
-        <text class="start" x="50" y="110">email</text>
-        <text class="start" x="50" y="130">full_name</text>
-        <text class="start" x="50" y="150">role</text>
-        <text class="start" x="50" y="170">active</text>
-        <text class="start" x="50" y="190">created_at</text>
-        <text class="start" x="50" y="210">lastLoginAt</text>
-    </g>
-
-    <!-- inventory -->
-    <g>
-        <rect class="box" x="660" y="40" width="200" height="220" rx="4"/>
-        <rect class="box" x="660" y="40" width="200" height="30" rx="4" fill="#efefef"/>
-        <text class="big ctr" x="760" y="58">inventory</text>
-        <line class="line" x1="660" y1="70" x2="860" y2="70"/>
-        <text class="start" x="670" y="90">id [PK]</text>
-        <text class="start" x="670" y="110">name</text>
-        <text class="start" x="670" y="130">sku</text>
-        <text class="start" x="670" y="150">category</text>
-        <text class="start" x="670" y="170">price</text>
-        <text class="start" x="670" y="190">quantity</text>
-        <text class="start" x="670" y="210">min_stock</text>
-        <text class="start" x="670" y="230">options[]</text>
-        <text class="start" x="670" y="250">variants{}</text>
-    </g>
-
-    <!-- orders -->
-    <g>
-        <rect class="box" x="40" y="380" width="220" height="200" rx="4"/>
-        <rect class="box" x="40" y="380" width="220" height="30" rx="4" fill="#efefef"/>
-        <text class="big ctr" x="150" y="398">orders</text>
-        <line class="line" x1="40" y1="410" x2="260" y2="410"/>
-        <text class="start" x="50" y="430">id (receipt) [PK]</text>
-        <text class="start" x="50" y="450">createdAt</text>
-        <text class="start" x="50" y="470">customerName</text>
-        <text class="start" x="50" y="490">customerPhone</text>
-        <text class="start" x="50" y="510">items[]</text>
-        <text class="start" x="50" y="530">subtotal · tax · total</text>
-        <text class="start" x="50" y="550">paymentMethod</text>
-        <text class="start" x="50" y="570">gcashReference</text>
-    </g>
-
-    <!-- customers -->
-    <g>
-        <rect class="box" x="660" y="440" width="200" height="170" rx="4"/>
-        <rect class="box" x="660" y="440" width="200" height="30" rx="4" fill="#efefef"/>
-        <text class="big ctr" x="760" y="458">customers</text>
-        <line class="line" x1="660" y1="470" x2="860" y2="470"/>
-        <text class="start" x="670" y="490">id [PK]</text>
-        <text class="start" x="670" y="510">name</text>
-        <text class="start" x="670" y="530">email</text>
-        <text class="start" x="670" y="550">phone</text>
-        <text class="start" x="670" y="570">orders (count)</text>
-        <text class="start" x="670" y="590">totalSpent</text>
+        <rect class="box" x="20" y="40" width="200" height="180" rx="4"/>
+        <rect class="box" x="20" y="40" width="200" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="120" y="58">profiles</text>
+        <line class="line" x1="20" y1="70" x2="220" y2="70"/>
+        <text class="start" x="30" y="90">id (uid) [PK]</text>
+        <text class="start" x="30" y="110">email</text>
+        <text class="start" x="30" y="130">full_name</text>
+        <text class="start" x="30" y="150">role</text>
+        <text class="start" x="30" y="170">active</text>
+        <text class="start" x="30" y="190">created_at</text>
+        <text class="start" x="30" y="210">lastLoginAt</text>
     </g>
 
     <!-- audit_logs -->
     <g>
-        <rect class="box" x="380" y="240" width="180" height="200" rx="4"/>
-        <rect class="box" x="380" y="240" width="180" height="30" rx="4" fill="#efefef"/>
-        <text class="big ctr" x="470" y="258">audit_logs</text>
-        <line class="line" x1="380" y1="270" x2="560" y2="270"/>
-        <text class="start" x="390" y="290">id [PK]</text>
-        <text class="start" x="390" y="310">timestamp</text>
-        <text class="start" x="390" y="330">user (name)</text>
-        <text class="start" x="390" y="350">action</text>
-        <text class="start" x="390" y="370">module</text>
-        <text class="start" x="390" y="390">description</text>
-        <text class="start" x="390" y="410">severity</text>
-        <text class="start" x="390" y="430">txn{}</text>
+        <rect class="box" x="640" y="40" width="200" height="200" rx="4"/>
+        <rect class="box" x="640" y="40" width="200" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="740" y="58">audit_logs</text>
+        <line class="line" x1="640" y1="70" x2="840" y2="70"/>
+        <text class="start" x="650" y="90">id [PK]</text>
+        <text class="start" x="650" y="110">timestamp</text>
+        <text class="start" x="650" y="130">user</text>
+        <text class="start" x="650" y="150">action</text>
+        <text class="start" x="650" y="170">module</text>
+        <text class="start" x="650" y="190">description</text>
+        <text class="start" x="650" y="210">severity</text>
+        <text class="start" x="650" y="230">txn{}</text>
+    </g>
+
+    <!-- inventory -->
+    <g>
+        <rect class="box" x="20" y="380" width="200" height="230" rx="4"/>
+        <rect class="box" x="20" y="380" width="200" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="120" y="398">inventory</text>
+        <line class="line" x1="20" y1="410" x2="220" y2="410"/>
+        <text class="start" x="30" y="430">id [PK]</text>
+        <text class="start" x="30" y="450">name</text>
+        <text class="start" x="30" y="470">sku</text>
+        <text class="start" x="30" y="490">category</text>
+        <text class="start" x="30" y="510">price</text>
+        <text class="start" x="30" y="530">quantity</text>
+        <text class="start" x="30" y="550">min_stock</text>
+        <text class="start" x="30" y="570">options[]</text>
+        <text class="start" x="30" y="590">variants{}</text>
+    </g>
+
+    <!-- orders -->
+    <g>
+        <rect class="box" x="300" y="380" width="240" height="200" rx="4"/>
+        <rect class="box" x="300" y="380" width="240" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="420" y="398">orders</text>
+        <line class="line" x1="300" y1="410" x2="540" y2="410"/>
+        <text class="start" x="310" y="430">id (receipt) [PK]</text>
+        <text class="start" x="310" y="450">createdAt</text>
+        <text class="start" x="310" y="470">customerName</text>
+        <text class="start" x="310" y="490">customerPhone</text>
+        <text class="start" x="310" y="510">items[]</text>
+        <text class="start" x="310" y="530">subtotal · tax · total</text>
+        <text class="start" x="310" y="550">paymentMethod</text>
+        <text class="start" x="310" y="570">gcashReference</text>
+    </g>
+
+    <!-- customers -->
+    <g>
+        <rect class="box" x="640" y="380" width="200" height="170" rx="4"/>
+        <rect class="box" x="640" y="380" width="200" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="740" y="398">customers</text>
+        <line class="line" x1="640" y1="410" x2="840" y2="410"/>
+        <text class="start" x="650" y="430">id [PK]</text>
+        <text class="start" x="650" y="450">name</text>
+        <text class="start" x="650" y="470">email</text>
+        <text class="start" x="650" y="490">phone</text>
+        <text class="start" x="650" y="510">orders (count)</text>
+        <text class="start" x="650" y="530">totalSpent</text>
     </g>
 
     <!-- config -->
     <g>
-        <rect class="box" x="360" y="500" width="220" height="130" rx="4"/>
-        <rect class="box" x="360" y="500" width="220" height="30" rx="4" fill="#efefef"/>
-        <text class="big ctr" x="470" y="518">config</text>
-        <line class="line" x1="360" y1="530" x2="580" y2="530"/>
-        <text class="start" x="370" y="550">id = "settings"</text>
-        <text class="start" x="370" y="568">id = "categories"</text>
-        <text class="start" x="370" y="586">taxRate · storeName</text>
-        <text class="start" x="370" y="604">storeAddress · gcash*</text>
-        <text class="start" x="370" y="622">list[]</text>
+        <rect class="box" x="300" y="640" width="240" height="130" rx="4"/>
+        <rect class="box" x="300" y="640" width="240" height="30" rx="4" fill="#efefef"/>
+        <text class="big ctr" x="420" y="658">config</text>
+        <line class="line" x1="300" y1="670" x2="540" y2="670"/>
+        <text class="start" x="310" y="690">id = "settings"</text>
+        <text class="start" x="310" y="708">id = "categories"</text>
+        <text class="start" x="310" y="726">taxRate · storeName</text>
+        <text class="start" x="310" y="744">storeAddress · gcash*</text>
+        <text class="start" x="310" y="762">list[]</text>
     </g>
 
-    <!-- Relationship: profiles (1) → audit_logs (N) -->
-    <line class="line" x1="240" y1="130" x2="380" y2="290" marker-end="url(#arrowERD)"/>
-    <text class="lbl ctr" x="300" y="200">user 1:N</text>
+    <!-- Relationship: profiles (1) — audit_logs (N) -->
+    <line class="line" x1="220" y1="130" x2="640" y2="130"/>
+    <text class="lbl" x="228" y="122">1</text>
+    <text class="lbl" x="628" y="122">N</text>
+    <text class="lbl ctr" x="430" y="122">records activity of</text>
 
-    <!-- Relationship: orders (N) → customers (1) -->
-    <line class="line" x1="260" y1="460" x2="660" y2="510" marker-end="url(#arrowERD)"/>
-    <text class="lbl ctr" x="460" y="480">customer N:1</text>
+    <!-- Relationship: inventory (1) — orders (N) -->
+    <line class="line" x1="220" y1="495" x2="300" y2="495"/>
+    <text class="lbl" x="228" y="487">1</text>
+    <text class="lbl" x="288" y="487">N</text>
 
-    <!-- Relationship: orders items → inventory product -->
-    <line class="line" x1="240" y1="400" x2="660" y2="200" marker-end="url(#arrowERD)"/>
-    <text class="lbl" x="400" y="330">product 1:N</text>
+    <!-- Relationship: orders (N) — customers (1) -->
+    <line class="line" x1="540" y1="495" x2="640" y2="495"/>
+    <text class="lbl" x="548" y="487">N</text>
+    <text class="lbl" x="628" y="487">1</text>
 
 </svg>
 </div>
