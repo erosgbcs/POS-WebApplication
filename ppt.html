@@ -296,11 +296,14 @@
         .browser-header { height: 30px; background: #334155; display: flex; align-items: center; padding: 0 15px; gap: 8px; }
         .dot { width: 10px; height: 10px; border-radius: 50%; }
         .dot.red { background: #ef4444; } .dot.yellow { background: #facc15; } .dot.green { background: #22c55e; }
+        
+        /* UPDATED BROWSER CONTENT FOR IMAGES */
         .browser-content {
-            flex: 1; display: flex; align-items: center; justify-content: center; color: var(--blue);
-            font-weight: 600; font-size: 16px;
-            background: repeating-linear-gradient(45deg, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.05) 10px, transparent 10px, transparent 20px);
-            border: 2px dashed rgba(59, 130, 246, 0.3); margin: 10px; border-radius: 4px;
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            margin: 10px; border-radius: 4px; padding: 0; overflow: hidden;
+        }
+        .browser-content img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
         }
 
         /* DB VISUAL */
@@ -452,7 +455,7 @@
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>03</span></div>
         </div>
 
-        <!-- SLIDE 4: WEBSITE DESIGN & UI -->
+        <!-- SLIDE 4: WEBSITE DESIGN & UI (UPDATED WITH IMAGE PLACEHOLDERS) -->
         <div class="slide">
             <div class="slide-header">
                 <h2>Website Design & <span>User Interface</span></h2>
@@ -468,16 +471,43 @@
                             <li><strong>Interactive Dashboards</strong>Live KPI cards and Chart.js visualizations.</li>
                         </ul>
                     </div>
-                    <div style="flex: 1;">
-                        <div class="browser-mockup">
-                            <div class="browser-header">
-                                <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
-                                <div style="color: #94A3B8; font-size: 11px; margin-left: 10px;">kirbys-pos.vercel.app/dashboard</div>
-                            </div>
-                            <div class="browser-content">
-                                [ Insert Dashboard UI Screenshot Here ]
+                    <!-- Right Side: Two Mockups Stacked -->
+                    <div style="flex: 1.2; display: flex; flex-direction: column; gap: 15px;">
+                        
+                        <!-- Dark Mode Placeholder -->
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-muted); font-weight: 800; margin-bottom: 5px; letter-spacing: 1px;">DARK MODE</div>
+                            <div class="browser-mockup" style="height: 150px;">
+                                <div class="browser-header" style="height: 24px; background: #1E293B;">
+                                    <div class="dot red" style="width:8px;height:8px;"></div>
+                                    <div class="dot yellow" style="width:8px;height:8px;"></div>
+                                    <div class="dot green" style="width:8px;height:8px;"></div>
+                                    <div style="color: #94A3B8; font-size: 10px; margin-left: 8px;">kirbys-pos.vercel.app/dashboard</div>
+                                </div>
+                                <!-- Image goes here -->
+                                <div class="browser-content" style="background: #0B1121; border: 2px dashed #3B82F6;">
+                                    <img src="dark.png" alt="Dark Mode Dashboard" onerror="this.style.display='none'">
+                                </div>
                             </div>
                         </div>
+
+                        <!-- Light Mode Placeholder -->
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-muted); font-weight: 800; margin-bottom: 5px; letter-spacing: 1px;">LIGHT MODE</div>
+                            <div class="browser-mockup" style="height: 150px; background: #F8FAFC; border-color: #CBD5E1;">
+                                <div class="browser-header" style="height: 24px; background: #E2E8F0;">
+                                    <div class="dot red" style="width:8px;height:8px;"></div>
+                                    <div class="dot yellow" style="width:8px;height:8px;"></div>
+                                    <div class="dot green" style="width:8px;height:8px;"></div>
+                                    <div style="color: #64748B; font-size: 10px; margin-left: 8px;">kirbys-pos.vercel.app/dashboard</div>
+                                </div>
+                                <!-- Image goes here -->
+                                <div class="browser-content" style="background: #F8FAFC; border: 2px dashed #93C5FD;">
+                                    <img src="light.png" alt="Light Mode Dashboard" onerror="this.style.display='none'">
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -666,7 +696,7 @@
                 <p data-speaker="p1"><span class="speaker p1">Lilian Lorenzo</span> "Currently, hardware stores rely on handwritten ledgers. This leads to data loss, inventory drift, and a lack of business intelligence. Commercial POS systems are too expensive, and stable internet is not always guaranteed."</p>
 
                 <h3>Slide 3 &amp; 4: Functionality &amp; Design</h3>
-                <p data-speaker="p2"><span class="speaker p2">Lance Luntaga</span> "To solve this, we developed a system with core functionalities: a Point of Sale, Inventory Management, Reports, and strict Audit Trails. For the design, we prioritized a responsive UI that works on any device. As you can see, we have a clean two-column POS layout and a dashboard with real-time Chart.js visuals and a dark/light mode toggle."</p>
+                <p data-speaker="p2"><span class="speaker p2">Lance Luntaga</span> "To solve this, we developed a system with core functionalities: a Point of Sale, Inventory Management, Reports, and strict Audit Trails. For the design, we prioritized a responsive UI that works on any device. As you can see, we have a clean two-column POS layout. We also included a dual theme support for dark and light mode to reduce eye strain in-store, along with a dashboard featuring real-time Chart.js visuals."</p>
 
                 <h3>Slide 5 &amp; 6: Innovation &amp; Tech Stack</h3>
                 <p data-speaker="p3"><span class="speaker p3">Lianne Gallart</span> "What makes our system innovative is the integration of 'Kirby', an AI Assistant powered by Gemini and Groq, and a statistical forecasting engine. Technically, we used Vanilla JS for the client, a Serverless Python API on Vercel, and Google Cloud Firestore. This ensures zero hardware costs and a highly scalable architecture."</p>
