@@ -557,7 +557,7 @@
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>03</span></div>
         </div>
 
-        <!-- SLIDE 4: WEBSITE DESIGN & UI (HEADERS REMOVED) -->
+        <!-- SLIDE 4: WEBSITE DESIGN & UI (INCREASED PLACEHOLDER SIZES) -->
         <div class="slide">
             <div class="slide-header">
                 <h2>Website Design & <span>User Interface</span></h2>
@@ -565,8 +565,8 @@
             </div>
             <div class="content">
                 <div style="display: flex; gap: 30px; height: 100%; align-items: center;">
-                    <!-- Left Side: Bullet Points -->
-                    <div style="flex: 1;">
+                    <!-- Left Side: Bullet Points (Reduced flex to give more room to images) -->
+                    <div style="flex: 0.8;">
                         <ul class="bullet-list">
                             <li><strong>Responsive Layout</strong>Fully functional across desktop, tablet, and mobile browsers.</li>
                             <li><strong>Dual Theme Support</strong>Dark and Light mode toggle to reduce eye strain in-store.</li>
@@ -574,25 +574,23 @@
                             <li><strong>Interactive Dashboards</strong>Live KPI cards and Chart.js visualizations.</li>
                         </ul>
                     </div>
-                    <!-- Right Side: Two Larger Mockups Stacked -->
-                    <div style="flex: 1.3; display: flex; flex-direction: column; gap: 15px;">
+                    <!-- Right Side: Two Larger Mockups Stacked (Increased flex and height) -->
+                    <div style="flex: 1.5; display: flex; flex-direction: column; gap: 15px;">
                         
-                        <!-- Dark Mode Placeholder (No header) -->
+                        <!-- Dark Mode Placeholder (No header, larger height) -->
                         <div>
                             <div style="font-size: 11px; color: var(--text-muted); font-weight: 800; margin-bottom: 5px; letter-spacing: 1px;">DARK MODE</div>
-                            <div class="browser-mockup" style="height: 220px;">
-                                <!-- Removed Browser Header -->
+                            <div class="browser-mockup" style="height: 250px;">
                                 <div class="browser-content" style="background: #0B1121; border: 2px dashed #3B82F6;">
                                     <img src="dark.png" alt="Dark Mode Dashboard" onerror="this.style.display='none'">
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Light Mode Placeholder (No header) -->
+                        <!-- Light Mode Placeholder (No header, larger height) -->
                         <div>
                             <div style="font-size: 11px; color: var(--text-muted); font-weight: 800; margin-bottom: 5px; letter-spacing: 1px;">LIGHT MODE</div>
-                            <div class="browser-mockup" style="height: 220px; background: #F8FAFC; border-color: #CBD5E1;">
-                                <!-- Removed Browser Header -->
+                            <div class="browser-mockup" style="height: 250px; background: #F8FAFC; border-color: #CBD5E1;">
                                 <div class="browser-content" style="background: #F8FAFC; border: 2px dashed #93C5FD;">
                                     <img src="light.png" alt="Light Mode Dashboard" onerror="this.style.display='none'">
                                 </div>
@@ -605,28 +603,55 @@
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>04</span></div>
         </div>
 
-        <!-- SLIDE 5: FEATURES & INNOVATION -->
+        <!-- SLIDE 5: FEATURES & INNOVATION (UPDATED WITH IMAGE PLACEHOLDER) -->
         <div class="slide">
             <div class="slide-header">
                 <h2>Features & <span>Innovation</span></h2>
                 <div class="logo-group"><img src="kirbys_logo.png" alt="Logo" onerror="this.style.display='none'"></div>
             </div>
-            <div class="content grid-2">
-                <div class="card" style="border-left-color: var(--yellow);">
-                    <h3>🤖 Kirby AI Assistant</h3>
-                    <p>Natural language processing via Gemini/Groq. Answers <em>"What should I restock?"</em> in Tagalog/Taglish.</p>
-                </div>
-                <div class="card" style="border-left-color: var(--blue);">
-                    <h3>📈 Statistical Forecasting</h3>
-                    <p>Pure-Python engine generating 7-day revenue projections with 95% prediction intervals.</p>
-                </div>
-                <div class="card" style="border-left-color: var(--blue);">
-                    <h3>📶 Offline-First Architecture</h3>
-                    <p>Firestore caching and local queues allow sales to continue during internet outages.</p>
-                </div>
-                <div class="card" style="border-left-color: var(--yellow);">
-                    <h3>☁️ Zero-Infrastructure Cost</h3>
-                    <p>Serverless deployment (Vercel) ensures zero recurring software costs and no hardware purchase.</p>
+            <div class="content">
+                <div style="display: flex; gap: 30px; height: 100%; align-items: center;">
+                    
+                    <!-- Left Side: Feature Cards Stacked -->
+                    <div style="flex: 1.1; display: flex; flex-direction: column; gap: 15px;">
+                        <div class="card" style="border-left-color: var(--yellow); padding: 15px 20px;">
+                            <h3 style="font-size: 18px; margin-bottom: 5px;">🤖 Kirby AI Assistant</h3>
+                            <p style="font-size: 14px;">Natural language processing via Gemini/Groq. Answers <em>"What should I restock?"</em> in Tagalog/Taglish.</p>
+                        </div>
+                        <div class="card" style="border-left-color: var(--blue); padding: 15px 20px;">
+                            <h3 style="font-size: 18px; margin-bottom: 5px;">📈 Statistical Forecasting</h3>
+                            <p style="font-size: 14px;">Pure-Python engine generating 7-day revenue projections with 95% prediction intervals.</p>
+                        </div>
+                        <div class="card" style="border-left-color: var(--blue); padding: 15px 20px;">
+                            <h3 style="font-size: 18px; margin-bottom: 5px;">📶 Offline-First Architecture</h3>
+                            <p style="font-size: 14px;">Firestore caching and local queues allow sales to continue during internet outages.</p>
+                        </div>
+                        <div class="card" style="border-left-color: var(--yellow); padding: 15px 20px;">
+                            <h3 style="font-size: 18px; margin-bottom: 5px;">☁️ Zero-Infrastructure Cost</h3>
+                            <p style="font-size: 14px;">Serverless deployment (Vercel) ensures zero recurring software costs and no hardware purchase.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Side: Placeholder Picture -->
+                    <div style="flex: 1; height: 100%; display: flex; align-items: center; justify-content: center;">
+                        <div style="width: 100%; height: 100%; max-height: 420px; border-radius: 12px; border: 2px dashed var(--blue); background: linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                            
+                            <!-- Placeholder Graphic (Visible if image fails to load) -->
+                            <div style="text-align: center; color: var(--text-muted); z-index: 1; padding: 20px;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 15px; opacity: 0.8;">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                <div style="font-weight: 800; font-size: 18px; color: var(--white); margin-bottom: 5px;">Feature Preview</div>
+                                <div style="font-size: 14px;">Upload <strong style="color: var(--yellow);">feature_ui.png</strong> here</div>
+                            </div>
+                            
+                            <!-- Image element -->
+                            <img src="feature_ui.png" alt="Feature UI" onerror="this.style.display='none'" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; border-radius: 8px;">
+                        </div>
+                    </div>
+
                 </div>
             </div>
             <div class="slide-footer"><span>BSCS 2-A | Computer Science</span><span>05</span></div>
