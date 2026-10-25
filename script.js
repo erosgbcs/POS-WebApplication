@@ -94,7 +94,7 @@ const CUSTOMERS_KEY = 'pos_customers';
 
     const ROLE_ACCESS = {
         admin: new Set(['overview', 'pos', 'inventory', 'orders', 'customers', 'reports', 'audit', 'users', 'settings']),
-        cashier: new Set(['overview', 'pos', 'orders', 'customers', 'reports'])
+        cashier: new Set(['pos', 'orders', 'customers', 'reports'])
     };
 
     function getUserRole(user = currentUser) {
@@ -116,7 +116,9 @@ const CUSTOMERS_KEY = 'pos_customers';
 
         const activePage = document.querySelector('.page-content.active')?.id.replace('page-', '');
         if (activePage && !canAccessPage(activePage, user)) {
-            window.navigateToPage('overview');
+            // Redirect to POS if cashier, otherwise Overview
+            const defaultPage = role === 'admin' ? 'overview' : 'pos';
+            window.navigateToPage(defaultPage);
         }
     }
 
@@ -3672,7 +3674,7 @@ applyRoleAccess(user);
             
             const page = this.dataset.page;
             if (!canAccessPage(page)) {
-                window.navigateToPage('overview');
+                window.navigateToPage(getUserRole() === 'admin' ? 'overview' : 'pos');
                 return;
             }
 
@@ -3707,7 +3709,8 @@ applyRoleAccess(user);
     // ---------- NAVIGATION FUNCTION ----------
     window.navigateToPage = function(page) {
     if (!canAccessPage(page)) {
-        page = 'overview';
+        // Redirect to POS if cashier, otherwise Overview
+        page = getUserRole() === 'admin' ? 'overview' : 'pos';
     }
     
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
