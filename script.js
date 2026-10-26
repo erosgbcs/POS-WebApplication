@@ -114,6 +114,21 @@ const CUSTOMERS_KEY = 'pos_customers';
             link.setAttribute('aria-hidden', String(!isAllowed));
         });
 
+        // --- HIDE AI CHATBOT FOR CASHIER ---
+        const aiFab = document.getElementById('aiFab');
+        const aiPanel = document.getElementById('aiPanel');
+        if (role === 'cashier') {
+            if (aiFab) aiFab.style.display = 'none';
+            if (aiPanel) {
+                aiPanel.style.display = 'none';
+                // Isara ang panel kung sakaling nakabukas ito bago mag-switch ng account
+                aiPanel.classList.remove('open'); 
+            }
+        } else {
+            if (aiFab) aiFab.style.display = '';
+            if (aiPanel) aiPanel.style.display = '';
+        }
+
         const activePage = document.querySelector('.page-content.active')?.id.replace('page-', '');
         if (activePage && !canAccessPage(activePage, user)) {
             // Redirect to POS if cashier, otherwise Overview
