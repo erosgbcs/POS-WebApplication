@@ -12480,3 +12480,38 @@ html.theme-fading *::after {
         width: 100%;
     }
 }
+
+/* ============================================
+   LOGIN FORM — META ROW ALIGNMENT FIX
+   ============================================ */
+
+/* 1. Align checkbox and note to the top instead of center */
+.meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Changed from center */
+    gap: 12px;
+    flex-wrap: wrap; /* Allows the note to drop to a new line on small screens */
+    margin-bottom: 22px;
+}
+
+/* 2. Prevent "Remember me" from breaking into two lines */
+.checkbox-wrapper {
+    white-space: nowrap;
+}
+
+/* 3. Fix the reset note alignment (inherited from .helper-text) */
+.login-reset-note {
+    margin-top: 0; /* Removes the 16px top margin from .helper-text */
+    justify-content: flex-start; /* Left-aligns the content */
+    align-items: flex-start; /* Aligns the shield icon to the top */
+    text-align: left;
+    line-height: 1.5;
+    max-width: 240px; /* Restricts width so the text wraps nicely */
+}
+
+/* 4. Nudge the icon slightly so it aligns perfectly with the first line of text */
+.login-reset-note i {
+    margin-top: 3px;
+    flex-shrink: 0; /* Prevents the icon from shrinking or squishing */
+}
