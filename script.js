@@ -964,14 +964,13 @@ document.getElementById('orderDetailsModal')?.addEventListener('click', (e) => {
     );
 
     if (!filtered.length) {
-        customersTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-users" style="font-size: 3rem; color: #cbd5e0; display: block; margin-bottom: 1rem;"></i><p style="color: #718096;">No customers found</p></td></tr>';
+        customersTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 3rem;"><i class="fas fa-users" style="font-size: 3rem; color: #cbd5e0; display: block; margin-bottom: 1rem;"></i><p style="color: #718096;">No customers found</p></td></tr>';
         return;
     }
 
     customersTableBody.innerHTML = filtered.map(customer => `
         <tr>
             <td>${escapeCustomerText(customer.name)}</td>
-            <td>${escapeCustomerText(customer.email) || '&mdash;'}</td>
             <td>${escapeCustomerText(customer.phone) || '&mdash;'}</td>
             <td>${Number(customer.orders) || 0}</td>
             <td>₱${(Number(customer.totalSpent) || 0).toFixed(2)}</td>
